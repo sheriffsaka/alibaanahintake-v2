@@ -1,0 +1,7 @@
+{
+  "name": "Al-Ibaanah IntakeFlow",
+  "description": "A web application to digitize student enrollment and appointment scheduling for the Al-Ibaanah Arabic education center, reducing congestion and providing real-time admin visibility.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
