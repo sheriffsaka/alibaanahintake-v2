@@ -56,9 +56,9 @@ export interface AdminUser {
 }
 
 export interface NotificationSettings {
-  confirmation: { subject: string; body: string; };
-  reminder24h: { subject: string; body: string; };
-  reminderDayOf: { subject: string; body: string; };
+  confirmation: { enabled: boolean; subject: string; body: string; };
+  reminder24h: { enabled: boolean; subject: string; body: string; };
+  reminderDayOf: { enabled: boolean; subject: string; body: string; };
 }
 
 export interface AppSettings {

@@ -14,14 +14,17 @@ let adminUsers: AdminUser[] = [
 ];
 let notificationSettings: NotificationSettings = {
     confirmation: {
+        enabled: true,
         subject: 'Your Al-Ibaanah Assessment is Confirmed!',
         body: 'As-salamu \'alaykum {{studentName}},\n\nYour assessment for {{level}} has been successfully booked for {{appointmentDate}} at {{appointmentTime}}.\nYour registration code is {{registrationCode}}.\n\nPlease find your admission slip attached.',
     },
     reminder24h: {
+        enabled: true,
         subject: 'Reminder: Your Al-Ibaanah Assessment is Tomorrow',
         body: 'As-salamu \'alaykum {{studentName}},\n\nThis is a reminder that your assessment for {{level}} is scheduled for tomorrow, {{appointmentDate}} at {{appointmentTime}}.\n\nWe look forward to seeing you.',
     },
     reminderDayOf: {
+        enabled: false,
         subject: 'Reminder: Your Al-Ibaanah Assessment is Today',
         body: 'As-salamu \'alaykum {{studentName}},\n\nYour assessment is today at {{appointmentTime}}. Please arrive on time with the required documents.\n\nAl-Ibaanah Administration',
     },
@@ -115,6 +118,10 @@ export const submitRegistration = async (
 };
 
 // --- Admin API ---
+export const getAllStudents = async (): Promise<Student[]> => {
+    return simulateDelay(students);
+};
+
 export const getDashboardData = async () => {
     const today = new Date().toISOString().split('T')[0];
     const todaysBookings = students.filter(s => {

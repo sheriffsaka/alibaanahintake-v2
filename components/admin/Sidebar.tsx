@@ -3,7 +3,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Role } from '../../types';
-import { LayoutDashboard, CalendarCog, CheckSquare, Users, BookUser, Bell, Settings } from 'lucide-react';
+import { LayoutDashboard, CalendarCog, CheckSquare, Users, BookUser, Bell, Settings, ClipboardList } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
     const { user } = useAuth();
@@ -12,6 +12,7 @@ const Sidebar: React.FC = () => {
         { to: 'dashboard', text: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk] },
         { to: 'schedule', text: 'Schedule Mgmt', icon: <CalendarCog size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
         { to: 'check-in', text: 'Check-In', icon: <CheckSquare size={20} />, roles: [Role.SuperAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk] },
+        { to: 'students', text: 'Student Records', icon: <ClipboardList size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
         { to: 'users', text: 'User Mgmt', icon: <Users size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
         { to: 'notifications', text: 'Notifications', icon: <Bell size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
         { to: 'settings', text: 'Settings', icon: <Settings size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },

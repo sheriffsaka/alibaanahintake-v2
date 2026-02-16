@@ -16,6 +16,7 @@ import NotificationSettings from './components/admin/NotificationSettings';
 import Settings from './components/admin/Settings';
 import { Role } from './types';
 import { LanguageProvider } from './i18n/LanguageContext';
+import StudentRecords from './components/admin/StudentRecords';
 
 function App() {
   return (
@@ -47,6 +48,11 @@ function App() {
               <Route path="check-in" element={
                 <ProtectedRoute allowedRoles={[Role.MaleFrontDesk, Role.FemaleFrontDesk, Role.SuperAdmin]}>
                   <CheckIn />
+                </ProtectedRoute>
+              } />
+              <Route path="students" element={
+                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                  <StudentRecords />
                 </ProtectedRoute>
               } />
               <Route path="users" element={
