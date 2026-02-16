@@ -30,7 +30,6 @@ export interface Student {
   address: string;
   level: Level;
   intakeDate: string; // YYYY-MM-DD
-  documentUrl?: string;
   registrationCode: string;
   appointmentSlotId: string;
   status: 'booked' | 'checked-in';
@@ -77,7 +76,6 @@ export interface EnrollmentState {
         gender: Gender;
         address: string;
         level: Level;
-        document?: File;
     };
     selectedSlotId?: string;
     selectedSlotDate?: string;

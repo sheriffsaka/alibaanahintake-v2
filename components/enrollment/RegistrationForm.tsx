@@ -6,7 +6,7 @@ import Button from '../common/Button';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import { LEVELS } from '../../constants';
-import { User, Mail, Phone, Home, BookOpen, Calendar, Paperclip, Users } from 'lucide-react';
+import { User, Mail, Phone, Home, BookOpen, Calendar, Users } from 'lucide-react';
 
 const RegistrationForm: React.FC = () => {
   const context = useContext(EnrollmentContext);
@@ -39,12 +39,6 @@ const RegistrationForm: React.FC = () => {
     dispatch({ type: 'UPDATE_FORM', payload: { [e.target.name]: e.target.value } });
   };
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      dispatch({ type: 'UPDATE_FORM', payload: { document: e.target.files[0] } });
-    }
-  };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">Step 1: Digital Registration ({state.formData.gender})</h2>
@@ -60,23 +54,6 @@ const RegistrationForm: React.FC = () => {
       <Input label="Gender" name="gender" value={state.formData.gender} icon={<Users className="h-4 w-4 text-gray-400" />} readOnly disabled className="bg-gray-100 cursor-not-allowed" />
       <Input label="Home Address in Egypt" name="address" value={state.formData.address} onChange={handleChange} error={errors.address} icon={<Home className="h-4 w-4 text-gray-400" />} required />
       <Select label="Level Registering For" name="level" value={state.formData.level} onChange={handleChange} options={LEVELS.map(l => ({ value: l, label: l }))} />
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Optional Document Upload</label>
-        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-            <div className="space-y-1 text-center">
-                <Paperclip className="mx-auto h-12 w-12 text-gray-400" />
-                <div className="flex text-sm text-gray-600">
-                    <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                        <span>Upload a file</span>
-                        <input id="file-upload" name="document" type="file" className="sr-only" onChange={handleFileChange} />
-                    </label>
-                    <p className="pl-1">or drag and drop</p>
-                </div>
-                <p className="text-xs text-gray-500">PNG, JPG, PDF up to 10MB</p>
-                {state.formData.document && <p className="text-sm text-green-600 mt-2">{state.formData.document.name}</p>}
-            </div>
-        </div>
-      </div>
       <div className="pt-4">
         <Button type="submit" fullWidth>Next: Book Appointment Slot</Button>
       </div>
