@@ -38,7 +38,7 @@ const VisitCampus: React.FC = () => {
           {/* Right Image */}
           <div className="rtl:order-1">
             <img
-              src="https://images.unsplash.com/photo-1542898693-5015b6756304?q=80&w=1964&auto=format&fit=crop"
+              src="https://res.cloudinary.com/di7okmjsx/image/upload/v1771243479/ibaanahstudents_lacwoc.jpg"
               alt="Students in a classroom at Al-Ibaanah"
               className="rounded-xl shadow-lg w-full h-auto object-cover"
             />
