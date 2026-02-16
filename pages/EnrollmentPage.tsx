@@ -17,7 +17,6 @@ const getInitialState = (gender: Gender): EnrollmentState => ({
     gender: gender,
     address: '',
     level: Level.Beginner,
-    intakeDate: new Date().toISOString().split('T')[0],
   },
 });
 
@@ -30,11 +29,15 @@ const enrollmentReducer = (state: EnrollmentState, action: EnrollmentAction): En
     case 'UPDATE_FORM':
       return { ...state, formData: { ...state.formData, ...action.payload } };
     case 'SELECT_SLOT':
-        return { ...state, selectedSlotId: action.payload, step: state.step + 1 };
+        return { 
+            ...state, 
+            selectedSlotId: action.payload.id,
+            selectedSlotDate: action.payload.date,
+            step: state.step + 1
+        };
     case 'CONFIRM_REGISTRATION':
         return { ...state, confirmedRegistration: action.payload };
     case 'RESET':
-        // The page will be re-initialized with the correct gender on navigation
         return getInitialState(state.formData.gender);
     default:
       return state;

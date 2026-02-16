@@ -7,7 +7,6 @@ import { submitRegistration } from '../../services/mockApiService';
 import Button from '../common/Button';
 import Spinner from '../common/Spinner';
 import AdmissionSlip from './AdmissionSlip';
-import { WHAT_TO_BRING } from '../../constants';
 import { CheckCircle, Download, Printer, Home } from 'lucide-react';
 
 const ConfirmationPage: React.FC = () => {
@@ -22,7 +21,7 @@ const ConfirmationPage: React.FC = () => {
 
   useEffect(() => {
     const processRegistration = async () => {
-      if (state.confirmedRegistration || !state.selectedSlotId) {
+      if (state.confirmedRegistration || !state.selectedSlotId || !state.selectedSlotDate) {
           setLoading(false);
           return;
       };
@@ -32,6 +31,7 @@ const ConfirmationPage: React.FC = () => {
       try {
         const registrationData = {
           ...state.formData,
+          intakeDate: state.selectedSlotDate,
           appointmentSlotId: state.selectedSlotId,
         };
         const newStudent = await submitRegistration(registrationData);
@@ -54,7 +54,7 @@ const ConfirmationPage: React.FC = () => {
 
   const handleDownloadImage = () => {
     if (slipRef.current) {
-        html2canvas(slipRef.current).then(canvas => {
+        html2canvas(slipRef.current, { scale: 2 }).then(canvas => { // Increased scale for better quality
             const link = document.createElement('a');
             link.download = `Al-Ibaanah-Admission-Slip-${state.confirmedRegistration?.registrationCode}.png`;
             link.href = canvas.toDataURL('image/png');
@@ -100,23 +100,8 @@ const ConfirmationPage: React.FC = () => {
             <p className="text-gray-600 mt-2">Your appointment is confirmed. Please see your admission slip below.</p>
         </div>
 
-        <div id="admission-slip-printable" ref={slipRef}>
+        <div id="admission-slip-printable" ref={slipRef} className="bg-white">
             <AdmissionSlip student={state.confirmedRegistration} />
-        </div>
-
-        <div className="mt-8">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">What to Bring</h3>
-            <ul className="space-y-3">
-                {WHAT_TO_BRING.map((item, index) => (
-                    <li key={index} className="flex items-start p-3 bg-gray-50 rounded-md">
-                        <CheckCircle className="h-5 w-5 text-green-500 mr-3 mt-1 flex-shrink-0" />
-                        <div>
-                            <span className="font-semibold">{item.item}:</span>
-                            <span className="text-gray-600 ml-2">{item.detail}</span>
-                        </div>
-                    </li>
-                ))}
-            </ul>
         </div>
         
         <div className="mt-8 flex flex-wrap justify-center gap-4">

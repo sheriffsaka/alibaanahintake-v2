@@ -12,6 +12,8 @@ import Dashboard from './components/admin/Dashboard';
 import ScheduleManager from './components/admin/ScheduleManager';
 import CheckIn from './components/admin/CheckIn';
 import UserManagement from './components/admin/UserManagement';
+import NotificationSettings from './components/admin/NotificationSettings';
+import Settings from './components/admin/Settings';
 import { Role } from './types';
 import { LanguageProvider } from './i18n/LanguageContext';
 
@@ -48,8 +50,18 @@ function App() {
                 </ProtectedRoute>
               } />
               <Route path="users" element={
-                <ProtectedRoute allowedRoles={[Role.SuperAdmin]}>
+                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
                   <UserManagement />
+                </ProtectedRoute>
+              } />
+              <Route path="notifications" element={
+                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                  <NotificationSettings />
+                </ProtectedRoute>
+              } />
+              <Route path="settings" element={
+                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                  <Settings />
                 </ProtectedRoute>
               } />
             </Route>

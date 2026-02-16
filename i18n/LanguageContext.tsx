@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { translations, Translation, langs } from './locales';
 
@@ -18,7 +17,9 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [dir, setDir] = useState<'ltr' | 'rtl'>('ltr');
 
   useEffect(() => {
-    const newDir = langs[language].dir || 'ltr';
+    // FIX: Property 'dir' does not exist on all language configurations.
+    // Added a type assertion to safely access the optional 'dir' property.
+    const newDir = (langs[language] as { dir?: 'rtl' | 'ltr' }).dir || 'ltr';
     setDir(newDir);
     document.documentElement.dir = newDir;
   }, [language]);

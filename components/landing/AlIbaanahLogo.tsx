@@ -2,6 +2,10 @@
 import React from 'react';
 
 const AlIbaanahLogo: React.FC<React.SVGProps<SVGSVGElement>> = (props) => {
+  const textColor = props.color || '#0f4c3b';
+  const boxColor = props.color ? 'currentColor' : '#0f4c3b';
+  const secondaryTextColor = props.color || 'gray';
+  
   return (
     <svg width="150" height="40" viewBox="0 0 150 40" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
       <defs>
@@ -11,22 +15,22 @@ const AlIbaanahLogo: React.FC<React.SVGProps<SVGSVGElement>> = (props) => {
       </defs>
 
       {/* Green Box */}
-      <rect width="45" height="30" y="5" fill="#0f4c3b" rx="4"/>
+      <rect width="45" height="30" y="5" fill={boxColor} rx="4"/>
 
       {/* Arabic text - simplified representation */}
       <g clipPath="url(#logoClip)">
-        <text x="22.5" y="27" fontFamily="Amiri, serif" fontSize="16" fill="white" textAnchor="middle">
+        <text x="22.5" y="27" fontFamily="'Noto Naskh Arabic', serif" fontSize="16" fill="white" textAnchor="middle">
             مَركَزُ
         </text>
-         <text x="22.5" y="18" fontFamily="Amiri, serif" fontSize="10" fill="white" textAnchor="middle" fontWeight="bold">
+         <text x="22.5" y="18" fontFamily="'Noto Naskh Arabic', serif" fontSize="10" fill="white" textAnchor="middle" fontWeight="bold">
             الإِبَانَة
         </text>
       </g>
       
       {/* English Text */}
       <g>
-        <text x="55" y="18" fontFamily="sans-serif" fontSize="13" fill="#0f4c3b" fontWeight="bold">al ibaanah</text>
-        <text x="55" y="32" fontFamily="sans-serif" fontSize="10" fill="gray">arabic centre</text>
+        <text x="55" y="20" fontFamily="sans-serif" fontSize="13" fill={textColor} fontWeight="bold">al ibaanah</text>
+        <text x="55" y="32" fontFamily="sans-serif" fontSize="9" fill={secondaryTextColor} letterSpacing="0.5">arabic centre</text>
       </g>
 
        {/* Vertical Line Separator */}

@@ -59,10 +59,7 @@ const RegistrationForm: React.FC = () => {
       </div>
       <Input label="Gender" name="gender" value={state.formData.gender} icon={<Users className="h-4 w-4 text-gray-400" />} readOnly disabled className="bg-gray-100 cursor-not-allowed" />
       <Input label="Home Address in Egypt" name="address" value={state.formData.address} onChange={handleChange} error={errors.address} icon={<Home className="h-4 w-4 text-gray-400" />} required />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Select label="Level Registering For" name="level" value={state.formData.level} onChange={handleChange} options={LEVELS.map(l => ({ value: l, label: l }))} />
-        <Input label="Preferred Intake Date" name="intakeDate" type="date" value={state.formData.intakeDate} onChange={handleChange} icon={<Calendar className="h-4 w-4 text-gray-400" />} required />
-      </div>
+      <Select label="Level Registering For" name="level" value={state.formData.level} onChange={handleChange} options={LEVELS.map(l => ({ value: l, label: l }))} />
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Optional Document Upload</label>
         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">

@@ -1,7 +1,11 @@
+
 import React, { useEffect, useState } from 'react';
 import { Student } from '../../types';
 import { QRCodeSVG } from 'qrcode.react';
 import { getSchedules } from '../../services/mockApiService';
+import AlIbaanahLogo from '../landing/AlIbaanahLogo';
+import { MANDATORY_REQUIREMENTS } from '../../constants';
+import { CheckCircle, ListChecks } from 'lucide-react';
 
 interface AdmissionSlipProps {
   student: Student;
@@ -9,55 +13,103 @@ interface AdmissionSlipProps {
 
 const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
   const [appointmentTime, setAppointmentTime] = useState('');
+  const [slot, setSlot] = useState<any>(null);
 
   useEffect(() => {
     const fetchSlotTime = async () => {
       const slots = await getSchedules();
       const studentSlot = slots.find(s => s.id === student.appointmentSlotId);
       if (studentSlot) {
+        setSlot(studentSlot);
         setAppointmentTime(`${studentSlot.startTime} - ${studentSlot.endTime}`);
       }
     };
     fetchSlotTime();
   }, [student.appointmentSlotId]);
 
+  const appointmentDate = new Date(student.intakeDate);
+
   return (
-    <div className="bg-white border-2 border-blue-600 rounded-lg p-6 shadow-lg">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b-2 border-dashed border-gray-300">
-        <div>
-          <h2 className="text-2xl font-bold text-blue-800">Al-Ibaanah Institute</h2>
-          <p className="text-gray-600">Digital Admission Slip</p>
+    <div className="bg-white font-sans p-6 md:p-8 max-w-4xl mx-auto border rounded-lg">
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row justify-between items-start pb-6 border-b">
+        <div className="flex items-center">
+            <AlIbaanahLogo className="h-16 w-auto" />
         </div>
-        <div className="mt-4 sm:mt-0 text-right">
-            <QRCodeSVG value={student.registrationCode} size={80} level="H" />
+        <div className="text-center sm:text-left mt-4 sm:mt-0 sm:mx-4">
+            <h2 className="text-xl font-bold text-brand-green-dark">AL-IBAANAH ARABIC CENTER</h2>
+            <p className="text-sm text-gray-500 tracking-widest">ADMISSION SLIP</p>
         </div>
-      </div>
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-        <div>
-          <p className="text-sm text-gray-500">Student Name</p>
-          <p className="font-semibold text-lg">{student.firstname} {student.surname}</p>
+        <div className="bg-gray-100 rounded-lg p-3 text-center mt-4 sm:mt-0">
+            <p className="text-xs text-gray-500 font-bold">REGISTRATION ID</p>
+            <p className="font-mono font-bold text-lg text-red-700">{student.registrationCode.replace('AI-', 'AIB-2026-')}</p>
         </div>
-        <div>
-          <p className="text-sm text-gray-500">Registration Code</p>
-          <p className="font-mono font-bold text-lg text-red-600">{student.registrationCode}</p>
+      </header>
+
+      {/* Main Content */}
+      <main className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Left Column: Student Details */}
+        <div className="md:col-span-2 space-y-6 relative">
+             <div className="absolute inset-0 flex items-center justify-center z-0">
+                <AlIbaanahLogo className="h-64 w-auto text-gray-500 opacity-5" />
+            </div>
+            <div className="relative z-10">
+                <InfoItem label="STUDENT INFORMATION" value={`${student.firstname} ${student.surname}`} valueClass="text-2xl font-bold" />
+                <p className="text-gray-600 -mt-2">{student.email}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-6 relative z-10">
+                <InfoItem label="TARGET LEVEL" value={student.level} valueClass="text-brand-green font-semibold"/>
+                <InfoItem label="INTERNAL GROUP" value="B1" valueClass="text-brand-green font-semibold"/>
+            </div>
+             <div className="relative z-10">
+                 <InfoItem label="CAMPUS ADDRESS" value="Al-Ibaanah Arabic Centre, Nasr City Branch, Evaluation Dept, Ground Floor, Zone A" />
+            </div>
         </div>
-        <div>
-          <p className="text-sm text-gray-500">Arabic Level</p>
-          <p className="font-semibold text-lg">{student.level}</p>
+
+        {/* Right Column: Appointment Card */}
+        <div className="bg-brand-green-dark text-white rounded-3xl p-6 flex flex-col items-center text-center h-full">
+            <p className="text-sm font-semibold tracking-widest opacity-80">CONFIRMED APPOINTMENT</p>
+            <div className="my-4">
+                <span className="text-7xl font-bold leading-none">{appointmentDate.getDate()}</span>
+                <span className="text-4xl font-semibold ml-2">{appointmentDate.toLocaleDateString('en-US', { month: 'short' })}</span>
+            </div>
+            <p className="text-lg opacity-90">{appointmentTime}</p>
+            <div className="bg-white p-2 rounded-lg my-auto">
+                <QRCodeSVG value={student.registrationCode} size={128} level="H" />
+            </div>
+            <p className="text-xs opacity-70 mt-2">Valid for evaluation day only</p>
         </div>
-        <div>
-          <p className="text-sm text-gray-500">Appointment Date & Time</p>
-          <p className="font-semibold text-lg">
-            {new Date(student.intakeDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
-            {' @ '}{appointmentTime || '...'}
-          </p>
+      </main>
+
+      {/* Mandatory Requirements */}
+      <section className="mt-10">
+        <h3 className="flex items-center text-sm font-bold text-gray-700 uppercase mb-4">
+            <ListChecks className="h-5 w-5 mr-2 text-brand-green"/>
+            Mandatory Entry Requirements
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            {MANDATORY_REQUIREMENTS.map((item, index) => (
+                <div key={index} className="bg-gray-50/70 p-3 rounded-lg flex items-start">
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-3 mt-0.5 flex-shrink-0"/>
+                    <p className="text-gray-700">{item}</p>
+                </div>
+            ))}
         </div>
-      </div>
-      <div className="mt-6 text-center text-xs text-gray-500">
-        Please present this slip (digital or printed) at the front desk upon arrival.
-      </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="mt-8 text-center text-xs text-gray-400 uppercase tracking-wider">
+        This document is generated by Al-Ibaanah IntakeFlow. Authenticity can be verified at the front desk.
+      </footer>
     </div>
   );
 };
+
+const InfoItem: React.FC<{label: string, value: string, valueClass?: string}> = ({label, value, valueClass = ''}) => (
+    <div>
+        <p className="text-xs text-gray-500 font-bold tracking-wider">{label}</p>
+        <p className={`text-lg text-gray-800 ${valueClass}`}>{value}</p>
+    </div>
+);
 
 export default AdmissionSlip;

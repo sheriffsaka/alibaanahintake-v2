@@ -1,5 +1,5 @@
 
-import { Student, AppointmentSlot, Level, Gender, AdminUser, Role } from '../types';
+import { Student, AppointmentSlot, Level, Gender, AdminUser, Role, NotificationSettings, AppSettings } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Mock Database
@@ -7,11 +7,29 @@ let students: Student[] = [];
 let appointmentSlots: AppointmentSlot[] = [];
 let adminUsers: AdminUser[] = [
     { id: 'user-1', name: 'Super Admin', email: 'super@al-ibaanah.com', role: Role.SuperAdmin, isActive: true },
-    { id: 'user-2', name: 'Ahmed Ali', email: 'ahmed.ali@al-ibaanah.com', role: Role.MaleAdmin, isActive: true },
-    { id: 'user-3', name: 'Fatima Zahra', email: 'fatima.zahra@al-ibaanah.com', role: Role.FemaleAdmin, isActive: true },
-    { id: 'user-4', name: 'Yusuf Ibrahim', email: 'yusuf.ibrahim@al-ibaanah.com', role: Role.MaleFrontDesk, isActive: true },
-    { id: 'user-5', name: 'Aisha Omar', email: 'aisha.omar@al-ibaanah.com', role: Role.FemaleFrontDesk, isActive: false },
+    { id: 'user-2', name: 'Ahmed Ali', email: 'male.admin@al-ibaanah.com', role: Role.MaleAdmin, isActive: true },
+    { id: 'user-3', name: 'Fatima Zahra', email: 'female.admin@al-ibaanah.com', role: Role.FemaleAdmin, isActive: true },
+    { id: 'user-4', name: 'Yusuf Ibrahim', email: 'male.desk@al-ibaanah.com', role: Role.MaleFrontDesk, isActive: true },
+    { id: 'user-5', name: 'Aisha Omar', email: 'female.desk@al-ibaanah.com', role: Role.FemaleFrontDesk, isActive: false },
 ];
+let notificationSettings: NotificationSettings = {
+    confirmation: {
+        subject: 'Your Al-Ibaanah Assessment is Confirmed!',
+        body: 'As-salamu \'alaykum {{studentName}},\n\nYour assessment for {{level}} has been successfully booked for {{appointmentDate}} at {{appointmentTime}}.\nYour registration code is {{registrationCode}}.\n\nPlease find your admission slip attached.',
+    },
+    reminder24h: {
+        subject: 'Reminder: Your Al-Ibaanah Assessment is Tomorrow',
+        body: 'As-salamu \'alaykum {{studentName}},\n\nThis is a reminder that your assessment for {{level}} is scheduled for tomorrow, {{appointmentDate}} at {{appointmentTime}}.\n\nWe look forward to seeing you.',
+    },
+    reminderDayOf: {
+        subject: 'Reminder: Your Al-Ibaanah Assessment is Today',
+        body: 'As-salamu \'alaykum {{studentName}},\n\nYour assessment is today at {{appointmentTime}}. Please arrive on time with the required documents.\n\nAl-Ibaanah Administration',
+    },
+};
+let appSettings: AppSettings = {
+    registrationOpen: true,
+    maxDailyCapacity: 100,
+};
 
 // Helper to generate mock data
 const generateMockData = () => {
@@ -54,7 +72,22 @@ generateMockData();
 const simulateDelay = <T,>(data: T): Promise<T> => 
     new Promise(resolve => setTimeout(() => resolve(data), 500));
 
+// --- Student Public API ---
+export const getAvailableDatesForLevel = async(level: Level): Promise<string[]> => {
+    if (!appSettings.registrationOpen) return simulateDelay([]);
+    const availableDates = appointmentSlots
+        .filter(slot => slot.level === level && slot.booked < slot.capacity)
+        .map(slot => slot.date);
+    
+    const uniqueDates = [...new Set(availableDates)];
+    uniqueDates.sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
+    
+    return simulateDelay(uniqueDates);
+}
+
+
 export const getAvailableSlots = async (date: string, level: Level): Promise<AppointmentSlot[]> => {
+    if (!appSettings.registrationOpen) return simulateDelay([]);
     const filteredSlots = appointmentSlots.filter(slot => slot.date === date && slot.level === level);
     return simulateDelay(filteredSlots);
 };
@@ -81,6 +114,7 @@ export const submitRegistration = async (
     return simulateDelay(newStudent);
 };
 
+// --- Admin API ---
 export const getDashboardData = async () => {
     const today = new Date().toISOString().split('T')[0];
     const todaysBookings = students.filter(s => {
@@ -104,15 +138,6 @@ export const getDashboardData = async () => {
     });
 };
 
-export const getAdminUsers = async (): Promise<AdminUser[]> => {
-    return simulateDelay(adminUsers);
-};
-
-export const updateAdminUser = async(user: AdminUser): Promise<AdminUser> => {
-    adminUsers = adminUsers.map(u => u.id === user.id ? user : u);
-    return simulateDelay(user);
-}
-
 export const findStudent = async (query: string): Promise<Student | null> => {
     const lowerCaseQuery = query.toLowerCase();
     const student = students.find(s => 
@@ -132,11 +157,77 @@ export const checkInStudent = async (studentId: string): Promise<Student> => {
     return simulateDelay(student);
 };
 
+
+// --- Schedule Management ---
 export const getSchedules = async (): Promise<AppointmentSlot[]> => {
-    return simulateDelay(appointmentSlots);
+    return simulateDelay([...appointmentSlots].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.startTime.localeCompare(b.startTime)));
+};
+
+export const createSchedule = async(slot: Omit<AppointmentSlot, 'id' | 'booked'>): Promise<AppointmentSlot> => {
+    const newSlot: AppointmentSlot = {
+        ...slot,
+        id: uuidv4(),
+        booked: 0,
+    };
+    appointmentSlots.push(newSlot);
+    return simulateDelay(newSlot);
 };
 
 export const updateSchedule = async(slot: AppointmentSlot): Promise<AppointmentSlot> => {
     appointmentSlots = appointmentSlots.map(s => s.id === slot.id ? slot : s);
     return simulateDelay(slot);
-}
+};
+
+export const deleteSchedule = async(slotId: string): Promise<{ success: boolean }> => {
+    appointmentSlots = appointmentSlots.filter(s => s.id !== slotId);
+    return simulateDelay({ success: true });
+};
+
+
+// --- User Management ---
+export const getAdminUsers = async (): Promise<AdminUser[]> => {
+    return simulateDelay(adminUsers);
+};
+
+export const createAdminUser = async(user: Omit<AdminUser, 'id'>): Promise<AdminUser> => {
+    const newUser: AdminUser = {
+        ...user,
+        id: uuidv4(),
+    };
+    adminUsers.push(newUser);
+    return simulateDelay(newUser);
+};
+
+export const updateAdminUser = async(user: AdminUser): Promise<AdminUser> => {
+    adminUsers = adminUsers.map(u => u.id === user.id ? user : u);
+    return simulateDelay(user);
+};
+
+export const deleteAdminUser = async(userId: string): Promise<{ success: boolean }> => {
+    const user = adminUsers.find(u => u.id === userId);
+    if (user?.role === Role.SuperAdmin) {
+        throw new Error("Cannot delete Super Admin account.");
+    }
+    adminUsers = adminUsers.filter(u => u.id !== userId);
+    return simulateDelay({ success: true });
+};
+
+
+// --- Notification Settings ---
+export const getNotificationSettings = async(): Promise<NotificationSettings> => {
+    return simulateDelay(notificationSettings);
+};
+export const updateNotificationSettings = async(settings: NotificationSettings): Promise<NotificationSettings> => {
+    notificationSettings = settings;
+    return simulateDelay(notificationSettings);
+};
+
+
+// --- App Settings ---
+export const getAppSettings = async(): Promise<AppSettings> => {
+    return simulateDelay(appSettings);
+};
+export const updateAppSettings = async(settings: AppSettings): Promise<AppSettings> => {
+    appSettings = settings;
+    return simulateDelay(appSettings);
+};

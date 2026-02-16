@@ -55,6 +55,17 @@ export interface AdminUser {
     isActive: boolean;
 }
 
+export interface NotificationSettings {
+  confirmation: { subject: string; body: string; };
+  reminder24h: { subject: string; body: string; };
+  reminderDayOf: { subject: string; body: string; };
+}
+
+export interface AppSettings {
+    registrationOpen: boolean;
+    maxDailyCapacity: number;
+}
+
 export interface EnrollmentState {
     step: number;
     formData: {
@@ -66,10 +77,10 @@ export interface EnrollmentState {
         gender: Gender;
         address: string;
         level: Level;
-        intakeDate: string;
         document?: File;
     };
     selectedSlotId?: string;
+    selectedSlotDate?: string;
     confirmedRegistration?: Student;
 }
 
@@ -77,6 +88,6 @@ export type EnrollmentAction =
     | { type: 'NEXT_STEP' }
     | { type: 'PREV_STEP' }
     | { type: 'UPDATE_FORM'; payload: Partial<EnrollmentState['formData']> }
-    | { type: 'SELECT_SLOT'; payload: string }
+    | { type: 'SELECT_SLOT'; payload: { id: string, date: string } }
     | { type: 'CONFIRM_REGISTRATION'; payload: Student }
     | { type: 'RESET' };
