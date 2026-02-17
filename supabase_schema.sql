@@ -236,3 +236,57 @@ $$;
 -- Grant execute permission on the function to the anon and authenticated roles.
 GRANT EXECUTE ON FUNCTION public.submit_student_registration(UUID, JSONB) TO anon;
 GRANT EXECUTE ON FUNCTION public.submit_student_registration(UUID, JSONB) TO authenticated;
+
+
+-- RPC function for fetching all dashboard data in a single, efficient query.
+CREATE OR REPLACE FUNCTION get_dashboard_statistics()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    total_registered BIGINT;
+    today_expected BIGINT;
+    checked_in BIGINT;
+    breakdown JSONB;
+    utilization JSONB;
+BEGIN
+    -- Total registered students
+    SELECT count(*) INTO total_registered FROM public.students;
+
+    -- Today's bookings
+    SELECT
+        count(*),
+        count(*) FILTER (WHERE status = 'checked-in')
+    INTO today_expected, checked_in
+    FROM public.students
+    WHERE intake_date = CURRENT_DATE;
+
+    -- Breakdown by level
+    SELECT COALESCE(jsonb_agg(levels), '[]'::jsonb) INTO breakdown FROM (
+        SELECT level AS name, count(*) AS value
+        FROM public.students
+        GROUP BY level
+    ) AS levels;
+
+    -- Slot utilization (upcoming 10 slots)
+    SELECT COALESCE(jsonb_agg(slots), '[]'::jsonb) INTO utilization FROM (
+        SELECT date, start_time, booked, capacity
+        FROM public.appointment_slots
+        WHERE date >= CURRENT_DATE
+        ORDER BY date, start_time
+        LIMIT 10
+    ) AS slots;
+
+    -- Combine and return as a single JSON object
+    RETURN jsonb_build_object(
+        'totalRegistered', total_registered,
+        'todayExpected', today_expected,
+        'checkedIn', checked_in,
+        'breakdownByLevel', breakdown,
+        'slotUtilization', utilization
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_dashboard_statistics() TO authenticated;

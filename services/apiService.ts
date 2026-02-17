@@ -121,78 +121,22 @@ export const getAllStudents = async (): Promise<Student[]> => {
 };
 
 export const getDashboardData = async () => {
-    const today = new Date().toISOString().split('T')[0];
-
     // --- OPTIMIZATION ---
-    // The original sequential queries with a full table scan for levels was very slow.
-    // The new approach runs all queries in parallel and uses efficient counts for level breakdown.
+    // Replaced multiple client-side queries with a single RPC call to a database function.
+    // This function performs all aggregations on the server, drastically reducing
+    // network requests and client-side load, fixing the "hooking" issue.
+    const { data, error } = await supabase.rpc('get_dashboard_statistics');
 
-    // 1. Create promises for all necessary data points.
-    const totalRegisteredPromise = supabase
-        .from('students')
-        .select('id', { count: 'exact', head: true });
-
-    const todaysBookingsPromise = supabase
-        .from('students')
-        .select('id, status')
-        .eq('intake_date', today);
-
-    const slotUtilPromise = supabase
-        .from('appointment_slots')
-        .select('date, start_time, booked, capacity')
-        .order('date')
-        .limit(10);
-
-    // Create a promise for each level's count.
-    const levelCountPromises = Object.values(Level).map(level =>
-        supabase
-            .from('students')
-            .select('id', { count: 'exact', head: true })
-            .eq('level', level)
-    );
-
-    // 2. Await all promises to run them in parallel.
-    const [
-        totalRegisteredResult,
-        todaysBookingsResult,
-        slotUtilResult,
-        ...levelCountResults
-    ] = await Promise.all([
-        totalRegisteredPromise,
-        todaysBookingsPromise,
-        slotUtilPromise,
-        ...levelCountPromises
-    ]);
-
-    // 3. Check for any errors from the parallel queries.
-    const errors = [
-        totalRegisteredResult.error,
-        todaysBookingsResult.error,
-        slotUtilResult.error,
-        ...levelCountResults.map(r => r.error)
-    ].filter(Boolean);
-
-    if (errors.length > 0) {
-        console.error("Dashboard data fetch errors:", errors);
-        throw new Error('Failed to fetch some dashboard data.');
+    if (error) {
+        console.error("Dashboard data fetch error:", error);
+        throw new Error('Failed to fetch dashboard data.');
     }
 
-    // 4. Process the successful results.
-    const totalRegistered = totalRegisteredResult.count || 0;
-    const todaysBookings = todaysBookingsResult.data || [];
-    const slotUtil = slotUtilResult.data || [];
-
-    const breakdownByLevel = Object.values(Level).map((level, index) => ({
-        name: level,
-        value: levelCountResults[index].count || 0,
-    }));
-
+    // The RPC function returns a perfectly shaped object, but we map slotUtilization
+    // to match the specific format the charting library expects.
     return {
-        totalRegistered,
-        breakdownByLevel,
-        todayExpected: todaysBookings.length,
-        checkedIn: todaysBookings.filter(s => s.status === 'checked-in').length,
-        slotUtilization: slotUtil.map(s => ({
+        ...data,
+        slotUtilization: data.slotUtilization.map((s: any) => ({
             name: `${s.date} ${s.start_time}`,
             booked: s.booked,
             capacity: s.capacity,
