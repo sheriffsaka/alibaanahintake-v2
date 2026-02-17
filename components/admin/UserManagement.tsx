@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { getAdminUsers, updateAdminUser, createAdminUser, deleteAdminUser } from '../../services/mockApiService';
+import { getAdminUsers, updateAdminUser, createAdminUser, deleteAdminUser } from '../../services/apiService';
 import { AdminUser, Role } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
@@ -15,6 +15,7 @@ const UserManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Partial<AdminUser> | null>(null);
+  const [password, setPassword] = useState('');
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -34,6 +35,7 @@ const UserManagement: React.FC = () => {
 
   const handleOpenModal = (user?: AdminUser) => {
     setEditingUser(user || { name: '', email: '', role: Role.MaleFrontDesk, isActive: true });
+    setPassword('');
     setIsModalOpen(true);
   };
   
@@ -45,17 +47,25 @@ const UserManagement: React.FC = () => {
   const handleSave = async () => {
     if (!editingUser?.email || !editingUser?.name || !editingUser?.role) return;
 
-    if (editingUser.id) { // Update
-        await updateAdminUser(editingUser as AdminUser);
-    } else { // Create
-        await createAdminUser(editingUser as Omit<AdminUser, 'id'>);
+    try {
+        if (editingUser.id) { // Update
+            await updateAdminUser(editingUser as AdminUser);
+        } else { // Create
+            if (!password) {
+                alert("Password is required for new users.");
+                return;
+            }
+            await createAdminUser(editingUser as Omit<AdminUser, 'id'>, password);
+        }
+        handleCloseModal();
+        fetchUsers();
+    } catch (error: any) {
+        alert(`Failed to save user: ${error.message}`);
     }
-    handleCloseModal();
-    fetchUsers();
   };
 
   const handleDelete = async (userId: string) => {
-      if (window.confirm('Are you sure you want to delete this user?')) {
+      if (window.confirm('Are you sure you want to delete this user profile? This will not delete their login account.')) {
           try {
             await deleteAdminUser(userId);
             fetchUsers();
@@ -94,8 +104,9 @@ const UserManagement: React.FC = () => {
                     <Input label="Full Name" name="name" value={editingUser.name} onChange={handleInputChange} />
                     <Input label="Email" name="email" type="email" value={editingUser.email} onChange={handleInputChange} />
                     <Select label="Role" name="role" value={editingUser.role} onChange={handleInputChange} options={ROLES.map(r => ({value: r, label: r}))} />
-                    {/* In a real app, password management would be more complex */}
-                    {!editingUser.id && <p className="text-sm text-gray-500">User will be created with a default password.</p>}
+                    {!editingUser.id && (
+                        <Input label="Password" name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                    )}
                 </div>
                 <div className="mt-6 flex justify-end space-x-2">
                     <Button variant="secondary" onClick={handleCloseModal}>Cancel</Button>
@@ -145,6 +156,7 @@ const UserManagement: React.FC = () => {
             ))}
           </tbody>
         </table>
+        <p className="text-xs text-gray-500 mt-4">*Note: Deleting a user removes their profile but does not delete their login account for security reasons. This must be done from the Supabase dashboard.</p>
       </div>
     </Card>
   );

@@ -3,7 +3,7 @@ import React, { useContext, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import { EnrollmentContext } from '../../pages/EnrollmentPage';
-import { submitRegistration } from '../../services/mockApiService';
+import { submitRegistration } from '../../services/apiService';
 import Button from '../common/Button';
 import Spinner from '../common/Spinner';
 import AdmissionSlip from './AdmissionSlip';
@@ -36,8 +36,8 @@ const ConfirmationPage: React.FC = () => {
         };
         const newStudent = await submitRegistration(registrationData);
         dispatch({ type: 'CONFIRM_REGISTRATION', payload: newStudent });
-      } catch (err) {
-        setError("Failed to book appointment. The slot may have been filled. Please go back and try another slot.");
+      } catch (err: any) {
+        setError(err.message || "Failed to book appointment. The slot may have been filled. Please go back and try another slot.");
         console.error(err);
       } finally {
         setLoading(false);

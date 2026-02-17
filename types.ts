@@ -33,7 +33,7 @@ export interface Student {
   registrationCode: string;
   appointmentSlotId: string;
   status: 'booked' | 'checked-in';
-  createdAt: Date;
+  createdAt: string; // Changed from Date to string for Supabase compatibility
 }
 
 export interface AppointmentSlot {

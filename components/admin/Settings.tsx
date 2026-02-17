@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { getAppSettings, updateAppSettings } from '../../services/mockApiService';
+import { getAppSettings, updateAppSettings } from '../../services/apiService';
 import { AppSettings as TAppSettings } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';

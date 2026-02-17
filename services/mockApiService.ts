@@ -108,7 +108,8 @@ export const submitRegistration = async (
         id: uuidv4(),
         registrationCode: `AI-${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
         status: 'booked',
-        createdAt: new Date(),
+        // FIX: Type 'Date' is not assignable to type 'string'. Converted Date to ISO string.
+        createdAt: new Date().toISOString(),
     };
     
     slot.booked += 1;

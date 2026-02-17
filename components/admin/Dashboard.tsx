@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { getDashboardData } from '../../services/mockApiService';
+import { getDashboardData } from '../../services/apiService';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import { Users, BookCheck, UserCheck, CalendarDays } from 'lucide-react';

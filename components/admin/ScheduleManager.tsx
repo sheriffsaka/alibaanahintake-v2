@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { getSchedules, updateSchedule, createSchedule, deleteSchedule } from '../../services/mockApiService';
+import { getSchedules, updateSchedule, createSchedule, deleteSchedule } from '../../services/apiService';
 import { AppointmentSlot, Level } from '../../types';
 import { LEVELS } from '../../constants';
 import Spinner from '../common/Spinner';
@@ -10,17 +10,22 @@ import Input from '../common/Input';
 import Select from '../common/Select';
 import { PlusCircle, Trash2 } from 'lucide-react';
 
+const PAGE_SIZE = 25;
+
 const ScheduleManager: React.FC = () => {
   const [slots, setSlots] = useState<AppointmentSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingSlot, setEditingSlot] = useState<Partial<AppointmentSlot> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalSlots, setTotalSlots] = useState(0);
 
-  const fetchSlots = async () => {
+  const fetchSlots = async (page: number) => {
     setLoading(true);
     try {
-      const data = await getSchedules();
+      const { slots: data, count } = await getSchedules(page, PAGE_SIZE);
       setSlots(data);
+      setTotalSlots(count ?? 0);
     } catch (error) {
       console.error("Failed to fetch schedules", error);
     } finally {
@@ -29,8 +34,8 @@ const ScheduleManager: React.FC = () => {
   };
   
   useEffect(() => {
-    fetchSlots();
-  }, []);
+    fetchSlots(currentPage);
+  }, [currentPage]);
   
   const handleOpenModal = (slot?: AppointmentSlot) => {
     setEditingSlot(slot || {
@@ -50,22 +55,32 @@ const ScheduleManager: React.FC = () => {
 
   const handleSave = async () => {
     if (!editingSlot) return;
-    
-    if (editingSlot.id) { // Editing existing
-      await updateSchedule(editingSlot as AppointmentSlot);
-    } else { // Creating new
-      const { id, booked, ...newSlotData } = editingSlot;
-      await createSchedule(newSlotData as Omit<AppointmentSlot, 'id' | 'booked'>);
+
+    try {
+        if (editingSlot.id) { // Editing existing
+            await updateSchedule(editingSlot as AppointmentSlot);
+        } else { // Creating new
+            const { id, booked, ...newSlotData } = editingSlot;
+            await createSchedule(newSlotData as Omit<AppointmentSlot, 'id' | 'booked'>);
+        }
+        
+        handleCloseModal();
+        fetchSlots(currentPage); // Refetch the current page
+    } catch (error: any) {
+        console.error("Failed to save schedule slot:", error);
+        alert(`Failed to save slot. Please check the details and try again.\n\nError: ${error.message}`);
     }
-    
-    handleCloseModal();
-    fetchSlots();
   };
 
   const handleDelete = async (slotId: string) => {
       if (window.confirm('Are you sure you want to delete this slot? This action cannot be undone.')) {
         await deleteSchedule(slotId);
-        fetchSlots();
+        // If it was the last item on a page > 1, go to the previous page
+        if (slots.length === 1 && currentPage > 1) {
+            setCurrentPage(currentPage - 1);
+        } else {
+            fetchSlots(currentPage); // Otherwise, just refetch the current page
+        }
       }
   };
   
@@ -74,6 +89,8 @@ const ScheduleManager: React.FC = () => {
       const { name, value } = e.target;
       setEditingSlot({ ...editingSlot, [name]: name === 'capacity' ? parseInt(value) : value });
   };
+
+  const totalPages = Math.ceil(totalSlots / PAGE_SIZE);
 
   if (loading) return <Spinner />;
 
@@ -137,6 +154,21 @@ const ScheduleManager: React.FC = () => {
             ))}
           </tbody>
         </table>
+         {totalSlots === 0 && !loading && (
+            <div className="text-center py-8 text-gray-500">No schedule slots found.</div>
+        )}
+      </div>
+       <div className="mt-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <span className="text-sm text-gray-700">
+          Showing <span className="font-semibold">{Math.min((currentPage - 1) * PAGE_SIZE + 1, totalSlots)}</span> to <span className="font-semibold">{Math.min(currentPage * PAGE_SIZE, totalSlots)}</span> of <span className="font-semibold">{totalSlots}</span> results
+        </span>
+        {totalPages > 1 && (
+          <div className="flex items-center space-x-2">
+            <Button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1} variant="secondary">Previous</Button>
+            <span className="text-sm text-gray-600 px-2">Page {currentPage} of {totalPages}</span>
+            <Button onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage === totalPages} variant="secondary">Next</Button>
+          </div>
+        )}
       </div>
     </Card>
   );

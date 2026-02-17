@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { getAllStudents } from '../../services/mockApiService';
+import { getAllStudents } from '../../services/apiService';
 import { Student } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';

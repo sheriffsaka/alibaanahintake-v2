@@ -1,7 +1,7 @@
 
 import React, { useContext, useEffect, useState } from 'react';
 import { EnrollmentContext } from '../../pages/EnrollmentPage';
-import { getAvailableSlots, getAvailableDatesForLevel } from '../../services/mockApiService';
+import { getAvailableSlots, getAvailableDatesForLevel } from '../../services/apiService';
 import { AppointmentSlot } from '../../types';
 import Button from '../common/Button';
 import Spinner from '../common/Spinner';

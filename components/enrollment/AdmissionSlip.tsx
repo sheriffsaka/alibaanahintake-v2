@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Student } from '../../types';
 import { QRCodeSVG } from 'qrcode.react';
-import { getSchedules } from '../../services/mockApiService';
+import { getScheduleById } from '../../services/apiService';
 import AlIbaanahLogo from '../landing/AlIbaanahLogo';
 import { MANDATORY_REQUIREMENTS } from '../../constants';
 import { CheckCircle, ListChecks } from 'lucide-react';
@@ -17,8 +17,8 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
 
   useEffect(() => {
     const fetchSlotTime = async () => {
-      const slots = await getSchedules();
-      const studentSlot = slots.find(s => s.id === student.appointmentSlotId);
+      if (!student.appointmentSlotId) return;
+      const studentSlot = await getScheduleById(student.appointmentSlotId);
       if (studentSlot) {
         setSlot(studentSlot);
         setAppointmentTime(`${studentSlot.startTime} - ${studentSlot.endTime}`);

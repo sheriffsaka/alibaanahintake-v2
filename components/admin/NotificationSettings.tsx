@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { getNotificationSettings, updateNotificationSettings } from '../../services/mockApiService';
+import { getNotificationSettings, updateNotificationSettings } from '../../services/apiService';
 import { NotificationSettings as TNotificationSettings } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';

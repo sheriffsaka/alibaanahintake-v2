@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { findStudent, checkInStudent } from '../../services/mockApiService';
+import { findStudent, checkInStudent } from '../../services/apiService';
 import { Student } from '../../types';
 import Card from '../common/Card';
 import Input from '../common/Input';
