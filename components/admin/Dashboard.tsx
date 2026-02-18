@@ -28,11 +28,17 @@ const Dashboard: React.FC = () => {
       } catch (error) {
         console.error("Failed to fetch dashboard data", error);
       } finally {
-        setLoading(false);
+        // Only set loading to false after the initial fetch
+        if (loading) setLoading(false);
       }
     };
-    fetchData();
-  }, []);
+
+    fetchData(); // Initial fetch
+
+    const intervalId = setInterval(fetchData, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(intervalId); // Cleanup interval on component unmount
+  }, [loading]); // Dependency array ensures the effect setup runs once
 
   if (loading) return <Spinner />;
   if (!data) return <p>Could not load dashboard data.</p>;

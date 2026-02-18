@@ -100,28 +100,44 @@ const SlotPicker: React.FC = () => {
               {slots.length > 0 ? slots.map(slot => {
                 const isFull = slot.booked >= slot.capacity;
                 const isSelected = selectedSlotId === slot.id;
+                const percentage = slot.capacity > 0 ? (slot.booked / slot.capacity) * 100 : 0;
+                
+                let progressBarColor = 'bg-green-500';
+                if (percentage >= 50) progressBarColor = 'bg-yellow-500';
+                if (percentage >= 80) progressBarColor = 'bg-red-500';
+
                 return (
                   <button
                     key={slot.id}
                     onClick={() => !isFull && setSelectedSlotId(slot.id)}
                     disabled={isFull}
                     className={`w-full text-left p-4 border rounded-lg transition-all duration-200
-                      ${isFull ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-white hover:border-blue-500 hover:shadow-md'}
+                      ${isFull ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white hover:border-blue-500 hover:shadow-md'}
                       ${isSelected ? 'border-blue-600 ring-2 ring-blue-500' : 'border-gray-300'}
                     `}
                   >
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center space-x-3">
-                        <Clock className="h-5 w-5 text-blue-600"/>
-                        <span className="font-semibold text-lg">{slot.startTime} - {slot.endTime}</span>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                         <Users className={`h-5 w-5 ${isFull ? 'text-red-500' : 'text-green-600'}`} />
-                         <span className="text-sm">
-                           {slot.booked} / {slot.capacity} booked
-                         </span>
-                         {isFull && <span className="text-xs font-bold text-red-600 uppercase">FULL</span>}
-                      </div>
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                        {/* Time */}
+                        <div className="flex items-center space-x-3 self-start sm:self-center">
+                            <Clock className={`h-5 w-5 ${isFull ? 'text-gray-400' : 'text-blue-600'}`}/>
+                            <span className="font-semibold text-lg">{slot.startTime} - {slot.endTime}</span>
+                        </div>
+                        {/* Capacity and Progress Bar */}
+                        <div className="w-full sm:w-48">
+                            <div className="flex justify-between items-center text-sm mb-1">
+                                <span className="flex items-center">
+                                    <Users className={`h-4 w-4 mr-1.5 ${isFull ? 'text-red-500' : 'text-gray-600'}`} />
+                                    {slot.booked} / {slot.capacity} Booked
+                                </span>
+                                {isFull && <span className="text-xs font-bold text-red-600 uppercase">FULL</span>}
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div 
+                                    className={`${isFull ? 'bg-gray-400' : progressBarColor} h-2 rounded-full transition-all duration-300`}
+                                    style={{ width: `${percentage}%` }}
+                                ></div>
+                            </div>
+                        </div>
                     </div>
                   </button>
                 )

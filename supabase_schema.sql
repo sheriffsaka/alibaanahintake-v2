@@ -241,9 +241,7 @@ GRANT EXECUTE ON FUNCTION public.submit_student_registration(UUID, JSONB) TO aut
 -- RPC function for fetching all dashboard data in a single, efficient query.
 CREATE OR REPLACE FUNCTION get_dashboard_statistics()
 RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
+LANGUAGE plpgsql STABLE SECURITY DEFINER AS $$
 DECLARE
     total_registered BIGINT;
     today_expected BIGINT;
@@ -289,4 +287,4 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.get_dashboard_statistics() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_dashboard_statistics TO authenticated;

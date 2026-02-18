@@ -5,14 +5,16 @@ import AlIbaanahLogo from './AlIbaanahLogo';
 import { ChevronDown, ExternalLink, Globe } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { langs } from '../../i18n/locales';
+import { Gender } from '../../types';
 
 const Header: React.FC = () => {
   const { t, changeLanguage, language } = useTranslation();
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+  const [bookingDropdownOpen, setBookingDropdownOpen] = useState(false);
 
   const handleLangChange = (langKey: keyof typeof langs) => {
     changeLanguage(langKey);
-    setDropdownOpen(false);
+    setLangDropdownOpen(false);
   };
 
   return (
@@ -30,14 +32,14 @@ const Header: React.FC = () => {
           <nav className="hidden md:flex items-center space-x-6">
             <div className="relative">
               <button 
-                onClick={() => setDropdownOpen(!dropdownOpen)}
+                onClick={() => setLangDropdownOpen(!langDropdownOpen)}
                 className="flex items-center text-sm font-medium text-gray-600 hover:text-brand-green"
               >
                 <Globe className="h-4 w-4 mr-1" />
                 <span>{langs[language].nativeName}</span>
                 <ChevronDown className="h-4 w-4 ml-1" />
               </button>
-              {dropdownOpen && (
+              {langDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg z-10">
                   <ul className="py-1">
                     {(Object.keys(langs) as Array<keyof typeof langs>).map((langKey) => (
@@ -58,11 +60,28 @@ const Header: React.FC = () => {
               <span>{t('officialSite')}</span>
               <ExternalLink className="h-4 w-4 ml-1" />
             </a>
-            <Link to="/enroll">
-              <button className="bg-brand-green text-white px-5 py-2.5 rounded-md text-sm font-semibold hover:bg-brand-green-light transition-colors">
-                {t('bookAssessment')}
-              </button>
-            </Link>
+            <div className="relative">
+                <button 
+                    onClick={() => setBookingDropdownOpen(!bookingDropdownOpen)}
+                    onBlur={() => setTimeout(() => setBookingDropdownOpen(false), 150)}
+                    className="bg-brand-green text-white px-5 py-2.5 rounded-md text-sm font-semibold hover:bg-brand-green-light transition-colors flex items-center"
+                >
+                    {t('bookAssessment')}
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                </button>
+                {bookingDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-10 border">
+                        <ul className="py-1">
+                            <li>
+                                <Link to="/enroll" state={{ gender: Gender.Male }} onClick={() => setBookingDropdownOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">{t('maleIntake')}</Link>
+                            </li>
+                            <li>
+                                <Link to="/enroll" state={{ gender: Gender.Female }} onClick={() => setBookingDropdownOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">{t('femaleIntake')}</Link>
+                            </li>
+                        </ul>
+                    </div>
+                )}
+            </div>
             <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-brand-green">
               {t('staffLogin')}
             </Link>

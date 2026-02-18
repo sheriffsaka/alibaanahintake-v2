@@ -121,13 +121,9 @@ export const getAllStudents = async (): Promise<Student[]> => {
 };
 
 export const getDashboardData = async () => {
-    // --- OPTIMIZATION ---
-    // Replaced multiple client-side queries with a single RPC call to a database function.
-    // This function performs all aggregations on the server, drastically reducing
-    // network requests and client-side load, fixing the "hooking" issue.
     const { data, error } = await supabase.rpc('get_dashboard_statistics');
 
-    if (error) {
+    if (error || !data) {
         console.error("Dashboard data fetch error:", error);
         throw new Error('Failed to fetch dashboard data.');
     }
@@ -136,11 +132,13 @@ export const getDashboardData = async () => {
     // to match the specific format the charting library expects.
     return {
         ...data,
-        slotUtilization: data.slotUtilization.map((s: any) => ({
-            name: `${s.date} ${s.start_time}`,
-            booked: s.booked,
-            capacity: s.capacity,
-        })),
+        slotUtilization: Array.isArray(data.slotUtilization) 
+            ? data.slotUtilization.map((s: any) => ({
+                name: `${s.date} ${s.start_time}`,
+                booked: s.booked,
+                capacity: s.capacity,
+              }))
+            : [],
     };
 };
 
