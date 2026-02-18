@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { Student, AppointmentSlot, Level, AdminUser, Role, NotificationSettings, AppSettings } from '../types';
+import { Student, AppointmentSlot, Level, AdminUser, Role, NotificationSettings, AppSettings, Program, SiteContent } from '../types';
 
 // Helper function to convert student data from snake_case to camelCase
 const studentFromSupabase = (s: any): Student => ({
@@ -12,12 +12,24 @@ const studentFromSupabase = (s: any): Student => ({
     email: s.email,
     gender: s.gender,
     address: s.address,
-    level: s.level,
+    level: s.levels, // Supabase returns joined table as plural 'levels'
+    levelId: s.level_id,
     intakeDate: s.intake_date,
     registrationCode: s.registration_code,
     appointmentSlotId: s.appointment_slot_id,
     status: s.status,
     createdAt: s.created_at,
+});
+
+const slotFromSupabase = (d: any): AppointmentSlot => ({
+    id: d.id,
+    startTime: d.start_time,
+    endTime: d.end_time,
+    capacity: d.capacity,
+    booked: d.booked,
+    level: d.levels, // Joined table data
+    levelId: d.level_id,
+    date: d.date,
 });
 
 
@@ -48,17 +60,14 @@ export const getAdminUserProfile = async (userId: string): Promise<AdminUser | n
 
 
 // --- Student Public API ---
-export const getAvailableDatesForLevel = async(level: Level): Promise<string[]> => {
+export const getAvailableDatesForLevel = async(levelId: string): Promise<string[]> => {
     const settings = await getAppSettings();
     if (!settings.registrationOpen) return [];
     
-    // FIX: Replaced the failing RPC call with a query to a new, efficient database VIEW.
-    // This is a more robust way to filter for slots with available capacity and avoids
-    // potential schema cache issues with PostgREST.
     const { data, error } = await supabase
         .from('available_appointment_slots')
         .select('date')
-        .eq('level', level);
+        .eq('level_id', levelId);
 
     if (error) {
         console.error('Error fetching available dates:', error);
@@ -67,29 +76,28 @@ export const getAvailableDatesForLevel = async(level: Level): Promise<string[]> 
     
     if (!data) return [];
 
-    // Process the data to get unique, sorted dates, as this is now done client-side.
     const uniqueDates = [...new Set(data.map(slot => slot.date))] as string[];
     uniqueDates.sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
     return uniqueDates;
 }
 
 
-export const getAvailableSlots = async (date: string, level: Level): Promise<AppointmentSlot[]> => {
+export const getAvailableSlots = async (date: string, levelId: string): Promise<AppointmentSlot[]> => {
     const { data, error } = await supabase
         .from('appointment_slots')
-        .select('*')
+        .select('*, levels(name)')
         .eq('date', date)
-        .eq('level', level);
+        .eq('level_id', levelId);
 
     if (error) {
         console.error('Error fetching slots:', error);
         return [];
     }
-    return data.map(d => ({ ...d, startTime: d.start_time, endTime: d.end_time }));
+    return data.map(slotFromSupabase);
 };
 
 export const submitRegistration = async (
-    formData: Omit<Student, 'id' | 'registrationCode' | 'status' | 'createdAt'> & { appointmentSlotId: string }
+    formData: Omit<Student, 'id' | 'registrationCode' | 'status' | 'createdAt' | 'level'> & { appointmentSlotId: string }
 ): Promise<Student> => {
     const { appointmentSlotId, ...studentData } = formData;
     
@@ -107,17 +115,41 @@ export const submitRegistration = async (
 };
 
 // --- Admin API ---
-export const getAllStudents = async (): Promise<Student[]> => {
-    const { data, error } = await supabase
+export const getAllStudents = async (
+    page: number,
+    pageSize: number,
+    searchTerm: string,
+    sortKey: string,
+    sortDirection: string
+): Promise<{ students: Student[], count: number }> => {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
         .from('students')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*, levels(name)', { count: 'exact' });
+
+    if (searchTerm) {
+        const searchIlke = `%${searchTerm}%`;
+        query = query.or(`firstname.ilike.${searchIlke},surname.ilike.${searchIlke},email.ilike.${searchIlke},registration_code.ilike.${searchIlke}`);
+    }
+
+    if (sortKey) {
+        const dbSortKey = sortKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+        query = query.order(dbSortKey, { ascending: sortDirection === 'asc' });
+    } else {
+        query = query.order('created_at', { ascending: false });
+    }
+
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
 
     if (error) {
-        console.error('Error fetching all students:', error);
-        return [];
+        console.error('Error fetching students:', error);
+        throw error;
     }
-    return data.map(studentFromSupabase);
+    return { students: data.map(studentFromSupabase), count: count ?? 0 };
 };
 
 export const getDashboardData = async () => {
@@ -128,8 +160,6 @@ export const getDashboardData = async () => {
         throw new Error('Failed to fetch dashboard data.');
     }
 
-    // The RPC function returns a perfectly shaped object, but we map slotUtilization
-    // to match the specific format the charting library expects.
     return {
         ...data,
         slotUtilization: Array.isArray(data.slotUtilization) 
@@ -143,22 +173,20 @@ export const getDashboardData = async () => {
 };
 
 export const findStudent = async (query: string): Promise<Student | null> => {
-    const lowerCaseQuery = query.toLowerCase();
+    if (!query) return null;
+
     const { data, error } = await supabase
-        .from('students')
-        .select('*')
-        .or(`registration_code.ilike.%${lowerCaseQuery}%,email.ilike.%${lowerCaseQuery}%,whatsapp.ilike.%${query}%`)
-        .limit(1)
-        .maybeSingle(); // Use maybeSingle to avoid error if no row is found
-    
-    if (!error && data) {
-      return studentFromSupabase(data);
+      .rpc('search_students', { search_term: query })
+      .select('*, levels(name)')
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+        console.error("Error finding student via RPC:", error);
+        return null;
     }
-    
-    const { data: allStudents, error: allErr } = await supabase.from('students').select('*');
-    if (allErr) return null;
-    const found = allStudents.find(s => `${s.firstname} ${s.surname}`.toLowerCase().includes(lowerCaseQuery));
-    return found ? studentFromSupabase(found) : null;
+
+    return data ? studentFromSupabase(data) : null;
 };
 
 export const checkInStudent = async (studentId: string): Promise<Student> => {
@@ -166,7 +194,7 @@ export const checkInStudent = async (studentId: string): Promise<Student> => {
         .from('students')
         .update({ status: 'checked-in' })
         .eq('id', studentId)
-        .select()
+        .select('*, levels(name)')
         .single();
 
     if (error) throw new Error("Failed to check in student.");
@@ -181,23 +209,21 @@ export const getSchedules = async (page: number, pageSize: number): Promise<{ sl
 
     const { data, error, count } = await supabase
         .from('appointment_slots')
-        .select('*', { count: 'exact' })
+        .select('*, levels(id, name)', { count: 'exact' })
         .order('date', { ascending: true })
         .order('start_time', { ascending: true })
         .range(from, to);
 
     if (error) throw error;
     
-    const slots = data.map(d => ({ ...d, startTime: d.start_time, endTime: d.end_time }));
-    
-    return { slots, count: count ?? 0 };
+    return { slots: data.map(slotFromSupabase), count: count ?? 0 };
 };
 
 
 export const getScheduleById = async (slotId: string): Promise<AppointmentSlot | null> => {
     const { data, error } = await supabase
         .from('appointment_slots')
-        .select('*')
+        .select('*, levels(id, name)')
         .eq('id', slotId)
         .single();
 
@@ -206,27 +232,170 @@ export const getScheduleById = async (slotId: string): Promise<AppointmentSlot |
         return null;
     }
     
-    return data ? { ...data, startTime: data.start_time, endTime: data.end_time } : null;
+    return data ? slotFromSupabase(data) : null;
 };
 
-export const createSchedule = async(slot: Omit<AppointmentSlot, 'id' | 'booked'>): Promise<AppointmentSlot> => {
-    const { startTime, endTime, ...rest } = slot;
-    const { data, error } = await supabase.from('appointment_slots').insert({ ...rest, start_time: startTime, end_time: endTime }).select().single();
+export const createSchedule = async(slot: Omit<AppointmentSlot, 'id' | 'booked' | 'level'>): Promise<AppointmentSlot> => {
+    const { startTime, endTime, levelId, ...rest } = slot;
+    const { data, error } = await supabase.from('appointment_slots').insert({ ...rest, start_time: startTime, end_time: endTime, level_id: levelId }).select('*, levels(id, name)').single();
     if (error) throw error;
-    return { ...data, startTime: data.start_time, endTime: data.end_time };
+    return slotFromSupabase(data);
 };
 
-export const updateSchedule = async(slot: AppointmentSlot): Promise<AppointmentSlot> => {
-    const { startTime, endTime, ...rest } = slot;
-    const { data, error } = await supabase.from('appointment_slots').update({ ...rest, start_time: startTime, end_time: endTime }).eq('id', slot.id).select().single();
+export const updateSchedule = async(slot: Omit<AppointmentSlot, 'level'>): Promise<AppointmentSlot> => {
+    const { startTime, endTime, levelId, ...rest } = slot;
+    const { data, error } = await supabase.from('appointment_slots').update({ ...rest, start_time: startTime, end_time: endTime, level_id: levelId }).eq('id', slot.id).select('*, levels(id, name)').single();
     if (error) throw error;
-    return { ...data, startTime: data.start_time, endTime: data.end_time };
+    return slotFromSupabase(data);
 };
 
 export const deleteSchedule = async(slotId: string): Promise<{ success: boolean }> => {
     const { error } = await supabase.from('appointment_slots').delete().eq('id', slotId);
     if (error) throw error;
     return { success: true };
+};
+
+
+// --- Level Management ---
+export const getLevels = async(includeInactive = false): Promise<Level[]> => {
+    let query = supabase.from('levels').select('*');
+    if (!includeInactive) {
+        query = query.eq('is_active', true);
+    }
+    const { data, error } = await query.order('sort_order', { ascending: true });
+    if (error) throw error;
+    return data.map(l => ({...l, isActive: l.is_active, sortOrder: l.sort_order}));
+};
+
+export const createLevel = async(level: Omit<Level, 'id'>): Promise<Level> => {
+    const { isActive, sortOrder, ...rest } = level;
+    const { data, error } = await supabase.from('levels').insert({ ...rest, is_active: isActive, sort_order: sortOrder }).select().single();
+    if (error) throw error;
+    return {...data, isActive: data.is_active, sortOrder: data.sort_order};
+};
+
+export const updateLevel = async(level: Level): Promise<Level> => {
+    const { isActive, sortOrder, ...rest } = level;
+    const { data, error } = await supabase.from('levels').update({ ...rest, is_active: isActive, sort_order: sortOrder }).eq('id', level.id).select().single();
+    if (error) throw error;
+    return {...data, isActive: data.is_active, sortOrder: data.sort_order};
+};
+
+export const deleteLevel = async(levelId: string): Promise<{ success: boolean }> => {
+    const { error } = await supabase.from('levels').delete().eq('id', levelId);
+    if (error) throw error;
+    return { success: true };
+};
+
+
+// --- Program Management ---
+const programFromSupabase = (p: any): Program => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    parentId: p.parent_id,
+    isActive: p.is_active,
+    isArchived: p.is_archived,
+    sortOrder: p.sort_order
+});
+
+export const getPrograms = async(): Promise<Program[]> => {
+    const { data, error } = await supabase
+        .from('programs')
+        .select('*')
+        .order('sort_order', { ascending: true });
+
+    if (error) throw error;
+    
+    const programs = data.map(programFromSupabase);
+    const programMap: Map<string, Program> = new Map(programs.map(p => [p.id, { ...p, children: [] }]));
+    const nestedPrograms: Program[] = [];
+
+    for (const program of programMap.values()) {
+        if (program.parentId && programMap.has(program.parentId)) {
+            const parent = programMap.get(program.parentId);
+            parent?.children?.push(program);
+        } else {
+            nestedPrograms.push(program);
+        }
+    }
+    
+    return nestedPrograms;
+};
+
+export const createProgram = async(program: Omit<Program, 'id' | 'children'>): Promise<Program> => {
+    const { parentId, isActive, isArchived, sortOrder, ...rest } = program;
+    const { data, error } = await supabase.from('programs').insert({ 
+        ...rest, 
+        parent_id: parentId, 
+        is_active: isActive,
+        is_archived: isArchived,
+        sort_order: sortOrder 
+    }).select().single();
+    if (error) throw error;
+    return programFromSupabase(data);
+};
+
+export const updateProgram = async(program: Omit<Program, 'children'>): Promise<Program> => {
+    const { id, parentId, isActive, isArchived, sortOrder, ...rest } = program;
+    const { data, error } = await supabase.from('programs').update({ 
+        ...rest, 
+        parent_id: parentId,
+        is_active: isActive,
+        is_archived: isArchived,
+        sort_order: sortOrder
+    }).eq('id', id).select().single();
+    if (error) throw error;
+    return programFromSupabase(data);
+};
+
+
+// --- Site Content Management ---
+export const getSiteContent = async (): Promise<SiteContent> => {
+    const { data, error } = await supabase.from('asset_settings').select('key, value');
+    
+    // Default structure to ensure all keys are present, preventing crashes.
+    const defaultContent: SiteContent = {
+        logoUrl: '',
+        officialSiteUrl: '#',
+        heroVideoUrl: '',
+        faqItems: [],
+        campusAddress: '',
+        campusHours: ''
+    };
+
+    if (error) {
+        console.error("Error fetching site content, returning default.", error);
+        return defaultContent;
+    }
+
+    if (!data) {
+        return defaultContent;
+    }
+    
+    const fetchedContent = data.reduce((acc, { key, value }) => {
+        acc[key] = value;
+        return acc;
+    }, {} as any);
+
+    const mergedContent = { ...defaultContent, ...fetchedContent };
+
+    // FIX: Ensure faqItems is always an array, even if the DB returns null or another type.
+    // This prevents the Site Content Manager from crashing.
+    if (!Array.isArray(mergedContent.faqItems)) {
+        mergedContent.faqItems = [];
+    }
+    
+    return mergedContent;
+};
+
+export const updateSiteContent = async (key: keyof SiteContent, value: any): Promise<void> => {
+    const { error } = await supabase
+        .from('asset_settings')
+        .update({ value: value })
+        .eq('key', key);
+
+    if (error) throw error;
 };
 
 

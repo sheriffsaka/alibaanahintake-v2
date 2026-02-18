@@ -87,7 +87,7 @@ const CheckIn: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <p><strong>Name:</strong> {student.firstname} {student.surname}</p>
             <p><strong>Reg. Code:</strong> <span className="font-mono">{student.registrationCode}</span></p>
-            <p><strong>Level:</strong> {student.level}</p>
+            <p><strong>Level:</strong> {student.level?.name || 'N/A'}</p>
             <p><strong>Status:</strong> <span className={`font-semibold ${student.status === 'checked-in' ? 'text-green-600' : 'text-blue-600'}`}>{student.status.toUpperCase()}</span></p>
           </div>
           <div className="mt-6 text-center">

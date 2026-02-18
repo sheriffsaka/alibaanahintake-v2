@@ -1,12 +1,12 @@
 
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { EnrollmentContext } from '../../pages/EnrollmentPage';
 import { Gender, Level } from '../../types';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import Select from '../common/Select';
-import { LEVELS } from '../../constants';
-import { User, Mail, Phone, Home, BookOpen, Calendar, Users } from 'lucide-react';
+import { getLevels } from '../../services/apiService';
+import { User, Mail, Phone, Home, Users } from 'lucide-react';
 
 const RegistrationForm: React.FC = () => {
   const context = useContext(EnrollmentContext);
@@ -14,6 +14,20 @@ const RegistrationForm: React.FC = () => {
   
   const { state, dispatch } = context;
   const [errors, setErrors] = useState<Partial<typeof state.formData>>({});
+  const [levels, setLevels] = useState<Level[]>([]);
+
+  useEffect(() => {
+    const fetchLevels = async () => {
+        const activeLevels = await getLevels();
+        setLevels(activeLevels);
+        // Set a default level if none is selected
+        if (!state.formData.levelId && activeLevels.length > 0) {
+            dispatch({ type: 'UPDATE_FORM', payload: { levelId: activeLevels[0].id } });
+        }
+    };
+    fetchLevels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const validate = () => {
     const newErrors: Partial<typeof state.formData> = {};
@@ -53,7 +67,7 @@ const RegistrationForm: React.FC = () => {
       </div>
       <Input label="Gender" name="gender" value={state.formData.gender} icon={<Users className="h-4 w-4 text-gray-400" />} readOnly disabled className="bg-gray-100 cursor-not-allowed" />
       <Input label="Home Address in Egypt" name="address" value={state.formData.address} onChange={handleChange} error={errors.address} icon={<Home className="h-4 w-4 text-gray-400" />} required />
-      <Select label="Level Registering For" name="level" value={state.formData.level} onChange={handleChange} options={LEVELS.map(l => ({ value: l, label: l }))} />
+      <Select label="Level Registering For" name="levelId" value={state.formData.levelId} onChange={handleChange} options={levels.map(l => ({ value: l.id, label: l.name }))} />
       <div className="pt-4">
         <Button type="submit" fullWidth>Next: Book Appointment Slot</Button>
       </div>

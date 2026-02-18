@@ -58,7 +58,7 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
                 <p className="text-gray-600 -mt-2">{student.email}</p>
             </div>
             <div className="grid grid-cols-2 gap-6 relative z-10">
-                <InfoItem label="TARGET LEVEL" value={student.level} valueClass="text-brand-green font-semibold"/>
+                <InfoItem label="TARGET LEVEL" value={student.level.name} valueClass="text-brand-green font-semibold"/>
                 <InfoItem label="INTERNAL GROUP" value="B1" valueClass="text-brand-green font-semibold"/>
             </div>
              <div className="relative z-10">
@@ -85,15 +85,42 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
       <section className="mt-10">
         <h3 className="flex items-center text-sm font-bold text-gray-700 uppercase mb-4">
             <ListChecks className="h-5 w-5 mr-2 text-brand-green"/>
-            Mandatory Entry Requirements
+            {MANDATORY_REQUIREMENTS.title}
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            {MANDATORY_REQUIREMENTS.map((item, index) => (
-                <div key={index} className="bg-gray-50/70 p-3 rounded-lg flex items-start">
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-3 mt-0.5 flex-shrink-0"/>
-                    <p className="text-gray-700">{item}</p>
+        <div className="space-y-6 text-sm">
+            <div>
+                <h4 className="font-semibold text-gray-800 mb-2">{MANDATORY_REQUIREMENTS.firstTime.title}</h4>
+                <div className="space-y-2">
+                    {MANDATORY_REQUIREMENTS.firstTime.items.map((item, index) => (
+                        <div key={`first-${index}`} className="bg-gray-50/70 p-3 rounded-lg flex items-start">
+                            <CheckCircle className="h-4 w-4 text-green-500 mr-3 mt-0.5 flex-shrink-0"/>
+                            <p className="text-gray-700">{item}</p>
+                        </div>
+                    ))}
                 </div>
-            ))}
+            </div>
+            <div>
+                <h4 className="font-semibold text-gray-800 mb-2">{MANDATORY_REQUIREMENTS.returning.title}</h4>
+                <div className="space-y-2">
+                    {MANDATORY_REQUIREMENTS.returning.items.map((item, index) => (
+                        <div key={`return-${index}`} className="bg-gray-50/70 p-3 rounded-lg flex items-start">
+                            <CheckCircle className="h-4 w-4 text-green-500 mr-3 mt-0.5 flex-shrink-0"/>
+                            <p className="text-gray-700">{item}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div>
+                 <h4 className="font-semibold text-gray-800 mb-2">Additionally:</h4>
+                 <div className="space-y-2">
+                    {MANDATORY_REQUIREMENTS.additional.map((item, index) => (
+                         <div key={`add-${index}`} className="bg-gray-50/70 p-3 rounded-lg flex items-start">
+                            <CheckCircle className="h-4 w-4 text-green-500 mr-3 mt-0.5 flex-shrink-0"/>
+                            <p className="text-gray-700">{item}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
         </div>
       </section>
 

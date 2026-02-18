@@ -1,12 +1,13 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ExternalLink, PlayCircle, X } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { Gender } from '../../types';
+import { useSiteContent } from '../../contexts/SiteContentContext';
 
 const Hero: React.FC = () => {
     const { t } = useTranslation();
+    const { content } = useSiteContent();
     const [isVideoModalOpen, setVideoModalOpen] = useState(false);
 
     const steps = [
@@ -60,6 +61,7 @@ const Hero: React.FC = () => {
                 <div className="relative group cursor-pointer" onClick={() => setVideoModalOpen(true)}>
                      <div className="absolute inset-0 bg-white/5 rounded-3xl transform -rotate-3 transition-transform duration-300 group-hover:rotate-0"></div>
                      <div className="relative bg-black/10 backdrop-blur-sm p-8 rounded-2xl border border-white/10 space-y-4">
+                        {/* FIX: Swapped `step` and `index` arguments in map function to match the correct (item, index) signature. */}
                         {steps.map((step, index) => (
                             <div
                                 key={step.number}
@@ -88,17 +90,21 @@ const Hero: React.FC = () => {
     {/* Video Modal */}
     {isVideoModalOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setVideoModalOpen(false)}>
-            <div className="bg-white rounded-lg w-full max-w-3xl aspect-video relative" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-black rounded-lg w-full max-w-3xl aspect-video relative" onClick={(e) => e.stopPropagation()}>
                 <button 
                     onClick={() => setVideoModalOpen(false)}
                     className="absolute -top-3 -right-3 bg-white rounded-full p-1.5 shadow-lg hover:bg-gray-200 z-10"
                 >
                     <X className="h-6 w-6 text-gray-800" />
                 </button>
-                {/* Replace with actual video iframe */}
-                <div className="w-full h-full flex items-center justify-center bg-gray-900 rounded-lg">
-                    <p className="text-white">Video Player Placeholder</p>
-                </div>
+                <iframe 
+                    className="w-full h-full rounded-lg"
+                    src={content?.heroVideoUrl}
+                    title="YouTube video player" 
+                    frameBorder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowFullScreen>
+                </iframe>
             </div>
         </div>
     )}

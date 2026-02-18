@@ -1,7 +1,7 @@
 
 import React, { useReducer, createContext } from 'react';
 import { useLocation } from 'react-router-dom';
-import { EnrollmentState, EnrollmentAction, Gender, Level } from '../types';
+import { EnrollmentState, EnrollmentAction, Gender } from '../types';
 import RegistrationForm from '../components/enrollment/RegistrationForm';
 import SlotPicker from '../components/enrollment/SlotPicker';
 import ConfirmationPage from '../components/enrollment/ConfirmationPage';
@@ -16,7 +16,7 @@ const getInitialState = (gender: Gender): EnrollmentState => ({
     email: '',
     gender: gender,
     address: '',
-    level: Level.Beginner,
+    levelId: '',
   },
 });
 

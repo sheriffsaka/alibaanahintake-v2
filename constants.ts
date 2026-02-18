@@ -1,12 +1,4 @@
-
-import { Level, Role } from './types';
-
-export const LEVELS: Level[] = [
-  Level.Beginner,
-  Level.Elementary,
-  Level.Intermediate,
-  Level.Advanced,
-];
+import { Role } from './types';
 
 export const ROLES: Role[] = [
   Role.SuperAdmin,
@@ -16,10 +8,26 @@ export const ROLES: Role[] = [
   Role.FemaleFrontDesk,
 ];
 
-export const MANDATORY_REQUIREMENTS: string[] = [
-    'Original Passport and 2 Photocopies',
-    'Four passport-sized photographs (White background)',
-    'Proof of initial registration from ibaanah.com',
-    'Previous Arabic study certificates (if any)',
-    'A printout or digital copy of your Intake Slip',
-];
+export const MANDATORY_REQUIREMENTS = {
+    title: 'REQUIRED DOCUMENTS FOR SCREENING',
+    firstTime: {
+        title: 'A. First-Time Students must provide:',
+        items: [
+            '3 copies of international passport',
+            '3 copies of valid visa',
+            '3 passport-size photographs'
+        ]
+    },
+    returning: {
+        title: 'B. CONTINUING / RETURNING STUDENTS MUST PROVIDE:',
+        items: [
+            '3 copies of international passport',
+            '3 copies of valid visa',
+            '1 passport-size photograph'
+        ]
+    },
+    additional: [
+        'Tuition fee payment (if not yet paid), OR',
+        'Proof of payment (if already paid)'
+    ]
+};

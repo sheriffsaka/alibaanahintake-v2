@@ -3,9 +3,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Clock } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
+import { useSiteContent } from '../../contexts/SiteContentContext';
 
 const VisitCampus: React.FC = () => {
     const { t } = useTranslation();
+    const { content } = useSiteContent();
   return (
     <section className="py-20 bg-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -20,12 +22,12 @@ const VisitCampus: React.FC = () => {
               <div className="bg-slate-50/70 p-6 rounded-xl">
                 <MapPin className="h-7 w-7 text-brand-green mb-2" />
                 <h3 className="font-semibold mb-1">{t('address')}</h3>
-                <p className="text-sm text-gray-600">{t('campusAddress')}</p>
+                <p className="text-sm text-gray-600">{content?.campusAddress}</p>
               </div>
               <div className="bg-slate-50/70 p-6 rounded-xl">
                 <Clock className="h-7 w-7 text-brand-green mb-2" />
                 <h3 className="font-semibold mb-1">{t('operatingHours')}</h3>
-                <p className="text-sm text-gray-600">{t('campusHours')}</p>
+                <p className="text-sm text-gray-600">{content?.campusHours}</p>
               </div>
             </div>
             <Link to="/enroll">

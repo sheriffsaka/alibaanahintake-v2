@@ -6,9 +6,11 @@ import { ChevronDown, ExternalLink, Globe } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { langs } from '../../i18n/locales';
 import { Gender } from '../../types';
+import { useSiteContent } from '../../contexts/SiteContentContext';
 
 const Header: React.FC = () => {
   const { t, changeLanguage, language } = useTranslation();
+  const { content } = useSiteContent();
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [bookingDropdownOpen, setBookingDropdownOpen] = useState(false);
 
@@ -23,7 +25,7 @@ const Header: React.FC = () => {
         <div className="flex items-center justify-between h-20">
           <div className="flex items-center space-x-4">
             <Link to="/" className="flex items-center">
-              <AlIbaanahLogo className="h-12 w-auto" />
+              <AlIbaanahLogo className="h-12 w-auto" logoUrl={content?.logoUrl} />
             </Link>
             <span className="text-xl font-light text-brand-green tracking-widest border-l-2 border-gray-200 pl-4 rtl:border-l-0 rtl:border-r-2 rtl:pr-4">
               INTAKEFLOW
@@ -56,7 +58,7 @@ const Header: React.FC = () => {
                 </div>
               )}
             </div>
-            <a href="https://ibaanah.com/" target="_blank" rel="noopener noreferrer" className="flex items-center text-sm font-medium text-gray-600 hover:text-brand-green">
+            <a href={content?.officialSiteUrl} target="_blank" rel="noopener noreferrer" className="flex items-center text-sm font-medium text-gray-600 hover:text-brand-green">
               <span>{t('officialSite')}</span>
               <ExternalLink className="h-4 w-4 ml-1" />
             </a>

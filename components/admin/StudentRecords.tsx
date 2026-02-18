@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getAllStudents } from '../../services/apiService';
 import { Student } from '../../types';
 import Spinner from '../common/Spinner';
@@ -7,23 +7,37 @@ import Card from '../common/Card';
 import Input from '../common/Input';
 import Button from '../common/Button';
 import { Download, Search, ArrowUpDown } from 'lucide-react';
+import useDebounce from '../../hooks/useDebounce';
 
-type SortKey = keyof Student | '';
+type SortKey = 'firstname' | 'email' | 'level' | 'intakeDate' | 'status' | 'createdAt' | '';
 type SortDirection = 'asc' | 'desc';
+
+const PAGE_SIZE = 15;
 
 const StudentRecords: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const [sortKey, setSortKey] = useState<SortKey>('createdAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalStudents, setTotalStudents] = useState(0);
 
   useEffect(() => {
     const fetchStudents = async () => {
       setLoading(true);
       try {
-        const data = await getAllStudents();
+        const dbSortKey = sortKey === 'level' ? 'levels(name)' : sortKey;
+        const { students: data, count } = await getAllStudents(
+            currentPage,
+            PAGE_SIZE,
+            debouncedSearchTerm,
+            dbSortKey || 'createdAt',
+            sortDirection
+        );
         setStudents(data);
+        setTotalStudents(count);
       } catch (error) {
         console.error("Failed to fetch students", error);
       } finally {
@@ -31,27 +45,16 @@ const StudentRecords: React.FC = () => {
       }
     };
     fetchStudents();
-  }, []);
-
-  const sortedAndFilteredStudents = useMemo(() => {
-    let filtered = students.filter(student =>
-      `${student.firstname} ${student.surname}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.registrationCode.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    if (sortKey) {
-      filtered.sort((a, b) => {
-        const valA = a[sortKey];
-        const valB = b[sortKey];
-        if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-        if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-        return 0;
-      });
+  }, [currentPage, debouncedSearchTerm, sortKey, sortDirection]);
+  
+  // Effect to reset to page 1 when search term or sort changes
+  useEffect(() => {
+    if(currentPage !== 1) {
+        setCurrentPage(1);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchTerm, sortKey, sortDirection]);
 
-    return filtered;
-  }, [students, searchTerm, sortKey, sortDirection]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -63,14 +66,15 @@ const StudentRecords: React.FC = () => {
   };
 
   const exportToCSV = () => {
+    alert("This will export only the records currently visible on this page. For a full data export, please use the database management tools.");
     const headers = ['Name', 'Email', 'WhatsApp', 'Level', 'IntakeDate', 'Status', 'RegistrationCode'];
     const csvContent = [
       headers.join(','),
-      ...sortedAndFilteredStudents.map(s => [
+      ...students.map(s => [
         `"${s.firstname} ${s.surname}"`,
         s.email,
         s.whatsapp,
-        s.level,
+        s.level?.name || 'N/A',
         s.intakeDate,
         s.status,
         s.registrationCode
@@ -81,7 +85,7 @@ const StudentRecords: React.FC = () => {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `student_records_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `student_records_page_${currentPage}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -92,7 +96,7 @@ const StudentRecords: React.FC = () => {
     return sortDirection === 'asc' ? '▲' : '▼';
   };
 
-  if (loading) return <Spinner />;
+  const totalPages = Math.ceil(totalStudents / PAGE_SIZE);
 
   return (
     <Card title="Student Records">
@@ -105,13 +109,14 @@ const StudentRecords: React.FC = () => {
             icon={<Search className="h-4 w-4 text-gray-400" />}
           />
         </div>
-        <Button onClick={exportToCSV} className="flex items-center w-full sm:w-auto">
+        <Button onClick={exportToCSV} className="flex items-center w-full sm:w-auto" disabled={students.length === 0}>
           <Download className="h-4 w-4 mr-2" />
-          Export to CSV
+          Export Current Page
         </Button>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto relative">
+        {loading && <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center z-10"><Spinner /></div>}
         <table className="min-w-full bg-white text-sm">
           <thead className="bg-gray-100">
             <tr>
@@ -134,12 +139,12 @@ const StudentRecords: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {sortedAndFilteredStudents.map(student => (
+            {students.map(student => (
               <tr key={student.id} className="border-b hover:bg-gray-50">
                 <td className="py-2 px-4">{student.firstname} {student.surname}</td>
                 <td className="py-2 px-4">{student.email}</td>
                 <td className="py-2 px-4">{student.whatsapp}</td>
-                <td className="py-2 px-4">{student.level}</td>
+                <td className="py-2 px-4">{student.level?.name || 'N/A'}</td>
                 <td className="py-2 px-4">{student.intakeDate}</td>
                 <td className="py-2 px-4">
                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${student.status === 'checked-in' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
@@ -150,8 +155,21 @@ const StudentRecords: React.FC = () => {
             ))}
           </tbody>
         </table>
-        {sortedAndFilteredStudents.length === 0 && (
+        {!loading && students.length === 0 && (
             <div className="text-center py-8 text-gray-500">No records found.</div>
+        )}
+      </div>
+
+      <div className="mt-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <span className="text-sm text-gray-700">
+            Showing <span className="font-semibold">{Math.min((currentPage - 1) * PAGE_SIZE + 1, totalStudents)}</span> to <span className="font-semibold">{Math.min(currentPage * PAGE_SIZE, totalStudents)}</span> of <span className="font-semibold">{totalStudents}</span> results
+        </span>
+        {totalPages > 1 && (
+            <div className="flex items-center space-x-2">
+            <Button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} variant="secondary">Previous</Button>
+            <span className="text-sm text-gray-600 px-2">Page {currentPage} of {totalPages}</span>
+            <Button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} variant="secondary">Next</Button>
+            </div>
         )}
       </div>
     </Card>

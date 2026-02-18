@@ -1,9 +1,34 @@
 
-export enum Level {
-  Beginner = 'Beginner',
-  Elementary = 'Elementary',
-  Intermediate = 'Intermediate',
-  Advanced = 'Advanced',
+export interface Level {
+  id: string;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface Program {
+  id: string;
+  name: string;
+  description?: string | null;
+  parentId?: string | null;
+  isActive: boolean;
+  isArchived: boolean;
+  sortOrder: number;
+  children?: Program[];
+}
+
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export interface SiteContent {
+  logoUrl: string;
+  officialSiteUrl: string;
+  heroVideoUrl: string;
+  faqItems: FaqItem[];
+  campusAddress: string;
+  campusHours: string;
 }
 
 export enum Gender {
@@ -28,12 +53,13 @@ export interface Student {
   email: string;
   gender: Gender;
   address: string;
-  level: Level;
+  level: Level; // Changed from enum to interface
+  levelId: string;
   intakeDate: string; // YYYY-MM-DD
   registrationCode: string;
   appointmentSlotId: string;
   status: 'booked' | 'checked-in';
-  createdAt: string; // Changed from Date to string for Supabase compatibility
+  createdAt: string; 
 }
 
 export interface AppointmentSlot {
@@ -42,7 +68,8 @@ export interface AppointmentSlot {
   endTime: string; // HH:mm
   capacity: number;
   booked: number;
-  level: Level;
+  level: Level; // Changed from enum to interface
+  levelId: string;
   date: string; // YYYY-MM-DD
 }
 
@@ -75,7 +102,7 @@ export interface EnrollmentState {
         email: string;
         gender: Gender;
         address: string;
-        level: Level;
+        levelId: string;
     };
     selectedSlotId?: string;
     selectedSlotDate?: string;

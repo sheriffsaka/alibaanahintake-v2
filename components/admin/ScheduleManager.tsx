@@ -1,8 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
-import { getSchedules, updateSchedule, createSchedule, deleteSchedule } from '../../services/apiService';
+import { getSchedules, updateSchedule, createSchedule, deleteSchedule, getLevels } from '../../services/apiService';
 import { AppointmentSlot, Level } from '../../types';
-import { LEVELS } from '../../constants';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Button from '../common/Button';
@@ -14,12 +13,33 @@ const PAGE_SIZE = 25;
 
 const ScheduleManager: React.FC = () => {
   const [slots, setSlots] = useState<AppointmentSlot[]>([]);
+  const [levels, setLevels] = useState<Level[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingSlot, setEditingSlot] = useState<Partial<AppointmentSlot> | null>(null);
+  const [editingSlot, setEditingSlot] = useState<Partial<Omit<AppointmentSlot, 'level'>> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalSlots, setTotalSlots] = useState(0);
 
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      setLoading(true);
+      try {
+        const [schedulesData, levelsData] = await Promise.all([
+          getSchedules(currentPage, PAGE_SIZE),
+          getLevels(true), // Fetch all levels for the dropdown
+        ]);
+        setSlots(schedulesData.slots);
+        setTotalSlots(schedulesData.count ?? 0);
+        setLevels(levelsData);
+      } catch (error) {
+        console.error("Failed to fetch initial data", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchInitialData();
+  }, [currentPage]);
+  
   const fetchSlots = async (page: number) => {
     setLoading(true);
     try {
@@ -32,19 +52,23 @@ const ScheduleManager: React.FC = () => {
       setLoading(false);
     }
   };
-  
-  useEffect(() => {
-    fetchSlots(currentPage);
-  }, [currentPage]);
-  
+
   const handleOpenModal = (slot?: AppointmentSlot) => {
-    setEditingSlot(slot || {
-        date: new Date().toISOString().split('T')[0],
-        level: Level.Beginner,
-        startTime: '09:00',
-        endTime: '10:00',
-        capacity: 10,
-    });
+    if (slot) {
+        // FIX: Destructure the `level` property out to prevent it from being in the editing state
+        // and to avoid the `TypeError` from accessing `slot.level.id` if `slot.level` is null.
+        const { level, ...slotForEditing } = slot;
+        setEditingSlot(slotForEditing);
+    } else {
+        const defaultLevelId = levels.length > 0 ? levels[0].id : '';
+        setEditingSlot({
+            date: new Date().toISOString().split('T')[0],
+            levelId: defaultLevelId,
+            startTime: '09:00',
+            endTime: '10:00',
+            capacity: 10,
+        });
+    }
     setIsModalOpen(true);
   };
 
@@ -58,10 +82,10 @@ const ScheduleManager: React.FC = () => {
 
     try {
         if (editingSlot.id) { // Editing existing
-            await updateSchedule(editingSlot as AppointmentSlot);
+            await updateSchedule(editingSlot as Omit<AppointmentSlot, 'level'>);
         } else { // Creating new
             const { id, booked, ...newSlotData } = editingSlot;
-            await createSchedule(newSlotData as Omit<AppointmentSlot, 'id' | 'booked'>);
+            await createSchedule(newSlotData as Omit<AppointmentSlot, 'id' | 'booked' | 'level'>);
         }
         
         handleCloseModal();
@@ -75,11 +99,10 @@ const ScheduleManager: React.FC = () => {
   const handleDelete = async (slotId: string) => {
       if (window.confirm('Are you sure you want to delete this slot? This action cannot be undone.')) {
         await deleteSchedule(slotId);
-        // If it was the last item on a page > 1, go to the previous page
         if (slots.length === 1 && currentPage > 1) {
             setCurrentPage(currentPage - 1);
         } else {
-            fetchSlots(currentPage); // Otherwise, just refetch the current page
+            fetchSlots(currentPage);
         }
       }
   };
@@ -92,7 +115,7 @@ const ScheduleManager: React.FC = () => {
 
   const totalPages = Math.ceil(totalSlots / PAGE_SIZE);
 
-  if (loading) return <Spinner />;
+  if (loading && !isModalOpen) return <Spinner />;
 
   return (
     <Card title="Schedule Management">
@@ -113,7 +136,7 @@ const ScheduleManager: React.FC = () => {
                             <Input label="Start Time" name="startTime" type="time" value={editingSlot.startTime} onChange={handleInputChange} />
                             <Input label="End Time" name="endTime" type="time" value={editingSlot.endTime} onChange={handleInputChange} />
                         </div>
-                        <Select label="Level" name="level" value={editingSlot.level} onChange={handleInputChange} options={LEVELS.map(l => ({value: l, label: l}))} />
+                        <Select label="Level" name="levelId" value={editingSlot.levelId} onChange={handleInputChange} options={levels.map(l => ({value: l.id, label: l.name}))} />
                         <Input label="Capacity" name="capacity" type="number" value={editingSlot.capacity} onChange={handleInputChange} min="0"/>
                     </div>
                     <div className="mt-6 flex justify-end space-x-2">
@@ -141,7 +164,7 @@ const ScheduleManager: React.FC = () => {
               <tr key={slot.id} className="border-b hover:bg-gray-50">
                 <td className="py-2 px-4">{slot.date}</td>
                 <td className="py-2 px-4">{slot.startTime} - {slot.endTime}</td>
-                <td className="py-2 px-4">{slot.level}</td>
+                <td className="py-2 px-4">{slot.level?.name || 'N/A'}</td>
                 <td className="py-2 px-4">{slot.booked}</td>
                 <td className="py-2 px-4">{slot.capacity}</td>
                 <td className="py-2 px-4 flex items-center space-x-2">

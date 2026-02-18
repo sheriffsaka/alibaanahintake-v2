@@ -21,24 +21,33 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const dashboardData = await getDashboardData();
-        setData(dashboardData);
-      } catch (error) {
-        console.error("Failed to fetch dashboard data", error);
-      } finally {
-        // Only set loading to false after the initial fetch
-        if (loading) setLoading(false);
-      }
+    const fetchDataAndSetLoading = async () => {
+        setLoading(true);
+        try {
+            const dashboardData = await getDashboardData();
+            setData(dashboardData);
+        } catch (error) {
+            console.error("Failed to fetch dashboard data", error);
+        } finally {
+            setLoading(false);
+        }
     };
+    
+    const refreshData = async () => {
+        try {
+            const dashboardData = await getDashboardData();
+            setData(dashboardData);
+        } catch (error) {
+            console.error("Failed to refresh dashboard data", error);
+        }
+    }
 
-    fetchData(); // Initial fetch
+    fetchDataAndSetLoading(); // Initial fetch
 
-    const intervalId = setInterval(fetchData, 30000); // Refresh every 30 seconds
+    const intervalId = setInterval(refreshData, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(intervalId); // Cleanup interval on component unmount
-  }, [loading]); // Dependency array ensures the effect setup runs once
+  }, []); // Empty dependency array is critical to prevent memory leaks
 
   if (loading) return <Spinner />;
   if (!data) return <p>Could not load dashboard data.</p>;

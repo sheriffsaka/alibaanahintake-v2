@@ -19,10 +19,11 @@ const SlotPicker: React.FC = () => {
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!state.formData.levelId) return;
     const fetchDates = async () => {
       setLoading(true);
       try {
-        const dates = await getAvailableDatesForLevel(state.formData.level);
+        const dates = await getAvailableDatesForLevel(state.formData.levelId);
         setAvailableDates(dates);
       } catch (error) {
         console.error("Failed to fetch dates", error);
@@ -31,16 +32,16 @@ const SlotPicker: React.FC = () => {
       }
     };
     fetchDates();
-  }, [state.formData.level]);
+  }, [state.formData.levelId]);
 
   useEffect(() => {
-    if (!selectedDate) return;
+    if (!selectedDate || !state.formData.levelId) return;
 
     const fetchSlots = async () => {
       setLoading(true);
       setSelectedSlotId(null);
       try {
-        const availableSlots = await getAvailableSlots(selectedDate, state.formData.level);
+        const availableSlots = await getAvailableSlots(selectedDate, state.formData.levelId);
         setSlots(availableSlots);
       } catch (error) {
         console.error("Failed to fetch slots", error);
@@ -49,7 +50,7 @@ const SlotPicker: React.FC = () => {
       }
     };
     fetchSlots();
-  }, [selectedDate, state.formData.level]);
+  }, [selectedDate, state.formData.levelId]);
 
   const handleConfirm = () => {
       if (selectedSlotId) {
@@ -68,7 +69,7 @@ const SlotPicker: React.FC = () => {
     <div>
       <h2 className="text-2xl font-semibold text-gray-800 mb-4">Step 2: Select an Appointment Slot</h2>
       <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm">
-        <p><strong>Level:</strong> {state.formData.level}</p>
+        <p><strong>Level:</strong> {slots.find(s => s.id === selectedSlotId)?.level.name || '...loading'}</p>
       </div>
 
       {/* Date Picker */}

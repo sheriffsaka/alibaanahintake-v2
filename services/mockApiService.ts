@@ -1,10 +1,17 @@
-
 import { Student, AppointmentSlot, Level, Gender, AdminUser, Role, NotificationSettings, AppSettings } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Mock Database
 let students: Student[] = [];
 let appointmentSlots: AppointmentSlot[] = [];
+// FIX: Level is an interface, not an enum. Provide mock data for levels.
+// FIX: Changed from const to let to allow modification.
+let levels: Level[] = [
+    { id: 'level-1', name: 'Beginner', isActive: true, sortOrder: 1 },
+    { id: 'level-2', name: 'Elementary', isActive: true, sortOrder: 2 },
+    { id: 'level-3', name: 'Intermediate', isActive: true, sortOrder: 3 },
+    { id: 'level-4', name: 'Advanced', isActive: true, sortOrder: 4 },
+];
 let adminUsers: AdminUser[] = [
     { id: 'user-1', name: 'Super Admin', email: 'super@al-ibaanah.com', role: Role.SuperAdmin, isActive: true },
     { id: 'user-2', name: 'Ahmed Ali', email: 'male.admin@al-ibaanah.com', role: Role.MaleAdmin, isActive: true },
@@ -44,7 +51,8 @@ const generateMockData = () => {
     return date.toISOString().split('T')[0];
   });
 
-  const levels = [Level.Beginner, Level.Elementary, Level.Intermediate, Level.Advanced];
+  // FIX: 'Level' is a type, not a value. The `levels` array should be used instead.
+  // const levels = [Level.Beginner, Level.Elementary, Level.Intermediate, Level.Advanced];
   const times = [
     { start: '09:00', end: '10:00' },
     { start: '10:00', end: '11:00' },
@@ -56,10 +64,12 @@ const generateMockData = () => {
     levels.forEach(level => {
       times.forEach(time => {
         const capacity = Math.floor(Math.random() * 5) + 5; // 5-9
+        // FIX: Add missing 'levelId' property to the AppointmentSlot object.
         appointmentSlots.push({
           id: uuidv4(),
           date,
           level,
+          levelId: level.id,
           startTime: time.start,
           endTime: time.end,
           capacity,
@@ -76,10 +86,11 @@ const simulateDelay = <T,>(data: T): Promise<T> =>
     new Promise(resolve => setTimeout(() => resolve(data), 500));
 
 // --- Student Public API ---
-export const getAvailableDatesForLevel = async(level: Level): Promise<string[]> => {
+// FIX: Update function to accept levelId string and filter accordingly.
+export const getAvailableDatesForLevel = async(levelId: string): Promise<string[]> => {
     if (!appSettings.registrationOpen) return simulateDelay([]);
     const availableDates = appointmentSlots
-        .filter(slot => slot.level === level && slot.booked < slot.capacity)
+        .filter(slot => slot.levelId === levelId && slot.booked < slot.capacity)
         .map(slot => slot.date);
     
     const uniqueDates = [...new Set(availableDates)];
@@ -89,26 +100,33 @@ export const getAvailableDatesForLevel = async(level: Level): Promise<string[]> 
 }
 
 
-export const getAvailableSlots = async (date: string, level: Level): Promise<AppointmentSlot[]> => {
+// FIX: Update function to accept levelId string and filter accordingly.
+export const getAvailableSlots = async (date: string, levelId: string): Promise<AppointmentSlot[]> => {
     if (!appSettings.registrationOpen) return simulateDelay([]);
-    const filteredSlots = appointmentSlots.filter(slot => slot.date === date && slot.level === level);
+    const filteredSlots = appointmentSlots.filter(slot => slot.date === date && slot.levelId === levelId);
     return simulateDelay(filteredSlots);
 };
 
 export const submitRegistration = async (
-    formData: Omit<Student, 'id' | 'registrationCode' | 'appointmentSlotId' | 'status' | 'createdAt'> & { appointmentSlotId: string }
+    // FIX: Omit `level` as it's not provided in form data; it will be derived from `levelId`.
+    formData: Omit<Student, 'id' | 'registrationCode' | 'appointmentSlotId' | 'status' | 'createdAt' | 'level'> & { appointmentSlotId: string }
 ): Promise<Student> => {
     const slot = appointmentSlots.find(s => s.id === formData.appointmentSlotId);
     if (!slot || slot.booked >= slot.capacity) {
         throw new Error("Slot is full or does not exist.");
     }
+    
+    const studentLevel = levels.find(l => l.id === formData.levelId);
+    if (!studentLevel) {
+        throw new Error("Invalid level ID provided.");
+    }
 
     const newStudent: Student = {
         ...formData,
+        level: studentLevel,
         id: uuidv4(),
         registrationCode: `AI-${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
         status: 'booked',
-        // FIX: Type 'Date' is not assignable to type 'string'. Converted Date to ISO string.
         createdAt: new Date().toISOString(),
     };
     
@@ -132,9 +150,10 @@ export const getDashboardData = async () => {
 
     return simulateDelay({
         totalRegistered: students.length,
-        breakdownByLevel: Object.values(Level).map(level => ({
-            name: level,
-            value: students.filter(s => s.level === level).length,
+        // FIX: 'Level' is a type, not a value. Use the mock `levels` array and compare by ID.
+        breakdownByLevel: levels.map(level => ({
+            name: level.name,
+            value: students.filter(s => s.level.id === level.id).length,
         })),
         todayExpected: todaysBookings.length,
         checkedIn: todaysBookings.filter(s => s.status === 'checked-in').length,
@@ -171,6 +190,11 @@ export const getSchedules = async (): Promise<AppointmentSlot[]> => {
     return simulateDelay([...appointmentSlots].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.startTime.localeCompare(b.startTime)));
 };
 
+export const getScheduleById = async (slotId: string): Promise<AppointmentSlot | null> => {
+    const slot = appointmentSlots.find(s => s.id === slotId);
+    return simulateDelay(slot || null);
+}
+
 export const createSchedule = async(slot: Omit<AppointmentSlot, 'id' | 'booked'>): Promise<AppointmentSlot> => {
     const newSlot: AppointmentSlot = {
         ...slot,
@@ -191,6 +215,31 @@ export const deleteSchedule = async(slotId: string): Promise<{ success: boolean 
     return simulateDelay({ success: true });
 };
 
+
+// --- Level Management (Added mock implementations) ---
+export const getLevels = async(includeInactive = false): Promise<Level[]> => {
+    const sortedLevels = [...levels].sort((a, b) => a.sortOrder - b.sortOrder);
+    if (includeInactive) {
+        return simulateDelay(sortedLevels);
+    }
+    return simulateDelay(sortedLevels.filter(l => l.isActive));
+};
+
+export const createLevel = async(level: Omit<Level, 'id'>): Promise<Level> => {
+    const newLevel: Level = { ...level, id: uuidv4() };
+    levels.push(newLevel);
+    return simulateDelay(newLevel);
+};
+
+export const updateLevel = async(level: Level): Promise<Level> => {
+    levels = levels.map(l => l.id === level.id ? level : l);
+    return simulateDelay(level);
+};
+
+export const deleteLevel = async(levelId: string): Promise<{ success: boolean }> => {
+    levels = levels.filter(l => l.id !== levelId);
+    return simulateDelay({ success: true });
+};
 
 // --- User Management ---
 export const getAdminUsers = async (): Promise<AdminUser[]> => {

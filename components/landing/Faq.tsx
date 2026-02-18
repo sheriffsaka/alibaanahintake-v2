@@ -2,9 +2,11 @@
 import React, { useState } from 'react'
 import { Plus, Minus } from 'lucide-react'
 import { useTranslation } from '../../i18n/LanguageContext'
+import { useSiteContent } from '../../contexts/SiteContentContext'
+import { FaqItem as TFaqItem } from '../../types'
 
 const FaqItem: React.FC<{
-  faq: { question: string; answer: string }
+  faq: TFaqItem,
   isOpen: boolean
   onClick: () => void
 }> = ({ faq, isOpen, onClick }) => {
@@ -33,21 +35,8 @@ const FaqItem: React.FC<{
 const Faq: React.FC = () => {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   const { t } = useTranslation()
-
-  const faqData = [
-    {
-      question: t('faq1Question'),
-      answer: t('faq1Answer'),
-    },
-    {
-      question: t('faq2Question'),
-      answer: t('faq2Answer'),
-    },
-    {
-      question: t('faq3Question'),
-      answer: t('faq3Answer'),
-    },
-  ]
+  const { content } = useSiteContent();
+  const faqData = content?.faqItems || [];
 
   return (
     <section id="faq" className="py-20 bg-brand-green-dark">
