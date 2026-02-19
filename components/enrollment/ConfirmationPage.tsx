@@ -1,8 +1,7 @@
-
 import React, { useContext, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas';
-import { EnrollmentContext } from '../../pages/EnrollmentPage';
+import { EnrollmentContext } from '../../contexts/EnrollmentContext';
 import { submitRegistration } from '../../services/apiService';
 import Button from '../common/Button';
 import Spinner from '../common/Spinner';

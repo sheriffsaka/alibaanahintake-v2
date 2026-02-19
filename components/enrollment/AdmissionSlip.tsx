@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Student } from '../../types';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode-react';
 import { getScheduleById } from '../../services/apiService';
 import AlIbaanahLogo from '../landing/AlIbaanahLogo';
 import { MANDATORY_REQUIREMENTS } from '../../constants';

@@ -1,10 +1,10 @@
-
-import React, { useReducer, createContext } from 'react';
+import React, { useReducer } from 'react';
 import { useLocation } from 'react-router-dom';
 import { EnrollmentState, EnrollmentAction, Gender } from '../types';
 import RegistrationForm from '../components/enrollment/RegistrationForm';
 import SlotPicker from '../components/enrollment/SlotPicker';
 import ConfirmationPage from '../components/enrollment/ConfirmationPage';
+import { EnrollmentContext } from '../contexts/EnrollmentContext';
 
 const getInitialState = (gender: Gender): EnrollmentState => ({
   step: 1,
@@ -43,11 +43,6 @@ const enrollmentReducer = (state: EnrollmentState, action: EnrollmentAction): En
       return state;
   }
 };
-
-export const EnrollmentContext = createContext<{
-  state: EnrollmentState;
-  dispatch: React.Dispatch<EnrollmentAction>;
-} | undefined>(undefined);
 
 const EnrollmentPage: React.FC = () => {
   const location = useLocation();

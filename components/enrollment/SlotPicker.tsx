@@ -1,6 +1,5 @@
-
 import React, { useContext, useEffect, useState } from 'react';
-import { EnrollmentContext } from '../../pages/EnrollmentPage';
+import { EnrollmentContext } from '../../contexts/EnrollmentContext';
 import { getAvailableSlots, getAvailableDatesForLevel } from '../../services/apiService';
 import { AppointmentSlot } from '../../types';
 import Button from '../common/Button';

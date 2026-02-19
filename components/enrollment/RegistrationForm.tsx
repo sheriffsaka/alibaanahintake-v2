@@ -1,6 +1,5 @@
-
 import React, { useContext, useState, useEffect } from 'react';
-import { EnrollmentContext } from '../../pages/EnrollmentPage';
+import { EnrollmentContext } from '../../contexts/EnrollmentContext';
 import { Gender, Level } from '../../types';
 import Button from '../common/Button';
 import Input from '../common/Input';
