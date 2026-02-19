@@ -70,6 +70,21 @@ CREATE TABLE IF NOT EXISTS public.students (
 );
 COMMENT ON TABLE public.students IS 'Stores registered student information.';
 
+-- This block makes the schema migration idempotent for the students table.
+-- It adds the level_id column and its foreign key if they're missing.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.students'::regclass AND attname = 'level_id') THEN
+        ALTER TABLE public.students ADD COLUMN level_id UUID;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_constraint WHERE conrelid = 'public.students'::regclass AND conname = 'students_level_id_fkey') THEN
+        ALTER TABLE public.students 
+            ADD CONSTRAINT students_level_id_fkey 
+            FOREIGN KEY (level_id) REFERENCES public.levels(id) ON DELETE RESTRICT;
+    END IF;
+END;
+$$;
+
 -- Add foreign key constraint separately to avoid issues on re-runs
 DO $$
 BEGIN

@@ -1,7 +1,6 @@
-
 import React, { useEffect, useState } from 'react';
 import { Student } from '../../types';
-import { QRCodeSVG } from 'qrcode-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { getScheduleById } from '../../services/apiService';
 import AlIbaanahLogo from '../landing/AlIbaanahLogo';
 import { MANDATORY_REQUIREMENTS } from '../../constants';
@@ -58,7 +57,7 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
                 <p className="text-gray-600 -mt-2">{student.email}</p>
             </div>
             <div className="grid grid-cols-2 gap-6 relative z-10">
-                <InfoItem label="TARGET LEVEL" value={student.level.name} valueClass="text-brand-green font-semibold"/>
+                <InfoItem label="TARGET LEVEL" value={student.level?.name || 'N/A'} valueClass="text-brand-green font-semibold"/>
                 <InfoItem label="INTERNAL GROUP" value="B1" valueClass="text-brand-green font-semibold"/>
             </div>
              <div className="relative z-10">

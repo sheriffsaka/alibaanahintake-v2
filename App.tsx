@@ -69,7 +69,7 @@ function App() {
                 </ProtectedRoute>
               } />
               <Route path="check-in" element={
-                <ProtectedRoute allowedRoles={[Role.MaleFrontDesk, Role.FemaleFrontDesk, Role.SuperAdmin]}>
+                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk]}>
                   <CheckIn />
                 </ProtectedRoute>
               } />

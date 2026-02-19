@@ -14,7 +14,7 @@ const Sidebar: React.FC = () => {
         { to: 'levels', text: 'Levels', icon: <Layers size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
         { to: 'programs', text: 'Programs', icon: <Library size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
         { to: 'content', text: 'Site Content', icon: <PenSquare size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
-        { to: 'check-in', text: 'Check-In', icon: <CheckSquare size={20} />, roles: [Role.SuperAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk] },
+        { to: 'check-in', text: 'Check-In', icon: <CheckSquare size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk] },
         { to: 'students', text: 'Student Records', icon: <ClipboardList size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
         { to: 'users', text: 'User Mgmt', icon: <Users size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
         { to: 'notifications', text: 'Notifications', icon: <Bell size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },

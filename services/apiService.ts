@@ -1,4 +1,3 @@
-
 import { supabase } from './supabaseClient';
 import { Student, AppointmentSlot, Level, AdminUser, Role, NotificationSettings, AppSettings, Program, SiteContent } from '../types';
 
@@ -13,7 +12,7 @@ const studentFromSupabase = (s: any): Student => ({
     gender: s.gender,
     address: s.address,
     level: s.levels, // Supabase returns joined table as plural 'levels'
-    levelId: s.level_id,
+    levelId: s.level_id || '',
     intakeDate: s.intake_date,
     registrationCode: s.registration_code,
     appointmentSlotId: s.appointment_slot_id,
