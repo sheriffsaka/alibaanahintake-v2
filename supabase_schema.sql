@@ -4,6 +4,7 @@ DROP TYPE IF EXISTS public.level_enum CASCADE;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'gender_enum') THEN CREATE TYPE public.gender_enum AS ENUM ('Male', 'Female'); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'role_enum') THEN CREATE TYPE public.role_enum AS ENUM ('Super Admin', 'male_section_Admin', 'female_section_Admin', 'male_Front Desk', 'female_Front Desk'); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'student_status_enum') THEN CREATE TYPE public.student_status_enum AS ENUM ('booked', 'checked-in'); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'resource_type_enum') THEN CREATE TYPE public.resource_type_enum AS ENUM ('book', 'video', 'image', 'document'); END IF; END $$;
 
 -- 2. Create the new `levels` table.
 CREATE TABLE IF NOT EXISTS public.levels (
@@ -178,17 +179,50 @@ COMMENT ON TABLE public.asset_settings IS 'Stores dynamic site content like logo
 
 -- Insert default site content
 INSERT INTO public.asset_settings (key, value) VALUES
-('logoUrl', '"https://res.cloudinary.com/di7okmjsx/image/upload/v1772398555/Al-Ibaanah_Vertical_Logo_pf389m.svg"'),
+('logoUrl', '"https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png"'),
 ('officialSiteUrl', '"https://ibaanah.com/"'),
 ('heroVideoUrl', '{"en": "https://www.youtube.com/embed/dQw4w9WgXcQ", "ar": "https://www.youtube.com/embed/CenZeeJ3m_4", "fr": "https://www.youtube.com/embed/s2qg2x-NYyE"}'),
-('faqItems', '[{"question": "Do I need to register on the main site first?", "answer": "Yes, the first step is always to complete the main registration on the official Al-Ibaanah website. This portal is for booking your mandatory on-campus assessment slot after you have registered."}, {"question": "What happens during the assessment?", "answer": "The on-campus assessment is a friendly meeting with one of our instructors to gauge your current Arabic language proficiency. This helps us place you in the perfect level to ensure your success."}, {"question": "Can I reschedule my slot?", "answer": "Once a slot is booked, it is confirmed. If you have an emergency and need to reschedule, please contact our administration office directly at least 48 hours before your appointment."}]'),
+('faqItems', '{
+    "en": [
+        {"question": "Do I need to register on the main site first?", "answer": "Yes, the first step is always to complete the main registration on the official Al-Ibaanah website. This portal is for booking your mandatory on-campus assessment slot after you have registered."}
+    ],
+    "ar": [
+        {"question": "هل يجب أن أسجل في الموقع الرئيسي أولاً؟", "answer": "نعم، الخطوة الأولى دائمًا هي إكمال التسجيل الرئيسي على موقع الإبانة الرسمي. هذه البوابة مخصصة لحجز موعد التقييم الإلزامي في الحرم الجامعي بعد التسجيل."}
+    ],
+    "fr": [
+        {"question": "Dois-je m''inscrire d''abord sur le site principal ?", "answer": "Oui, la première étape est toujours de compléter l''inscription principale sur le site officiel d''Al-Ibaanah. Ce portail sert à réserver votre créneau d''évaluation obligatoire sur le campus après votre inscription."}
+    ],
+    "zh": [
+        {"question": "我需要先在主站点注册吗？", "answer": "是的，第一步总是在 Al-Ibaanah 官方网站上完成主注册。此门户用于在您注册后预订您的强制性校内评估时段。"}
+    ],
+    "ru": [
+        {"question": "Нужно ли мне сначала регистрироваться на основном сайте?", "answer": "Да, первым шагом всегда является завершение основной регистрации на официальном сайте Al-Ibaanah. Этот портал предназначен для бронирования обязательного времени для оценки в кампусе после вашей регистрации."}
+    ],
+    "uz": [
+        {"question": "Avval asosiy saytda roʻyxatdan oʻtishim kerakmi?", "answer": "Ha, birinchi qadam har doim Al-Ibaanah rasmiy veb-saytida asosiy ro''yxatdan o''tishni yakunlashdir. Ushbu portal ro''yxatdan o''tganingizdan so''ng majburiy kampusda baholash vaqtini bron qilish uchun mo''ljallangan."}
+    ]
+}'),
 ('campusAddress', '"Block 12, Rd 18, Nasr City, Cairo, Egypt"'),
 ('campusHours', '"Sunday - Thursday, 9:00 AM - 2:00 PM"')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 
+-- Create program_resources table
+CREATE TABLE IF NOT EXISTS public.program_resources (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    program_id UUID NOT NULL REFERENCES public.programs(id) ON DELETE CASCADE,
+    resource_type resource_type_enum NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    url TEXT NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE public.program_resources IS 'Stores educational resources linked to specific programs.';
+
 -- 8. Create a view for available slots to simplify client-side queries.
-CREATE OR REPLACE VIEW public.available_appointment_slots AS
+DROP VIEW IF EXISTS public.available_appointment_slots;
+CREATE VIEW public.available_appointment_slots AS
   SELECT id, start_time, end_time, capacity, booked, level_id, gender, date
   FROM public.appointment_slots
   WHERE date >= CURRENT_DATE AND booked < capacity;
@@ -200,6 +234,7 @@ COMMENT ON VIEW public.available_appointment_slots IS 'Filters appointment slots
 -- Enable RLS for all tables.
 ALTER TABLE public.levels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.programs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.program_resources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.asset_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.appointment_slots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
@@ -230,6 +265,13 @@ DROP POLICY IF EXISTS "Allow public read access to active programs" ON public.pr
 CREATE POLICY "Allow public read access to active programs" ON public.programs FOR SELECT USING (is_active = true AND is_archived = false);
 DROP POLICY IF EXISTS "Allow admin write access to programs" ON public.programs;
 CREATE POLICY "Allow admin write access to programs" ON public.programs FOR ALL USING (get_my_role() IN ('Super Admin', 'male_section_Admin', 'female_section_Admin'));
+
+-- Policies for program_resources
+DROP POLICY IF EXISTS "Allow public read access to program resources" ON public.program_resources;
+CREATE POLICY "Allow public read access to program resources" ON public.program_resources FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow admin write access to program resources" ON public.program_resources;
+CREATE POLICY "Allow admin write access to program resources" ON public.program_resources FOR ALL USING (get_my_role() IN ('Super Admin', 'male_section_Admin', 'female_section_Admin'));
+
 
 -- Policies for asset_settings
 DROP POLICY IF EXISTS "Allow public read access to site assets" ON public.asset_settings;

@@ -26,12 +26,31 @@ let adminUsers: AdminUser[] = [
 let siteContent: SiteContent = {
     logoUrl: "https://res.cloudinary.com/di7okmjsx/image/upload/v1772398555/Al-Ibaanah_Vertical_Logo_pf389m.svg",
     officialSiteUrl: "https://ibaanah.com/",
-    // FIX: Changed heroVideoUrl from a string to a Record<string, string> to match the SiteContent type, supporting different URLs per language.
-    heroVideoUrl: { en: "https://www.youtube.com/embed/dQw4w9WgXcQ" },
-    faqItems: [
-        { question: "Do I need to register on the main site first?", answer: "Yes, the first step is always to complete the main registration on the official Al-Ibaanah website. This portal is for booking your mandatory on-campus assessment slot after you have registered." },
-        { question: "What happens during the assessment?", answer: "The on-campus assessment is a friendly meeting with one of our instructors to gauge your current Arabic language proficiency. This helps us place you in the perfect level to ensure your success." }
-    ],
+    heroVideoUrl: { 
+        en: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+        ar: "https://www.youtube.com/embed/CenZeeJ3m_4"
+    },
+    faqItems: {
+        en: [
+            { question: "Do I need to register on the main site first?", answer: "Yes, the first step is always to complete the main registration on the official Al-Ibaanah website. This portal is for booking your mandatory on-campus assessment slot after you have registered." },
+            { question: "What happens during the assessment?", answer: "The on-campus assessment is a friendly meeting with one of our instructors to gauge your current Arabic language proficiency. This helps us place you in the perfect level to ensure your success." }
+        ],
+        ar: [
+            { question: "هل يجب أن أسجل في الموقع الرئيسي أولاً؟", answer: "نعم، الخطوة الأولى دائمًا هي إكمال التسجيل الرئيسي على موقع الإبانة الرسمي. هذه البوابة مخصصة لحجز موعد التقييم الإلزامي في الحرم الجامعي بعد التسجيل." },
+        ],
+        fr: [
+            { question: "Dois-je m'inscrire d'abord sur le site principal ?", answer: "Oui, la première étape est toujours de compléter l'inscription principale sur le site officiel d'Al-Ibaanah. Ce portail sert à réserver votre créneau d'évaluation obligatoire sur le campus après votre inscription." }
+        ],
+        zh: [
+            { question: "我需要先在主站点注册吗？", answer: "是的，第一步总是在 Al-Ibaanah 官方网站上完成主注册。此门户用于在您注册后预订您的强制性校内评估时段。" }
+        ],
+        ru: [
+            { question: "Нужно ли мне сначала регистрироваться на основном сайте?", answer: "Да, первым шагом всегда является завершение основной регистрации на официальном сайте Al-Ibaanah. Этот портал предназначен для бронирования обязательного времени для оценки в кампусе после вашей регистрации." }
+        ],
+        uz: [
+            { question: "Avval asosiy saytda roʻyxatdan oʻtishim kerakmi?", answer: "Ha, birinchi qadam har doim Al-Ibaanah rasmiy veb-saytida asosiy ro'yxatdan o'tishni yakunlashdir. Ushbu portal ro'yxatdan o'tganingizdan so'ng majburiy kampusda baholash vaqtini bron qilish uchun mo'ljallangan." }
+        ]
+    },
     campusAddress: "Block 12, Rd 18, Nasr City, Cairo, Egypt",
     campusHours: "Sunday - Thursday, 9:00 AM - 2:00 PM"
 };
@@ -56,7 +75,6 @@ const generateMockData = () => {
   });
   const times = [ { start: '09:00', end: '10:00' }, { start: '10:00', end: '11:00' }];
   const genders = [Gender.Male, Gender.Female];
-  // FIX: Added a loop for genders and included the 'gender' property to match the AppointmentSlot type.
   dates.forEach(date => levels.forEach(level => times.forEach(time => genders.forEach(gender => {
     const capacity = Math.floor(Math.random() * 5) + 5;
     appointmentSlots.push({
@@ -68,7 +86,6 @@ const generateMockData = () => {
 };
 generateMockData();
 
-// FIX: Updated simulateDelay to gracefully handle undefined data, preventing JSON.parse errors.
 const simulateDelay = <T,>(data: T): Promise<T> => 
     new Promise(resolve => setTimeout(() => resolve(data === undefined ? data : JSON.parse(JSON.stringify(data))), 300));
 
@@ -76,26 +93,24 @@ const simulateDelay = <T,>(data: T): Promise<T> =>
 export const login = async (email: string, password: string): Promise<void> => {
     if (password === 'password123') {
         const user = adminUsers.find(u => u.email === email);
-        // FIX: Passed `undefined` to simulateDelay to satisfy its signature for void promises.
         if (user) return simulateDelay(undefined);
     }
     throw new Error('Invalid credentials.');
 }
-// FIX: Passed `undefined` to simulateDelay to satisfy its signature for void promises.
 export const logout = async (): Promise<void> => simulateDelay(undefined);
 export const getAdminUserProfile = async (userId: string): Promise<AdminUser | null> => simulateDelay(adminUsers.find(u => u.id === userId) || null);
 
 
 // --- Public API ---
-export const getAvailableDatesForLevel = async(levelId: string): Promise<string[]> => {
+export const getAvailableDatesForLevel = async(levelId: string, gender: Gender): Promise<string[]> => {
     if (!appSettings.registrationOpen) return simulateDelay([]);
-    const availableDates = appointmentSlots.filter(s => s.levelId === levelId && s.booked < s.capacity).map(s => s.date);
+    const availableDates = appointmentSlots.filter(s => s.levelId === levelId && s.gender === gender && s.booked < s.capacity).map(s => s.date);
     return simulateDelay([...new Set(availableDates)].sort());
 }
 
-export const getAvailableSlots = async (date: string, levelId: string): Promise<AppointmentSlot[]> => {
+export const getAvailableSlots = async (date: string, levelId: string, gender: Gender): Promise<AppointmentSlot[]> => {
     if (!appSettings.registrationOpen) return simulateDelay([]);
-    return simulateDelay(appointmentSlots.filter(s => s.date === date && s.levelId === levelId));
+    return simulateDelay(appointmentSlots.filter(s => s.date === date && s.levelId === levelId && s.gender === gender));
 };
 
 export const submitRegistration = async (formData: Omit<Student, 'id' | 'registrationCode' | 'appointmentSlotId' | 'status' | 'createdAt' | 'level'> & { appointmentSlotId: string }): Promise<Student> => {
@@ -201,7 +216,6 @@ export const updateProgram = async(p: Program): Promise<Program> => { programs =
 
 // --- Site Content ---
 export const getSiteContent = async(): Promise<SiteContent> => simulateDelay(siteContent);
-// FIX: Passed `undefined` to simulateDelay to satisfy its signature for void promises.
 export const updateSiteContent = async(key: keyof SiteContent, value: any): Promise<void> => { (siteContent as any)[key] = value; return simulateDelay(undefined); }
 
 // --- Users ---

@@ -1,10 +1,10 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { getDashboardData } from '../../services/apiService';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import { Users, BookCheck, UserCheck, CalendarDays } from 'lucide-react';
+import { usePolling } from '../../hooks/usePolling';
 
 interface DashboardData {
     totalRegistered: number;
@@ -15,46 +15,48 @@ interface DashboardData {
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+const POLLING_INTERVAL = 30000; // 30 seconds
 
 const Dashboard: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchDataAndSetLoading = async () => {
-        setLoading(true);
-        try {
-            const dashboardData = await getDashboardData();
-            setData(dashboardData);
-        } catch (error) {
-            console.error("Failed to fetch dashboard data", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-    
-    const refreshData = async () => {
-        try {
-            const dashboardData = await getDashboardData();
-            setData(dashboardData);
-        } catch (error) {
-            console.error("Failed to refresh dashboard data", error);
-        }
+  const fetchDashboardData = useCallback(async (isInitialLoad = false) => {
+    if (isInitialLoad) setLoading(true);
+    setError(null);
+    try {
+      const dashboardData = await getDashboardData();
+      setData(dashboardData);
+    } catch (err) {
+      console.error("Failed to fetch dashboard data", err);
+      setError("Could not load dashboard data. Retrying in background...");
+    } finally {
+      if (isInitialLoad) setLoading(false);
     }
+  }, []);
 
-    fetchDataAndSetLoading(); // Initial fetch
+  // Initial data fetch
+  useEffect(() => {
+    fetchDashboardData(true);
+  }, [fetchDashboardData]);
 
-    const intervalId = setInterval(refreshData, 30000); // Refresh every 30 seconds
+  // Set up polling for background refresh
+  usePolling(fetchDashboardData, POLLING_INTERVAL);
 
-    return () => clearInterval(intervalId); // Cleanup interval on component unmount
-  }, []); // Empty dependency array is critical to prevent memory leaks
 
   if (loading) return <Spinner />;
-  if (!data) return <p>Could not load dashboard data.</p>;
+  
+  if (error && !data) return <p className="text-center text-red-500">{error.replace(" Retrying in background...", "")}</p>;
+
+  if (!data) return <p>No dashboard data available.</p>;
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-bold text-gray-800">Live Enrollment Dashboard</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-gray-800">Live Enrollment Dashboard</h1>
+        {error && <div className="text-xs text-yellow-600 animate-pulse">Connection issue. Retrying...</div>}
+      </div>
       
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -82,7 +84,7 @@ const Dashboard: React.FC = () => {
          <Card className="flex items-center space-x-4">
             <div className="p-3 bg-yellow-100 rounded-full"><BookCheck className="h-6 w-6 text-yellow-600"/></div>
             <div>
-                <p className="text-sm text-gray-500">Booked vs Expected</p>
+                <p className="text-sm text-gray-500">Check-in Rate</p>
                 <p className="text-2xl font-bold text-gray-800">{data.todayExpected > 0 ? `${Math.round((data.checkedIn/data.todayExpected)*100)}%` : 'N/A'}</p>
             </div>
         </Card>
@@ -94,7 +96,7 @@ const Dashboard: React.FC = () => {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={data.breakdownByLevel}
+                data={data.breakdownByLevel.filter(item => item.value > 0)}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
@@ -109,20 +111,21 @@ const Dashboard: React.FC = () => {
                 ))}
               </Pie>
               <Tooltip />
+              <Legend />
             </PieChart>
           </ResponsiveContainer>
         </Card>
 
-        <Card title="Slot Utilization (Sample)" className="lg:col-span-3">
+        <Card title="Upcoming Slot Utilization" className="lg:col-span-3">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.slotUtilization.slice(0, 10)}>
+            <BarChart data={data.slotUtilization}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} interval={0} tick={{fontSize: 10}}/>
-              <YAxis />
+              <YAxis allowDecimals={false} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="booked" fill="#8884d8" name="Booked" />
-              <Bar dataKey="capacity" fill="#82ca9d" name="Capacity" />
+              <Bar dataKey="booked" stackId="a" fill="#8884d8" name="Booked" />
+              <Bar dataKey="capacity" stackId="b" fill="#82ca9d" name="Total Capacity" />
             </BarChart>
           </ResponsiveContainer>
         </Card>

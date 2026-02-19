@@ -80,9 +80,11 @@ export default {
     archived: 'مؤرشف',
     toggleArchiveConfirm: 'هل أنت متأكد أنك تريد {action} هذا البرنامج؟',
     saveProgram: 'حفظ البرنامج',
+    manageResources: 'إدارة الموارد',
     
     // --- Enrollment Flow ---
     // Form
+    step1Title: 'الخطوة 1: التسجيل الرقمي ({gender})',
     surnameLabel: 'اللقب',
     firstnameLabel: 'الاسم الأول',
     othernameLabel: 'اسم آخر (اختياري)',
@@ -92,6 +94,12 @@ export default {
     addressLabel: 'العنوان في مصر',
     levelLabel: 'المستوى المسجل له',
     nextButton: 'التالي: حجز موعد',
+    errorFirstnameRequired: 'الاسم الأول مطلوب',
+    errorSurnameRequired: 'اللقب مطلوب',
+    errorWhatsappRequired: 'رقم الواتساب مطلوب',
+    errorEmailRequired: 'البريد الإلكتروني مطلوب',
+    errorEmailInvalid: 'البريد الإلكتروني غير صالح',
+    errorAddressRequired: 'عنوان المنزل مطلوب',
 
     // Slot Picker
     slotPickerTitle: 'الخطوة 2: اختر موعدًا',
@@ -131,4 +139,20 @@ export default {
     returningStudentsTitle: 'ب. يجب على الطلاب المستمرين/العائدين تقديم:',
     additionally: 'بالإضافة إلى ذلك:',
     slipFooter: 'تم إنشاء هذا المستند بواسطة IntakeFlow الخاص بالإبانة. يمكن التحقق من صحته في مكتب الاستقبال.',
+
+    // Resource Manager
+    resourceManagerTitle: 'موارد لـ "{programName}"',
+    addResource: 'إضافة مورد',
+    editResource: 'تعديل المورد',
+    resourceTitleLabel: 'عنوان المورد',
+    resourceTypeLabel: 'نوع المورد',
+    resourceUrlLabel: 'رابط المورد (للفيديو)',
+    resourceFileLabel: 'ملف المورد',
+    resourceBook: 'كتاب',
+    resourceVideo: 'فيديو',
+    resourceImage: 'صورة',
+    resourceDocument: 'مستند',
+    noResourcesFound: 'لا توجد موارد لهذا البرنامج.',
+    deleteResourceConfirm: 'هل أنت متأكد من حذف هذا المورد؟ لا يمكن التراجع عن هذا الإجراء.',
+    saveResource: 'حفظ المورد',
 };

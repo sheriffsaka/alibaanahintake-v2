@@ -6,8 +6,9 @@ import Card from '../common/Card';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import Select from '../common/Select';
-import { PlusCircle, Archive, ArchiveRestore, Plus } from 'lucide-react';
+import { PlusCircle, Archive, ArchiveRestore, Plus, Paperclip } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
+import ResourceManagerModal from './ResourceManagerModal';
 
 const ProgramManager: React.FC = () => {
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -15,6 +16,8 @@ const ProgramManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProgram, setEditingProgram] = useState<Partial<Program> | null>(null);
+  const [isResourceManagerOpen, setIsResourceManagerOpen] = useState(false);
+  const [selectedProgramForResources, setSelectedProgramForResources] = useState<Program | null>(null);
   const { t } = useTranslation();
 
   const fetchPrograms = async () => {
@@ -83,6 +86,11 @@ const ProgramManager: React.FC = () => {
     const val = (type === 'checkbox') ? (e.target as HTMLInputElement).checked : (type === 'number' ? parseInt(value) || 0 : value);
     setEditingProgram({ ...editingProgram, [name]: val });
   };
+
+  const handleOpenResourceManager = (program: Program) => {
+    setSelectedProgramForResources(program);
+    setIsResourceManagerOpen(true);
+  };
   
   const renderProgramRows = (programsToRender: Program[], level = 0): React.ReactNode[] => {
     return programsToRender.flatMap(program => [
@@ -104,6 +112,7 @@ const ProgramManager: React.FC = () => {
           <Button onClick={() => handleToggleArchive(program)} variant={program.isArchived ? 'secondary' : 'danger'} className="text-xs py-1 px-2">
             {program.isArchived ? <ArchiveRestore size={14}/> : <Archive size={14}/>}
           </Button>
+          <Button onClick={() => handleOpenResourceManager(program)} variant="secondary" className="text-xs py-1 px-2"><Paperclip size={14}/></Button>
         </td>
       </tr>,
       ...(program.children && program.children.length > 0
@@ -142,6 +151,13 @@ const ProgramManager: React.FC = () => {
                 </div>
             </div>
         </div>
+      )}
+
+      {isResourceManagerOpen && selectedProgramForResources && (
+        <ResourceManagerModal
+          program={selectedProgramForResources}
+          onClose={() => setIsResourceManagerOpen(false)}
+        />
       )}
 
       <div className="overflow-x-auto">

@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
-import { Student, AppointmentSlot, Level, AdminUser, Role, NotificationSettings, AppSettings, Program, SiteContent, Gender } from '../types';
+import { Student, AppointmentSlot, Level, AdminUser, Role, NotificationSettings, AppSettings, Program, SiteContent, Gender, ProgramResource } from '../types';
+import { v4 as uuidv4 } from 'uuid';
 
 // Helper function to convert student data from snake_case to camelCase
 const studentFromSupabase = (s: any): Student => ({
@@ -325,7 +326,7 @@ export const getPrograms = async(): Promise<Program[]> => {
     return nestedPrograms;
 };
 
-export const createProgram = async(program: Omit<Program, 'id' | 'children'>): Promise<Program> => {
+export const createProgram = async(program: Omit<Program, 'id' | 'children' | 'resources'>): Promise<Program> => {
     const { parentId, isActive, isArchived, sortOrder, ...rest } = program;
     const { data, error } = await supabase.from('programs').insert({ 
         ...rest, 
@@ -338,7 +339,7 @@ export const createProgram = async(program: Omit<Program, 'id' | 'children'>): P
     return programFromSupabase(data);
 };
 
-export const updateProgram = async(program: Omit<Program, 'children'>): Promise<Program> => {
+export const updateProgram = async(program: Omit<Program, 'children' | 'resources'>): Promise<Program> => {
     const { id, parentId, isActive, isArchived, sortOrder, ...rest } = program;
     const { data, error } = await supabase.from('programs').update({ 
         ...rest, 
@@ -351,17 +352,91 @@ export const updateProgram = async(program: Omit<Program, 'children'>): Promise<
     return programFromSupabase(data);
 };
 
+// --- Program Resource Management ---
+const BUCKET_NAME = 'program_resources';
+
+export const getProgramResources = async (programId: string): Promise<ProgramResource[]> => {
+    const { data, error } = await supabase
+        .from('program_resources')
+        .select('*')
+        .eq('program_id', programId)
+        .order('sort_order', { ascending: true });
+    if (error) throw error;
+    return data;
+};
+
+const uploadResourceFile = async (programId: string, file: File): Promise<string> => {
+    const fileExtension = file.name.split('.').pop();
+    const fileName = `${uuidv4()}.${fileExtension}`;
+    const filePath = `${programId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from(BUCKET_NAME)
+        .upload(filePath, file);
+
+    if (uploadError) {
+        console.error("File upload error:", uploadError);
+        throw new Error("Failed to upload file to storage.");
+    }
+
+    const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+    return data.publicUrl;
+};
+
+export const createProgramResource = async (resourceData: Omit<ProgramResource, 'id' | 'created_at'>, file?: File): Promise<ProgramResource> => {
+    let resourceToCreate = { ...resourceData };
+
+    if (file) {
+        const fileUrl = await uploadResourceFile(resourceData.program_id, file);
+        resourceToCreate.url = fileUrl;
+    }
+
+    const { data, error } = await supabase.from('program_resources').insert(resourceToCreate).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateProgramResource = async (resourceData: Omit<ProgramResource, 'created_at'>, file?: File): Promise<ProgramResource> => {
+    let resourceToUpdate = { ...resourceData };
+    
+    if (file) {
+        const fileUrl = await uploadResourceFile(resourceData.program_id, file);
+        resourceToUpdate.url = fileUrl;
+    }
+    
+    const { id, ...updateData } = resourceToUpdate;
+
+    const { data, error } = await supabase.from('program_resources').update(updateData).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteProgramResource = async (resource: ProgramResource): Promise<void> => {
+    // Delete from DB first
+    const { error: dbError } = await supabase.from('program_resources').delete().eq('id', resource.id);
+    if (dbError) throw dbError;
+
+    // If it was a file upload (not an external URL), delete from storage
+    const supabaseStorageUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl('').data.publicUrl;
+    if (resource.url.startsWith(supabaseStorageUrl)) {
+        const filePath = resource.url.substring(supabaseStorageUrl.length);
+        const { error: storageError } = await supabase.storage.from(BUCKET_NAME).remove([filePath]);
+        if (storageError) {
+            console.error("Failed to delete from storage, but DB record was removed:", storageError);
+        }
+    }
+};
+
 
 // --- Site Content Management ---
 export const getSiteContent = async (): Promise<SiteContent> => {
     const { data, error } = await supabase.from('asset_settings').select('key, value');
     
-    // Default structure to ensure all keys are present, preventing crashes.
     const defaultContent: SiteContent = {
         logoUrl: '',
         officialSiteUrl: '#',
         heroVideoUrl: {},
-        faqItems: [],
+        faqItems: {},
         campusAddress: '',
         campusHours: ''
     };
@@ -380,15 +455,7 @@ export const getSiteContent = async (): Promise<SiteContent> => {
         return acc;
     }, {} as any);
 
-    const mergedContent = { ...defaultContent, ...fetchedContent };
-
-    // FIX: Ensure faqItems is always an array, even if the DB returns null or another type.
-    // This prevents the Site Content Manager from crashing.
-    if (!Array.isArray(mergedContent.faqItems)) {
-        mergedContent.faqItems = [];
-    }
-    
-    return mergedContent;
+    return { ...defaultContent, ...fetchedContent };
 };
 
 export const updateSiteContent = async (key: keyof SiteContent, value: any): Promise<void> => {

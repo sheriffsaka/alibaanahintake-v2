@@ -6,6 +6,24 @@ export interface Level {
   sortOrder: number;
 }
 
+export enum ResourceType {
+  Book = 'book',
+  Video = 'video',
+  Image = 'image',
+  Document = 'document',
+}
+
+export interface ProgramResource {
+  id: string;
+  program_id: string;
+  resource_type: ResourceType;
+  title: string;
+  description?: string | null;
+  url: string;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface Program {
   id: string;
   name: string;
@@ -15,6 +33,7 @@ export interface Program {
   isArchived: boolean;
   sortOrder: number;
   children?: Program[];
+  resources?: ProgramResource[];
 }
 
 export interface FaqItem {
@@ -26,7 +45,7 @@ export interface SiteContent {
   logoUrl: string;
   officialSiteUrl: string;
   heroVideoUrl: Record<string, string>;
-  faqItems: FaqItem[];
+  faqItems: Record<string, FaqItem[]>;
   campusAddress: string;
   campusHours: string;
 }

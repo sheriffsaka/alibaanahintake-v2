@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react'
 import { Plus, Minus } from 'lucide-react'
 import { useTranslation } from '../../i18n/LanguageContext'
@@ -34,9 +33,9 @@ const FaqItem: React.FC<{
 
 const Faq: React.FC = () => {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const { content } = useSiteContent();
-  const faqData = content?.faqItems || [];
+  const faqData = content?.faqItems?.[language] || content?.faqItems?.['en'] || [];
 
   return (
     <section id="faq" className="py-20 bg-brand-green-dark">
