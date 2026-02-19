@@ -6,7 +6,7 @@ import { Gender } from '../../types';
 import { useSiteContent } from '../../contexts/SiteContentContext';
 
 const Hero: React.FC = () => {
-    const { t } = useTranslation();
+    const { t, language } = useTranslation();
     const { content } = useSiteContent();
     const [isVideoModalOpen, setVideoModalOpen] = useState(false);
 
@@ -15,6 +15,8 @@ const Hero: React.FC = () => {
         { number: 2, text: t('step2') },
         { number: 3, text: t('step3') },
     ];
+
+    const videoUrl = content?.heroVideoUrl?.[language] || content?.heroVideoUrl?.en || '';
 
   return (
     <>
@@ -61,7 +63,6 @@ const Hero: React.FC = () => {
                 <div className="relative group cursor-pointer" onClick={() => setVideoModalOpen(true)}>
                      <div className="absolute inset-0 bg-white/5 rounded-3xl transform -rotate-3 transition-transform duration-300 group-hover:rotate-0"></div>
                      <div className="relative bg-black/10 backdrop-blur-sm p-8 rounded-2xl border border-white/10 space-y-4">
-                        {/* FIX: Swapped `step` and `index` arguments in map function to match the correct (item, index) signature. */}
                         {steps.map((step, index) => (
                             <div
                                 key={step.number}
@@ -99,7 +100,7 @@ const Hero: React.FC = () => {
                 </button>
                 <iframe 
                     className="w-full h-full rounded-lg"
-                    src={content?.heroVideoUrl}
+                    src={videoUrl}
                     title="YouTube video player" 
                     frameBorder="0" 
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 

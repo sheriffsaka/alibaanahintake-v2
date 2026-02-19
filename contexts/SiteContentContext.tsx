@@ -13,7 +13,8 @@ const SiteContentContext = createContext<SiteContentContextType | undefined>(und
 const defaultContent: SiteContent = {
     logoUrl: '',
     officialSiteUrl: '#',
-    heroVideoUrl: '',
+    // FIX: Changed heroVideoUrl from a string to an object to match the SiteContent type.
+    heroVideoUrl: {},
     faqItems: [],
     campusAddress: '',
     campusHours: ''

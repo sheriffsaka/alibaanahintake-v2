@@ -5,12 +5,14 @@ import { getScheduleById } from '../../services/apiService';
 import AlIbaanahLogo from '../landing/AlIbaanahLogo';
 import { MANDATORY_REQUIREMENTS } from '../../constants';
 import { CheckCircle, ListChecks } from 'lucide-react';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 interface AdmissionSlipProps {
   student: Student;
 }
 
 const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
+  const { t, language } = useTranslation();
   const [appointmentTime, setAppointmentTime] = useState('');
   const [slot, setSlot] = useState<any>(null);
 
@@ -37,10 +39,10 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
         </div>
         <div className="text-center sm:text-left mt-4 sm:mt-0 sm:mx-4">
             <h2 className="text-xl font-bold text-brand-green-dark">AL-IBAANAH ARABIC CENTER</h2>
-            <p className="text-sm text-gray-500 tracking-widest">ADMISSION SLIP</p>
+            <p className="text-sm text-gray-500 tracking-widest">{t('admissionSlipTitle')}</p>
         </div>
         <div className="bg-gray-100 rounded-lg p-3 text-center mt-4 sm:mt-0">
-            <p className="text-xs text-gray-500 font-bold">REGISTRATION ID</p>
+            <p className="text-xs text-gray-500 font-bold">{t('registrationIdLabel')}</p>
             <p className="font-mono font-bold text-lg text-red-700">{student.registrationCode.replace('AI-', 'AIB-2026-')}</p>
         </div>
       </header>
@@ -53,30 +55,30 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
                 <AlIbaanahLogo className="h-64 w-auto text-gray-500 opacity-5" />
             </div>
             <div className="relative z-10">
-                <InfoItem label="STUDENT INFORMATION" value={`${student.firstname} ${student.surname}`} valueClass="text-2xl font-bold" />
+                <InfoItem label={t('studentInfoLabel')} value={`${student.firstname} ${student.surname}`} valueClass="text-2xl font-bold" />
                 <p className="text-gray-600 -mt-2">{student.email}</p>
             </div>
             <div className="grid grid-cols-2 gap-6 relative z-10">
-                <InfoItem label="TARGET LEVEL" value={student.level?.name || 'N/A'} valueClass="text-brand-green font-semibold"/>
-                <InfoItem label="INTERNAL GROUP" value="B1" valueClass="text-brand-green font-semibold"/>
+                <InfoItem label={t('targetLevelLabel')} value={student.level?.name || 'N/A'} valueClass="text-brand-green font-semibold"/>
+                <InfoItem label={t('internalGroupLabel')} value="B1" valueClass="text-brand-green font-semibold"/>
             </div>
              <div className="relative z-10">
-                 <InfoItem label="CAMPUS ADDRESS" value="Al-Ibaanah Arabic Centre, Nasr City Branch, Evaluation Dept, Ground Floor, Zone A" />
+                 <InfoItem label={t('campusAddressLabel')} value="Al-Ibaanah Arabic Centre, Nasr City Branch, Evaluation Dept, Ground Floor, Zone A" />
             </div>
         </div>
 
         {/* Right Column: Appointment Card */}
         <div className="bg-brand-green-dark text-white rounded-3xl p-6 flex flex-col items-center text-center h-full">
-            <p className="text-sm font-semibold tracking-widest opacity-80">CONFIRMED APPOINTMENT</p>
+            <p className="text-sm font-semibold tracking-widest opacity-80">{t('confirmedAppointmentLabel')}</p>
             <div className="my-4">
                 <span className="text-7xl font-bold leading-none">{appointmentDate.getDate()}</span>
-                <span className="text-4xl font-semibold ml-2">{appointmentDate.toLocaleDateString('en-US', { month: 'short' })}</span>
+                <span className="text-4xl font-semibold ml-2">{appointmentDate.toLocaleDateString(language, { month: 'short' })}</span>
             </div>
             <p className="text-lg opacity-90">{appointmentTime}</p>
             <div className="bg-white p-2 rounded-lg my-auto">
                 <QRCodeSVG value={student.registrationCode} size={128} level="H" />
             </div>
-            <p className="text-xs opacity-70 mt-2">Valid for evaluation day only</p>
+            <p className="text-xs opacity-70 mt-2">{t('validityNotice')}</p>
         </div>
       </main>
 
@@ -88,7 +90,7 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
         </h3>
         <div className="space-y-6 text-sm">
             <div>
-                <h4 className="font-semibold text-gray-800 mb-2">{MANDATORY_REQUIREMENTS.firstTime.title}</h4>
+                <h4 className="font-semibold text-gray-800 mb-2">{t('firstTimeStudentsTitle')}</h4>
                 <div className="space-y-2">
                     {MANDATORY_REQUIREMENTS.firstTime.items.map((item, index) => (
                         <div key={`first-${index}`} className="bg-gray-50/70 p-3 rounded-lg flex items-start">
@@ -99,7 +101,7 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
                 </div>
             </div>
             <div>
-                <h4 className="font-semibold text-gray-800 mb-2">{MANDATORY_REQUIREMENTS.returning.title}</h4>
+                <h4 className="font-semibold text-gray-800 mb-2">{t('returningStudentsTitle')}</h4>
                 <div className="space-y-2">
                     {MANDATORY_REQUIREMENTS.returning.items.map((item, index) => (
                         <div key={`return-${index}`} className="bg-gray-50/70 p-3 rounded-lg flex items-start">
@@ -110,7 +112,7 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
                 </div>
             </div>
             <div>
-                 <h4 className="font-semibold text-gray-800 mb-2">Additionally:</h4>
+                 <h4 className="font-semibold text-gray-800 mb-2">{t('additionally')}</h4>
                  <div className="space-y-2">
                     {MANDATORY_REQUIREMENTS.additional.map((item, index) => (
                          <div key={`add-${index}`} className="bg-gray-50/70 p-3 rounded-lg flex items-start">
@@ -125,7 +127,7 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
 
       {/* Footer */}
       <footer className="mt-8 text-center text-xs text-gray-400 uppercase tracking-wider">
-        This document is generated by Al-Ibaanah IntakeFlow. Authenticity can be verified at the front desk.
+        {t('slipFooter')}
       </footer>
     </div>
   );

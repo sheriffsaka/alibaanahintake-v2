@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { getSchedules, updateSchedule, createSchedule, deleteSchedule, getLevels } from '../../services/apiService';
-import { AppointmentSlot, Level } from '../../types';
+import { AppointmentSlot, Level, Gender } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Button from '../common/Button';
@@ -55,8 +55,6 @@ const ScheduleManager: React.FC = () => {
 
   const handleOpenModal = (slot?: AppointmentSlot) => {
     if (slot) {
-        // FIX: Destructure the `level` property out to prevent it from being in the editing state
-        // and to avoid the `TypeError` from accessing `slot.level.id` if `slot.level` is null.
         const { level, ...slotForEditing } = slot;
         setEditingSlot(slotForEditing);
     } else {
@@ -67,6 +65,7 @@ const ScheduleManager: React.FC = () => {
             startTime: '09:00',
             endTime: '10:00',
             capacity: 10,
+            gender: Gender.Male,
         });
     }
     setIsModalOpen(true);
@@ -137,6 +136,7 @@ const ScheduleManager: React.FC = () => {
                             <Input label="End Time" name="endTime" type="time" value={editingSlot.endTime} onChange={handleInputChange} />
                         </div>
                         <Select label="Level" name="levelId" value={editingSlot.levelId} onChange={handleInputChange} options={levels.map(l => ({value: l.id, label: l.name}))} />
+                        <Select label="Gender" name="gender" value={editingSlot.gender} onChange={handleInputChange} options={Object.values(Gender).map(g => ({value: g, label: g}))} />
                         <Input label="Capacity" name="capacity" type="number" value={editingSlot.capacity} onChange={handleInputChange} min="0"/>
                     </div>
                     <div className="mt-6 flex justify-end space-x-2">
@@ -154,6 +154,7 @@ const ScheduleManager: React.FC = () => {
               <th className="py-2 px-4 text-left text-sm font-semibold text-gray-600">Date</th>
               <th className="py-2 px-4 text-left text-sm font-semibold text-gray-600">Time</th>
               <th className="py-2 px-4 text-left text-sm font-semibold text-gray-600">Level</th>
+              <th className="py-2 px-4 text-left text-sm font-semibold text-gray-600">Gender</th>
               <th className="py-2 px-4 text-left text-sm font-semibold text-gray-600">Booked</th>
               <th className="py-2 px-4 text-left text-sm font-semibold text-gray-600">Capacity</th>
               <th className="py-2 px-4 text-left text-sm font-semibold text-gray-600">Actions</th>
@@ -165,6 +166,7 @@ const ScheduleManager: React.FC = () => {
                 <td className="py-2 px-4">{slot.date}</td>
                 <td className="py-2 px-4">{slot.startTime} - {slot.endTime}</td>
                 <td className="py-2 px-4">{slot.level?.name || 'N/A'}</td>
+                <td className="py-2 px-4">{slot.gender}</td>
                 <td className="py-2 px-4">{slot.booked}</td>
                 <td className="py-2 px-4">{slot.capacity}</td>
                 <td className="py-2 px-4 flex items-center space-x-2">

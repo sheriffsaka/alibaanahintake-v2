@@ -25,7 +25,7 @@ export interface FaqItem {
 export interface SiteContent {
   logoUrl: string;
   officialSiteUrl: string;
-  heroVideoUrl: string;
+  heroVideoUrl: Record<string, string>;
   faqItems: FaqItem[];
   campusAddress: string;
   campusHours: string;
@@ -70,6 +70,7 @@ export interface AppointmentSlot {
   booked: number;
   level: Level; // Changed from enum to interface
   levelId: string;
+  gender: Gender;
   date: string; // YYYY-MM-DD
 }
 

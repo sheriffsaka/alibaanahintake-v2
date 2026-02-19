@@ -7,11 +7,13 @@ import Button from '../common/Button';
 import Spinner from '../common/Spinner';
 import AdmissionSlip from './AdmissionSlip';
 import { CheckCircle, Download, Printer, Home } from 'lucide-react';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 const ConfirmationPage: React.FC = () => {
   const context = useContext(EnrollmentContext);
   if (!context) throw new Error("Context not found");
-
+  
+  const { t } = useTranslation();
   const { state, dispatch } = context;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ const ConfirmationPage: React.FC = () => {
         const newStudent = await submitRegistration(registrationData);
         dispatch({ type: 'CONFIRM_REGISTRATION', payload: newStudent });
       } catch (err: any) {
-        setError(err.message || "Failed to book appointment. The slot may have been filled. Please go back and try another slot.");
+        setError(t('bookingFailedMessage'));
         console.error(err);
       } finally {
         setLoading(false);
@@ -69,7 +71,7 @@ const ConfirmationPage: React.FC = () => {
   if (loading) {
     return (
       <div className="text-center">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">Confirming your registration...</h2>
+        <h2 className="text-2xl font-semibold text-gray-800 mb-4">{t('confirmingRegistrationTitle')}</h2>
         <Spinner />
       </div>
     );
@@ -78,25 +80,25 @@ const ConfirmationPage: React.FC = () => {
   if (error) {
     return (
       <div className="text-center text-red-600">
-        <h2 className="text-2xl font-semibold mb-4">Booking Failed</h2>
+        <h2 className="text-2xl font-semibold mb-4">{t('bookingFailedTitle')}</h2>
         <p>{error}</p>
         <div className="mt-6">
-            <Button onClick={() => dispatch({ type: 'PREV_STEP' })}>Go Back</Button>
+            <Button onClick={() => dispatch({ type: 'PREV_STEP' })}>{t('goBackButton')}</Button>
         </div>
       </div>
     );
   }
 
   if (!state.confirmedRegistration) {
-    return <div className="text-center">Something went wrong. Please start over.</div>;
+    return <div className="text-center">{t('somethingWentWrong')}</div>;
   }
   
   return (
     <div>
         <div className="text-center mb-8">
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-3xl font-bold text-gray-800">Registration Successful!</h2>
-            <p className="text-gray-600 mt-2">Your appointment is confirmed. Please see your admission slip below.</p>
+            <h2 className="text-3xl font-bold text-gray-800">{t('registrationSuccessTitle')}</h2>
+            <p className="text-gray-600 mt-2">{t('registrationSuccessMessage')}</p>
         </div>
 
         <div id="admission-slip-printable" ref={slipRef} className="bg-white">
@@ -104,9 +106,9 @@ const ConfirmationPage: React.FC = () => {
         </div>
         
         <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <Button onClick={handleDownloadImage} variant="secondary" className="flex items-center"><Download className="h-4 w-4 mr-2"/>Download as Image</Button>
-            <Button onClick={handlePrint} variant="secondary" className="flex items-center"><Printer className="h-4 w-4 mr-2"/>Print / Save PDF</Button>
-            <Button onClick={handleBackToPortal} className="flex items-center"><Home className="h-4 w-4 mr-2"/>Back to Portal</Button>
+            <Button onClick={handleDownloadImage} variant="secondary" className="flex items-center"><Download className="h-4 w-4 mr-2"/>{t('downloadButton')}</Button>
+            <Button onClick={handlePrint} variant="secondary" className="flex items-center"><Printer className="h-4 w-4 mr-2"/>{t('printButton')}</Button>
+            <Button onClick={handleBackToPortal} className="flex items-center"><Home className="h-4 w-4 mr-2"/>{t('backToPortalButton')}</Button>
         </div>
     </div>
   );

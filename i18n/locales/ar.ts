@@ -80,4 +80,55 @@ export default {
     archived: 'مؤرشف',
     toggleArchiveConfirm: 'هل أنت متأكد أنك تريد {action} هذا البرنامج؟',
     saveProgram: 'حفظ البرنامج',
+    
+    // --- Enrollment Flow ---
+    // Form
+    surnameLabel: 'اللقب',
+    firstnameLabel: 'الاسم الأول',
+    othernameLabel: 'اسم آخر (اختياري)',
+    whatsappLabel: 'رقم واتساب',
+    emailLabel: 'البريد الإلكتروني',
+    genderLabel: 'الجنس',
+    addressLabel: 'العنوان في مصر',
+    levelLabel: 'المستوى المسجل له',
+    nextButton: 'التالي: حجز موعد',
+
+    // Slot Picker
+    slotPickerTitle: 'الخطوة 2: اختر موعدًا',
+    levelLabelSlot: 'المستوى',
+    dateSelectPrompt: 'اختر تاريخًا متاحًا:',
+    noDatesAvailable: 'لا توجد تواريخ متاحة لهذا المستوى.',
+    slotsForDateTitle: 'المواعيد المتاحة لـ: {date}',
+    noSlotsAvailable: 'لا توجد مواعيد متاحة في التاريخ المحدد.',
+    bookedStatus: '{booked} / {capacity} محجوز',
+    fullStatus: 'ممتلئ',
+    backButton: 'رجوع',
+    confirmButton: 'تأكيد والمتابعة',
+
+    // Confirmation Page
+    confirmingRegistrationTitle: 'جارٍ تأكيد تسجيلك...',
+    bookingFailedTitle: 'فشل الحجز',
+    bookingFailedMessage: 'فشل حجز الموعد. قد يكون الموعد قد امتلأ. يرجى الرجوع وتجربة موعد آخر.',
+    goBackButton: 'العودة',
+    registrationSuccessTitle: 'تم التسجيل بنجاح!',
+    registrationSuccessMessage: 'تم تأكيد موعدك. يرجى الاطلاع على قسيمة القبول أدناه.',
+    downloadButton: 'تحميل كصورة',
+    printButton: 'طباعة / حفظ PDF',
+    backToPortalButton: 'العودة إلى البوابة',
+    somethingWentWrong: 'حدث خطأ ما. يرجى البدء من جديد.',
+
+    // Admission Slip
+    admissionSlipTitle: 'قسيمة القبول',
+    registrationIdLabel: 'رقم التسجيل',
+    studentInfoLabel: 'بيانات الطالب',
+    targetLevelLabel: 'المستوى المستهدف',
+    internalGroupLabel: 'المجموعة الداخلية',
+    campusAddressLabel: 'عنوان الحرم الجامعي',
+    confirmedAppointmentLabel: 'الموعد المؤكد',
+    validityNotice: 'صالح ليوم التقييم فقط',
+    mandatoryReqsTitle: 'المستندات المطلوبة للفحص',
+    firstTimeStudentsTitle: 'أ. يجب على الطلاب الجدد تقديم:',
+    returningStudentsTitle: 'ب. يجب على الطلاب المستمرين/العائدين تقديم:',
+    additionally: 'بالإضافة إلى ذلك:',
+    slipFooter: 'تم إنشاء هذا المستند بواسطة IntakeFlow الخاص بالإبانة. يمكن التحقق من صحته في مكتب الاستقبال.',
 };

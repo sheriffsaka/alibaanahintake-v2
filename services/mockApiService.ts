@@ -26,7 +26,8 @@ let adminUsers: AdminUser[] = [
 let siteContent: SiteContent = {
     logoUrl: "https://res.cloudinary.com/di7okmjsx/image/upload/v1772398555/Al-Ibaanah_Vertical_Logo_pf389m.svg",
     officialSiteUrl: "https://ibaanah.com/",
-    heroVideoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    // FIX: Changed heroVideoUrl from a string to a Record<string, string> to match the SiteContent type, supporting different URLs per language.
+    heroVideoUrl: { en: "https://www.youtube.com/embed/dQw4w9WgXcQ" },
     faqItems: [
         { question: "Do I need to register on the main site first?", answer: "Yes, the first step is always to complete the main registration on the official Al-Ibaanah website. This portal is for booking your mandatory on-campus assessment slot after you have registered." },
         { question: "What happens during the assessment?", answer: "The on-campus assessment is a friendly meeting with one of our instructors to gauge your current Arabic language proficiency. This helps us place you in the perfect level to ensure your success." }
@@ -54,13 +55,16 @@ const generateMockData = () => {
     return date.toISOString().split('T')[0];
   });
   const times = [ { start: '09:00', end: '10:00' }, { start: '10:00', end: '11:00' }];
-  dates.forEach(date => levels.forEach(level => times.forEach(time => {
+  const genders = [Gender.Male, Gender.Female];
+  // FIX: Added a loop for genders and included the 'gender' property to match the AppointmentSlot type.
+  dates.forEach(date => levels.forEach(level => times.forEach(time => genders.forEach(gender => {
     const capacity = Math.floor(Math.random() * 5) + 5;
     appointmentSlots.push({
       id: uuidv4(), date, level, levelId: level.id, startTime: time.start, endTime: time.end, capacity,
       booked: Math.floor(Math.random() * capacity),
+      gender: gender,
     });
-  })));
+  }))));
 };
 generateMockData();
 

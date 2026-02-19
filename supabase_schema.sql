@@ -47,11 +47,14 @@ BEGIN
             ADD CONSTRAINT appointment_slots_level_id_fkey 
             FOREIGN KEY (level_id) REFERENCES public.levels(id) ON DELETE RESTRICT;
     END IF;
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.appointment_slots'::regclass AND attname = 'gender') THEN
+        ALTER TABLE public.appointment_slots ADD COLUMN gender gender_enum;
+    END IF;
 END;
 $$;
 
 
--- 4. Create the students table, referencing `levels`.
+-- 4. Create the students table.
 CREATE TABLE IF NOT EXISTS public.students (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     surname TEXT NOT NULL,
@@ -61,7 +64,6 @@ CREATE TABLE IF NOT EXISTS public.students (
     email TEXT NOT NULL,
     gender gender_enum NOT NULL,
     address TEXT NOT NULL,
-    level_id UUID NOT NULL REFERENCES public.levels(id) ON DELETE RESTRICT,
     intake_date DATE NOT NULL,
     registration_code TEXT NOT NULL UNIQUE,
     appointment_slot_id UUID NOT NULL,
@@ -178,16 +180,16 @@ COMMENT ON TABLE public.asset_settings IS 'Stores dynamic site content like logo
 INSERT INTO public.asset_settings (key, value) VALUES
 ('logoUrl', '"https://res.cloudinary.com/di7okmjsx/image/upload/v1772398555/Al-Ibaanah_Vertical_Logo_pf389m.svg"'),
 ('officialSiteUrl', '"https://ibaanah.com/"'),
-('heroVideoUrl', '"https://www.youtube.com/embed/dQw4w9WgXcQ"'),
+('heroVideoUrl', '{"en": "https://www.youtube.com/embed/dQw4w9WgXcQ", "ar": "https://www.youtube.com/embed/CenZeeJ3m_4", "fr": "https://www.youtube.com/embed/s2qg2x-NYyE"}'),
 ('faqItems', '[{"question": "Do I need to register on the main site first?", "answer": "Yes, the first step is always to complete the main registration on the official Al-Ibaanah website. This portal is for booking your mandatory on-campus assessment slot after you have registered."}, {"question": "What happens during the assessment?", "answer": "The on-campus assessment is a friendly meeting with one of our instructors to gauge your current Arabic language proficiency. This helps us place you in the perfect level to ensure your success."}, {"question": "Can I reschedule my slot?", "answer": "Once a slot is booked, it is confirmed. If you have an emergency and need to reschedule, please contact our administration office directly at least 48 hours before your appointment."}]'),
 ('campusAddress', '"Block 12, Rd 18, Nasr City, Cairo, Egypt"'),
 ('campusHours', '"Sunday - Thursday, 9:00 AM - 2:00 PM"')
-ON CONFLICT (key) DO NOTHING;
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 
 -- 8. Create a view for available slots to simplify client-side queries.
 CREATE OR REPLACE VIEW public.available_appointment_slots AS
-  SELECT id, start_time, end_time, capacity, booked, level_id, date
+  SELECT id, start_time, end_time, capacity, booked, level_id, gender, date
   FROM public.appointment_slots
   WHERE date >= CURRENT_DATE AND booked < capacity;
 
@@ -247,7 +249,11 @@ GRANT SELECT ON public.available_appointment_slots TO authenticated;
 
 -- Policies for students
 DROP POLICY IF EXISTS "Allow admin read access to students" ON public.students;
-CREATE POLICY "Allow admin read access to students" ON public.students FOR SELECT USING (get_my_role() IS NOT NULL);
+CREATE POLICY "Allow admin read access to students" ON public.students FOR SELECT USING (
+    (get_my_role() = 'Super Admin') OR
+    (get_my_role() IN ('male_section_Admin', 'male_Front Desk') AND gender = 'Male') OR
+    (get_my_role() IN ('female_section_Admin', 'female_Front Desk') AND gender = 'Female')
+);
 DROP POLICY IF EXISTS "Allow front desk to update status" ON public.students;
 CREATE POLICY "Allow front desk to update status" ON public.students FOR UPDATE USING (get_my_role() IN ('Super Admin', 'male_Front Desk', 'female_Front Desk')) WITH CHECK (get_my_role() IN ('Super Admin', 'male_Front Desk', 'female_Front Desk'));
 
@@ -353,18 +359,27 @@ CREATE OR REPLACE FUNCTION get_dashboard_statistics()
 RETURNS JSONB
 LANGUAGE plpgsql STABLE SECURITY DEFINER AS $$
 DECLARE
+    user_role role_enum;
+    gender_filter gender_enum;
     total_registered BIGINT;
     today_expected BIGINT;
     checked_in BIGINT;
     breakdown JSONB;
     utilization JSONB;
 BEGIN
-    SELECT count(*) INTO total_registered FROM public.students;
+    user_role := get_my_role();
+    IF user_role IN ('male_section_Admin', 'male_Front Desk') THEN
+        gender_filter := 'Male';
+    ELSIF user_role IN ('female_section_Admin', 'female_Front Desk') THEN
+        gender_filter := 'Female';
+    END IF;
+
+    SELECT count(*) INTO total_registered FROM public.students WHERE (gender = gender_filter OR gender_filter IS NULL);
 
     SELECT count(*), count(*) FILTER (WHERE status = 'checked-in')
     INTO today_expected, checked_in
     FROM public.students
-    WHERE intake_date = CURRENT_DATE;
+    WHERE intake_date = CURRENT_DATE AND (gender = gender_filter OR gender_filter IS NULL);
 
     -- Breakdown by level: Show all active levels, even if they have 0 students.
     SELECT COALESCE(jsonb_agg(level_breakdown), '[]'::jsonb)
@@ -374,7 +389,7 @@ BEGIN
             l.name,
             COUNT(s.id) AS value
         FROM public.levels l
-        LEFT JOIN public.students s ON s.level_id = l.id
+        LEFT JOIN public.students s ON s.level_id = l.id AND (s.gender = gender_filter OR gender_filter IS NULL)
         WHERE l.is_active = true
         GROUP BY l.id, l.name, l.sort_order
         ORDER BY l.sort_order
@@ -387,7 +402,7 @@ BEGIN
             booked,
             capacity
         FROM public.appointment_slots
-        WHERE date >= CURRENT_DATE
+        WHERE date >= CURRENT_DATE AND (gender = gender_filter OR gender_filter IS NULL)
         ORDER BY date, start_time
         LIMIT 10
     ) AS slots;
@@ -405,17 +420,30 @@ $$;
 -- Function to search students by a single query term across multiple fields
 CREATE OR REPLACE FUNCTION search_students(search_term TEXT)
 RETURNS SETOF students AS $$
+DECLARE
+    user_role role_enum;
+    gender_filter gender_enum;
 BEGIN
+    user_role := get_my_role();
+    IF user_role IN ('male_section_Admin', 'male_Front Desk') THEN
+        gender_filter := 'Male';
+    ELSIF user_role IN ('female_section_Admin', 'female_Front Desk') THEN
+        gender_filter := 'Female';
+    END IF;
+
     RETURN QUERY
     SELECT *
     FROM public.students
     WHERE
-        search_term IS NULL OR search_term = '' OR
-        (firstname || ' ' || surname) ILIKE ('%' || search_term || '%') OR
-        (surname || ' ' || firstname) ILIKE ('%' || search_term || '%') OR
-        email ILIKE ('%' || search_term || '%') OR
-        whatsapp ILIKE ('%' || search_term || '%') OR
-        registration_code ILIKE ('%' || search_term || '%');
+        (gender = gender_filter OR gender_filter IS NULL) AND
+        (
+            search_term IS NULL OR search_term = '' OR
+            (firstname || ' ' || surname) ILIKE ('%' || search_term || '%') OR
+            (surname || ' ' || firstname) ILIKE ('%' || search_term || '%') OR
+            email ILIKE ('%' || search_term || '%') OR
+            whatsapp ILIKE ('%' || search_term || '%') OR
+            registration_code ILIKE ('%' || search_term || '%')
+        );
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 

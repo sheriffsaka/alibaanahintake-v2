@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { Student, AppointmentSlot, Level, AdminUser, Role, NotificationSettings, AppSettings, Program, SiteContent } from '../types';
+import { Student, AppointmentSlot, Level, AdminUser, Role, NotificationSettings, AppSettings, Program, SiteContent, Gender } from '../types';
 
 // Helper function to convert student data from snake_case to camelCase
 const studentFromSupabase = (s: any): Student => ({
@@ -28,6 +28,7 @@ const slotFromSupabase = (d: any): AppointmentSlot => ({
     booked: d.booked,
     level: d.levels, // Joined table data
     levelId: d.level_id,
+    gender: d.gender,
     date: d.date,
 });
 
@@ -59,14 +60,15 @@ export const getAdminUserProfile = async (userId: string): Promise<AdminUser | n
 
 
 // --- Student Public API ---
-export const getAvailableDatesForLevel = async(levelId: string): Promise<string[]> => {
+export const getAvailableDatesForLevel = async(levelId: string, gender: Gender): Promise<string[]> => {
     const settings = await getAppSettings();
     if (!settings.registrationOpen) return [];
     
     const { data, error } = await supabase
         .from('available_appointment_slots')
         .select('date')
-        .eq('level_id', levelId);
+        .eq('level_id', levelId)
+        .eq('gender', gender);
 
     if (error) {
         console.error('Error fetching available dates:', error);
@@ -81,12 +83,13 @@ export const getAvailableDatesForLevel = async(levelId: string): Promise<string[
 }
 
 
-export const getAvailableSlots = async (date: string, levelId: string): Promise<AppointmentSlot[]> => {
+export const getAvailableSlots = async (date: string, levelId: string, gender: Gender): Promise<AppointmentSlot[]> => {
     const { data, error } = await supabase
         .from('appointment_slots')
         .select('*, levels(name)')
         .eq('date', date)
-        .eq('level_id', levelId);
+        .eq('level_id', levelId)
+        .eq('gender', gender);
 
     if (error) {
         console.error('Error fetching slots:', error);
@@ -235,15 +238,15 @@ export const getScheduleById = async (slotId: string): Promise<AppointmentSlot |
 };
 
 export const createSchedule = async(slot: Omit<AppointmentSlot, 'id' | 'booked' | 'level'>): Promise<AppointmentSlot> => {
-    const { startTime, endTime, levelId, ...rest } = slot;
-    const { data, error } = await supabase.from('appointment_slots').insert({ ...rest, start_time: startTime, end_time: endTime, level_id: levelId }).select('*, levels(id, name)').single();
+    const { startTime, endTime, levelId, gender, ...rest } = slot;
+    const { data, error } = await supabase.from('appointment_slots').insert({ ...rest, start_time: startTime, end_time: endTime, level_id: levelId, gender }).select('*, levels(id, name)').single();
     if (error) throw error;
     return slotFromSupabase(data);
 };
 
 export const updateSchedule = async(slot: Omit<AppointmentSlot, 'level'>): Promise<AppointmentSlot> => {
-    const { startTime, endTime, levelId, ...rest } = slot;
-    const { data, error } = await supabase.from('appointment_slots').update({ ...rest, start_time: startTime, end_time: endTime, level_id: levelId }).eq('id', slot.id).select('*, levels(id, name)').single();
+    const { startTime, endTime, levelId, gender, ...rest } = slot;
+    const { data, error } = await supabase.from('appointment_slots').update({ ...rest, start_time: startTime, end_time: endTime, level_id: levelId, gender }).eq('id', slot.id).select('*, levels(id, name)').single();
     if (error) throw error;
     return slotFromSupabase(data);
 };
@@ -357,7 +360,7 @@ export const getSiteContent = async (): Promise<SiteContent> => {
     const defaultContent: SiteContent = {
         logoUrl: '',
         officialSiteUrl: '#',
-        heroVideoUrl: '',
+        heroVideoUrl: {},
         faqItems: [],
         campusAddress: '',
         campusHours: ''

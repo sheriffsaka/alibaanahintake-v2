@@ -5,12 +5,16 @@ import { AppointmentSlot } from '../../types';
 import Button from '../common/Button';
 import Spinner from '../common/Spinner';
 import { Clock, Users, Calendar } from 'lucide-react';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 const SlotPicker: React.FC = () => {
   const context = useContext(EnrollmentContext);
   if (!context) throw new Error("Context not found");
-
+  
+  const { t } = useTranslation();
   const { state, dispatch } = context;
+  const { levelId, gender } = state.formData;
+
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [slots, setSlots] = useState<AppointmentSlot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,22 +25,22 @@ const SlotPicker: React.FC = () => {
 
   useEffect(() => {
     const fetchLevelInfo = async () => {
-        if (!state.formData.levelId) return;
+        if (!levelId) return;
         const allLevels = await getLevels(true);
-        const currentLevel = allLevels.find(l => l.id === state.formData.levelId);
+        const currentLevel = allLevels.find(l => l.id === levelId);
         if (currentLevel) {
             setLevelName(currentLevel.name);
         }
     };
     fetchLevelInfo();
-  }, [state.formData.levelId]);
+  }, [levelId]);
 
   useEffect(() => {
-    if (!state.formData.levelId) return;
+    if (!levelId || !gender) return;
     const fetchDates = async () => {
       setLoading(true);
       try {
-        const dates = await getAvailableDatesForLevel(state.formData.levelId);
+        const dates = await getAvailableDatesForLevel(levelId, gender);
         setAvailableDates(dates);
       } catch (error) {
         console.error("Failed to fetch dates", error);
@@ -45,16 +49,16 @@ const SlotPicker: React.FC = () => {
       }
     };
     fetchDates();
-  }, [state.formData.levelId]);
+  }, [levelId, gender]);
 
   useEffect(() => {
-    if (!selectedDate || !state.formData.levelId) return;
+    if (!selectedDate || !levelId || !gender) return;
 
     const fetchSlots = async () => {
       setLoadingSlots(true);
       setSelectedSlotId(null);
       try {
-        const availableSlots = await getAvailableSlots(selectedDate, state.formData.levelId);
+        const availableSlots = await getAvailableSlots(selectedDate, levelId, gender);
         setSlots(availableSlots);
       } catch (error) {
         console.error("Failed to fetch slots", error);
@@ -63,7 +67,7 @@ const SlotPicker: React.FC = () => {
       }
     };
     fetchSlots();
-  }, [selectedDate, state.formData.levelId]);
+  }, [selectedDate, levelId, gender]);
 
   const handleConfirm = () => {
       if (selectedSlotId) {
@@ -80,14 +84,14 @@ const SlotPicker: React.FC = () => {
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Step 2: Select an Appointment Slot</h2>
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4">{t('slotPickerTitle')}</h2>
       <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm">
-        <p><strong>Level:</strong> {levelName}</p>
+        <p><strong>{t('levelLabelSlot')}:</strong> {levelName}</p>
       </div>
 
       {/* Date Picker */}
       <div className="mb-6">
-        <h3 className="font-semibold text-gray-700 mb-2 flex items-center"><Calendar className="h-5 w-5 mr-2" />Select an available date:</h3>
+        <h3 className="font-semibold text-gray-700 mb-2 flex items-center"><Calendar className="h-5 w-5 mr-2" />{t('dateSelectPrompt')}</h3>
         {loading ? <Spinner/> : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {availableDates.length > 0 ? availableDates.map(date => (
@@ -98,7 +102,7 @@ const SlotPicker: React.FC = () => {
                 >
                     {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
                 </button>
-            )) : <p className="col-span-full text-center text-gray-600">No available dates for this level.</p>}
+            )) : <p className="col-span-full text-center text-gray-600">{t('noDatesAvailable')}</p>}
             </div>
         )}
       </div>
@@ -106,7 +110,7 @@ const SlotPicker: React.FC = () => {
       {/* Slot Picker */}
       {selectedDate && (
         <div>
-            <h3 className="font-semibold text-gray-700 mb-3">Available slots for: <span className="text-blue-700 font-bold">{formatDate(selectedDate)}</span></h3>
+            <h3 className="font-semibold text-gray-700 mb-3">{t('slotsForDateTitle', { date: formatDate(selectedDate)})}</h3>
             {loadingSlots ? (
             <Spinner />
             ) : (
@@ -141,9 +145,9 @@ const SlotPicker: React.FC = () => {
                             <div className="flex justify-between items-center text-sm mb-1">
                                 <span className="flex items-center">
                                     <Users className={`h-4 w-4 mr-1.5 ${isFull ? 'text-red-500' : 'text-gray-600'}`} />
-                                    {slot.booked} / {slot.capacity} Booked
+                                    {t('bookedStatus', { booked: String(slot.booked), capacity: String(slot.capacity)})}
                                 </span>
-                                {isFull && <span className="text-xs font-bold text-red-600 uppercase">FULL</span>}
+                                {isFull && <span className="text-xs font-bold text-red-600 uppercase">{t('fullStatus')}</span>}
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-2">
                                 <div 
@@ -155,15 +159,15 @@ const SlotPicker: React.FC = () => {
                     </div>
                   </button>
                 )
-              }) : <p className="text-center text-gray-600">No available slots for the selected date.</p>}
+              }) : <p className="text-center text-gray-600">{t('noSlotsAvailable')}</p>}
             </div>
           )}
         </div>
       )}
 
       <div className="pt-6 flex justify-between">
-          <Button variant="secondary" onClick={() => dispatch({type: 'PREV_STEP'})}>Back</Button>
-          <Button onClick={handleConfirm} disabled={!selectedSlotId || loading || loadingSlots}>Confirm and Proceed</Button>
+          <Button variant="secondary" onClick={() => dispatch({type: 'PREV_STEP'})}>{t('backButton')}</Button>
+          <Button onClick={handleConfirm} disabled={!selectedSlotId || loading || loadingSlots}>{t('confirmButton')}</Button>
       </div>
     </div>
   );
