@@ -47,4 +47,37 @@ export default {
 
     // Footer
     copyright: 'Al-Ibaanah 学院。版权所有。',
+
+    // --- Admin ---
+    // General
+    status: '状态',
+    actions: '操作',
+    active: '活跃',
+    inactive: '不活跃',
+    cancel: '取消',
+    edit: '编辑',
+    name: '名称',
+    sortOrder: '排序顺序',
+
+    // Level Manager
+    levelManagerTitle: '学术水平管理',
+    createNewLevel: '创建新水平',
+    editLevel: '编辑水平',
+    levelName: '水平名称',
+    saveLevel: '保存水平',
+    deleteLevelConfirm: '您确定要删除此级别吗？如果当前有学生或课程表分配给它，此操作可能会失败。',
+
+    // Program Manager
+    programManagerTitle: '项目管理',
+    createNewProgram: '创建新项目',
+    editProgram: '编辑项目',
+    programName: '项目名称',
+    description: '描述',
+    parentProgram: '父项目（可选）',
+    parentProgramNone: '无（顶级项目）',
+    archive: '存档',
+    unarchive: '取消存档',
+    archived: '已存档',
+    toggleArchiveConfirm: '您确定要对此项目执行 {action} 操作吗？',
+    saveProgram: '保存项目',
 };

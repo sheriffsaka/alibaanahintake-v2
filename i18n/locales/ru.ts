@@ -47,4 +47,37 @@ export default {
 
     // Footer
     copyright: 'Институт Al-Ibaanah. Все права защищены.',
+
+    // --- Admin ---
+    // General
+    status: 'Статус',
+    actions: 'Действия',
+    active: 'Активен',
+    inactive: 'Неактивен',
+    cancel: 'Отмена',
+    edit: 'Редактировать',
+    name: 'Название',
+    sortOrder: 'Порядок сортировки',
+
+    // Level Manager
+    levelManagerTitle: 'Управление академическими уровнями',
+    createNewLevel: 'Создать новый уровень',
+    editLevel: 'Редактировать уровень',
+    levelName: 'Название уровня',
+    saveLevel: 'Сохранить уровень',
+    deleteLevelConfirm: 'Вы уверены, что хотите удалить этот уровень? Это может не получиться, если за ним закреплены студенты или расписания.',
+
+    // Program Manager
+    programManagerTitle: 'Управление программами',
+    createNewProgram: 'Создать новую программу',
+    editProgram: 'Редактировать программу',
+    programName: 'Название программы',
+    description: 'Описание',
+    parentProgram: 'Родительская программа (необязательно)',
+    parentProgramNone: 'Нет (Программа верхнего уровня)',
+    archive: 'Архивировать',
+    unarchive: 'Разархивировать',
+    archived: 'В АРХИВЕ',
+    toggleArchiveConfirm: 'Вы уверены, что хотите {action} эту программу?',
+    saveProgram: 'Сохранить программу',
 };

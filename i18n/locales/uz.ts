@@ -47,4 +47,37 @@ export default {
 
     // Footer
     copyright: 'Al-Ibaanah instituti. Barcha huquqlar himoyalangan.',
+
+    // --- Admin ---
+    // General
+    status: 'Holat',
+    actions: 'Harakatlar',
+    active: 'Faol',
+    inactive: 'Faol emas',
+    cancel: 'Bekor qilish',
+    edit: 'Tahrirlash',
+    name: 'Nomi',
+    sortOrder: 'Saralash tartibi',
+
+    // Level Manager
+    levelManagerTitle: 'Akademik darajalarni boshqarish',
+    createNewLevel: 'Yangi daraja yaratish',
+    editLevel: 'Darajani tahrirlash',
+    levelName: 'Daraja nomi',
+    saveLevel: 'Darajani saqlash',
+    deleteLevelConfirm: 'Haqiqatan ham bu darajani oʻchirib tashlamoqchimisiz? Agar unga talabalar yoki jadvallar biriktirilgan boʻlsa, bu amal bajarilmasligi mumkin.',
+
+    // Program Manager
+    programManagerTitle: 'Dasturlarni boshqarish',
+    createNewProgram: 'Yangi dastur yaratish',
+    editProgram: 'Dasturni tahrirlash',
+    programName: 'Dastur nomi',
+    description: 'Tavsif',
+    parentProgram: 'Asosiy dastur (ixtiyoriy)',
+    parentProgramNone: 'Yoʻq (yuqori darajali dastur)',
+    archive: 'Arxivlash',
+    unarchive: 'Arxivdan chiqarish',
+    archived: 'ARXIVLANGAN',
+    toggleArchiveConfirm: 'Haqiqatan ham ushbu dasturni {action} qilmoqchimisiz?',
+    saveProgram: 'Dasturni saqlash',
 };

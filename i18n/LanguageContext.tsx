@@ -6,7 +6,7 @@ type Language = keyof typeof translations;
 interface LanguageContextType {
   language: Language;
   changeLanguage: (lang: Language) => void;
-  t: (key: keyof Translation) => string;
+  t: (key: keyof Translation, replacements?: Record<string, string>) => string;
   dir: 'ltr' | 'rtl';
 }
 
@@ -28,8 +28,14 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     setLanguage(lang);
   };
 
-  const t = (key: keyof Translation): string => {
-    return translations[language][key] || translations['en'][key];
+  const t = (key: keyof Translation, replacements?: Record<string, string>): string => {
+    let translation = translations[language][key] || translations['en'][key];
+    if (translation && replacements) {
+        Object.keys(replacements).forEach(rKey => {
+            translation = translation.replace(new RegExp(`\\{${rKey}\\}`, 'g'), replacements[rKey]);
+        });
+    }
+    return translation;
   };
 
   return (

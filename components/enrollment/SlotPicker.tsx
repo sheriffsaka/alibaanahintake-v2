@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { EnrollmentContext } from '../../contexts/EnrollmentContext';
-import { getAvailableSlots, getAvailableDatesForLevel } from '../../services/apiService';
+import { getAvailableSlots, getAvailableDatesForLevel, getLevels } from '../../services/apiService';
 import { AppointmentSlot } from '../../types';
 import Button from '../common/Button';
 import Spinner from '../common/Spinner';
@@ -14,8 +14,22 @@ const SlotPicker: React.FC = () => {
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [slots, setSlots] = useState<AppointmentSlot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [levelName, setLevelName] = useState('...loading');
+
+  useEffect(() => {
+    const fetchLevelInfo = async () => {
+        if (!state.formData.levelId) return;
+        const allLevels = await getLevels(true);
+        const currentLevel = allLevels.find(l => l.id === state.formData.levelId);
+        if (currentLevel) {
+            setLevelName(currentLevel.name);
+        }
+    };
+    fetchLevelInfo();
+  }, [state.formData.levelId]);
 
   useEffect(() => {
     if (!state.formData.levelId) return;
@@ -37,7 +51,7 @@ const SlotPicker: React.FC = () => {
     if (!selectedDate || !state.formData.levelId) return;
 
     const fetchSlots = async () => {
-      setLoading(true);
+      setLoadingSlots(true);
       setSelectedSlotId(null);
       try {
         const availableSlots = await getAvailableSlots(selectedDate, state.formData.levelId);
@@ -45,7 +59,7 @@ const SlotPicker: React.FC = () => {
       } catch (error) {
         console.error("Failed to fetch slots", error);
       } finally {
-        setLoading(false);
+        setLoadingSlots(false);
       }
     };
     fetchSlots();
@@ -68,13 +82,13 @@ const SlotPicker: React.FC = () => {
     <div>
       <h2 className="text-2xl font-semibold text-gray-800 mb-4">Step 2: Select an Appointment Slot</h2>
       <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm">
-        <p><strong>Level:</strong> {slots.find(s => s.id === selectedSlotId)?.level.name || '...loading'}</p>
+        <p><strong>Level:</strong> {levelName}</p>
       </div>
 
       {/* Date Picker */}
       <div className="mb-6">
         <h3 className="font-semibold text-gray-700 mb-2 flex items-center"><Calendar className="h-5 w-5 mr-2" />Select an available date:</h3>
-        {loading && !selectedDate ? <Spinner/> : (
+        {loading ? <Spinner/> : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {availableDates.length > 0 ? availableDates.map(date => (
                 <button
@@ -93,7 +107,7 @@ const SlotPicker: React.FC = () => {
       {selectedDate && (
         <div>
             <h3 className="font-semibold text-gray-700 mb-3">Available slots for: <span className="text-blue-700 font-bold">{formatDate(selectedDate)}</span></h3>
-            {loading ? (
+            {loadingSlots ? (
             <Spinner />
             ) : (
             <div className="space-y-3">
@@ -149,7 +163,7 @@ const SlotPicker: React.FC = () => {
 
       <div className="pt-6 flex justify-between">
           <Button variant="secondary" onClick={() => dispatch({type: 'PREV_STEP'})}>Back</Button>
-          <Button onClick={handleConfirm} disabled={!selectedSlotId || loading}>Confirm and Proceed</Button>
+          <Button onClick={handleConfirm} disabled={!selectedSlotId || loading || loadingSlots}>Confirm and Proceed</Button>
       </div>
     </div>
   );

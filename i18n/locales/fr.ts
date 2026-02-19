@@ -47,4 +47,37 @@ export default {
 
     // Footer
     copyright: 'Institut Al-Ibaanah. Tous droits réservés.',
+
+    // --- Admin ---
+    // General
+    status: 'Statut',
+    actions: 'Actions',
+    active: 'Actif',
+    inactive: 'Inactif',
+    cancel: 'Annuler',
+    edit: 'Modifier',
+    name: 'Nom',
+    sortOrder: 'Ordre de tri',
+
+    // Level Manager
+    levelManagerTitle: 'Gestion des niveaux académiques',
+    createNewLevel: 'Créer un nouveau niveau',
+    editLevel: 'Modifier le niveau',
+    levelName: 'Nom du niveau',
+    saveLevel: 'Enregistrer le niveau',
+    deleteLevelConfirm: 'Êtes-vous sûr de vouloir supprimer ce niveau ? Cette action pourrait échouer si des étudiants ou des horaires y sont actuellement assignés.',
+
+    // Program Manager
+    programManagerTitle: 'Gestion des programmes',
+    createNewProgram: 'Créer un nouveau programme',
+    editProgram: 'Modifier le programme',
+    programName: 'Nom du programme',
+    description: 'Description',
+    parentProgram: 'Programme parent (optionnel)',
+    parentProgramNone: 'Aucun (Programme de haut niveau)',
+    archive: 'Archiver',
+    unarchive: 'Désarchiver',
+    archived: 'ARCHIVÉ',
+    toggleArchiveConfirm: 'Êtes-vous sûr de vouloir {action} ce programme ?',
+    saveProgram: 'Enregistrer le programme',
 };

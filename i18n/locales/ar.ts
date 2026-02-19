@@ -47,4 +47,37 @@ export default {
 
     // Footer
     copyright: 'معهد الإبانة. جميع الحقوق محفوظة.',
+
+    // --- Admin ---
+    // General
+    status: 'الحالة',
+    actions: 'الإجراءات',
+    active: 'نشط',
+    inactive: 'غير نشط',
+    cancel: 'إلغاء',
+    edit: 'تعديل',
+    name: 'الاسم',
+    sortOrder: 'ترتيب الفرز',
+
+    // Level Manager
+    levelManagerTitle: 'إدارة المستويات الأكاديمية',
+    createNewLevel: 'إنشاء مستوى جديد',
+    editLevel: 'تعديل المستوى',
+    levelName: 'اسم المستوى',
+    saveLevel: 'حفظ المستوى',
+    deleteLevelConfirm: 'هل أنت متأكد أنك تريد حذف هذا المستوى؟ قد تفشل العملية إذا كان هناك طلاب أو جداول مرتبطة به.',
+
+    // Program Manager
+    programManagerTitle: 'إدارة البرامج',
+    createNewProgram: 'إنشاء برنامج جديد',
+    editProgram: 'تعديل البرنامج',
+    programName: 'اسم البرنامج',
+    description: 'الوصف',
+    parentProgram: 'البرنامج الرئيسي (اختياري)',
+    parentProgramNone: 'لا يوجد (برنامج مستوى أعلى)',
+    archive: 'أرشفة',
+    unarchive: 'إلغاء الأرشفة',
+    archived: 'مؤرشف',
+    toggleArchiveConfirm: 'هل أنت متأكد أنك تريد {action} هذا البرنامج؟',
+    saveProgram: 'حفظ البرنامج',
 };

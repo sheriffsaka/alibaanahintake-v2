@@ -47,4 +47,37 @@ export default {
 
     // Footer
     copyright: 'Al-Ibaanah Institute. All Rights Reserved.',
+
+    // --- Admin ---
+    // General
+    status: 'Status',
+    actions: 'Actions',
+    active: 'Active',
+    inactive: 'Inactive',
+    cancel: 'Cancel',
+    edit: 'Edit',
+    name: 'Name',
+    sortOrder: 'Sort Order',
+
+    // Level Manager
+    levelManagerTitle: 'Academic Level Management',
+    createNewLevel: 'Create New Level',
+    editLevel: 'Edit Level',
+    levelName: 'Level Name',
+    saveLevel: 'Save Level',
+    deleteLevelConfirm: 'Are you sure you want to delete this level? This may fail if students or schedules are currently assigned to it.',
+    
+    // Program Manager
+    programManagerTitle: 'Program Management',
+    createNewProgram: 'Create New Program',
+    editProgram: 'Edit Program',
+    programName: 'Program Name',
+    description: 'Description',
+    parentProgram: 'Parent Program (optional)',
+    parentProgramNone: 'None (Top-Level Program)',
+    archive: 'Archive',
+    unarchive: 'Unarchive',
+    archived: 'ARCHIVED',
+    toggleArchiveConfirm: 'Are you sure you want to {action} this program?',
+    saveProgram: 'Save Program',
 };
