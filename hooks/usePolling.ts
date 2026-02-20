@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from 'react';
 
 /**
@@ -7,10 +8,6 @@ import { useEffect, useRef } from 'react';
  * @param delay The polling interval in milliseconds. Can be null to disable polling.
  */
 export const usePolling = (callback: () => Promise<void>, delay: number | null) => {
-  // FIX: Initialize useRef with the callback. Although useRef() is valid, the error
-  // "Expected 1 arguments, but got 0" may indicate a tool struggling with an
-  // uninitialized ref. This change makes the hook more robust by ensuring
-  // `savedCallback.current` is always a function.
   const savedCallback = useRef(callback);
 
   // Remember the latest callback.
@@ -23,10 +20,15 @@ export const usePolling = (callback: () => Promise<void>, delay: number | null) 
     let timeoutId: number;
 
     async function tick() {
-      // Since the ref is now initialized, the .current property will always be defined.
-      await savedCallback.current();
+      try {
+        await savedCallback.current();
+      } catch (err) {
+        // Log polling errors but don't let them crash the app.
+        console.error("Error during polling execution:", err);
+      }
 
       if (delay !== null) {
+        // Schedule the next tick only after the current one has completed.
         timeoutId = window.setTimeout(tick, delay);
       }
     }
