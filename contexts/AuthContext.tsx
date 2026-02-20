@@ -22,6 +22,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const getInitialSession = async () => {
+      try {
         const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
         if (session?.user) {
@@ -34,7 +35,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 await apiLogout();
             }
         }
-        setLoading(false);
+      } catch (error) {
+          console.error("Failed to get initial Supabase session:", error);
+      } finally {
+          setLoading(false);
+      }
     };
     
     getInitialSession();

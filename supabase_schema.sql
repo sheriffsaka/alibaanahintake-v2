@@ -151,7 +151,7 @@ VALUES (1, '{
 }')
 ON CONFLICT (id) DO NOTHING;
 
--- Create programs table
+-- 8. Create programs table
 CREATE TABLE IF NOT EXISTS public.programs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
@@ -170,7 +170,7 @@ INSERT INTO public.programs (name, sort_order) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 
--- Create asset_settings table for dynamic site content
+-- 9. Create asset_settings table for dynamic site content
 CREATE TABLE IF NOT EXISTS public.asset_settings (
     key TEXT PRIMARY KEY,
     value JSONB NOT NULL
@@ -179,7 +179,7 @@ COMMENT ON TABLE public.asset_settings IS 'Stores dynamic site content like logo
 
 -- Insert default site content
 INSERT INTO public.asset_settings (key, value) VALUES
-('logoUrl', '"https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png"'),
+('logoUrl', '"https://res.cloudinary.com/di7okmjsx/image/upload/v1772398555/Al-Ibaanah_Vertical_Logo_pf389m.svg"'),
 ('officialSiteUrl', '"https://ibaanah.com/"'),
 ('heroVideoUrl', '{"en": "https://www.youtube.com/embed/dQw4w9WgXcQ", "ar": "https://www.youtube.com/embed/CenZeeJ3m_4", "fr": "https://www.youtube.com/embed/s2qg2x-NYyE"}'),
 ('faqItems', '{
@@ -207,7 +207,7 @@ INSERT INTO public.asset_settings (key, value) VALUES
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 
--- Create program_resources table
+-- 10. Create program_resources table
 CREATE TABLE IF NOT EXISTS public.program_resources (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     program_id UUID NOT NULL REFERENCES public.programs(id) ON DELETE CASCADE,
@@ -220,17 +220,22 @@ CREATE TABLE IF NOT EXISTS public.program_resources (
 );
 COMMENT ON TABLE public.program_resources IS 'Stores educational resources linked to specific programs.';
 
--- 8. Create a view for available slots to simplify client-side queries.
+-- 11. Create a view for available slots to simplify client-side queries.
 DROP VIEW IF EXISTS public.available_appointment_slots;
 CREATE VIEW public.available_appointment_slots AS
   SELECT id, start_time, end_time, capacity, booked, level_id, gender, date
   FROM public.appointment_slots
   WHERE date >= CURRENT_DATE AND booked < capacity;
-
 COMMENT ON VIEW public.available_appointment_slots IS 'Filters appointment slots to only show those that are in the future and have capacity.';
 
 
--- 9. Set up Row Level Security (RLS).
+-- 12. Set up Storage Bucket for Program Resources
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('program_resources', 'program_resources', true, 5242880, ARRAY['image/jpeg', 'image/png', 'application/pdf', 'video/mp4'])
+ON CONFLICT (id) DO NOTHING;
+
+
+-- 13. Set up Row Level Security (RLS).
 -- Enable RLS for all tables.
 ALTER TABLE public.levels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.programs ENABLE ROW LEVEL SECURITY;
@@ -286,8 +291,8 @@ DROP POLICY IF EXISTS "Allow admin write access to slots" ON public.appointment_
 CREATE POLICY "Allow admin write access to slots" ON public.appointment_slots FOR ALL USING (get_my_role() IN ('Super Admin', 'male_section_Admin', 'female_section_Admin'));
 
 -- Grant access to the available slots view
-GRANT SELECT ON public.available_appointment_slots TO anon;
-GRANT SELECT ON public.available_appointment_slots TO authenticated;
+GRANT SELECT ON public.available_appointment_slots TO anon, authenticated;
+
 
 -- Policies for students
 DROP POLICY IF EXISTS "Allow admin read access to students" ON public.students;
@@ -314,8 +319,42 @@ DROP POLICY IF EXISTS "Allow admin access to notification settings" ON public.no
 CREATE POLICY "Allow admin access to notification settings" ON public.notification_settings FOR ALL USING (get_my_role() IN ('Super Admin', 'male_section_Admin', 'female_section_Admin'));
 
 
--- 10. Create database functions for application logic.
+-- Storage Bucket Policies
+DROP POLICY IF EXISTS "Allow public read access on program_resources" ON storage.objects;
+CREATE POLICY "Allow public read access on program_resources"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'program_resources');
 
+DROP POLICY IF EXISTS "Allow admin inserts on program_resources" ON storage.objects;
+CREATE POLICY "Allow admin inserts on program_resources"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+    bucket_id = 'program_resources' AND
+    get_my_role() IN ('Super Admin', 'male_section_Admin', 'female_section_Admin')
+);
+
+DROP POLICY IF EXISTS "Allow admin updates on program_resources" ON storage.objects;
+CREATE POLICY "Allow admin updates on program_resources"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (
+    bucket_id = 'program_resources' AND
+    get_my_role() IN ('Super Admin', 'male_section_Admin', 'female_section_Admin')
+);
+
+DROP POLICY IF EXISTS "Allow admin deletes on program_resources" ON storage.objects;
+CREATE POLICY "Allow admin deletes on program_resources"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (
+    bucket_id = 'program_resources' AND
+    get_my_role() IN ('Super Admin', 'male_section_Admin', 'female_section_Admin')
+);
+
+
+-- 14. Create database functions for application logic.
 -- Transactional function for submitting registration.
 CREATE OR REPLACE FUNCTION submit_student_registration(
     slot_id UUID,
@@ -392,8 +431,7 @@ END;
 $$;
 
 -- Grant execute permission on the function to the anon and authenticated roles.
-GRANT EXECUTE ON FUNCTION public.submit_student_registration(UUID, JSONB) TO anon;
-GRANT EXECUTE ON FUNCTION public.submit_student_registration(UUID, JSONB) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.submit_student_registration(UUID, JSONB) TO anon, authenticated;
 
 
 -- RPC function for fetching all dashboard data in a single, efficient query.
