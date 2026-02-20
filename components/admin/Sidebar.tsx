@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Role } from '../../types';
 import { LayoutDashboard, CalendarCog, CheckSquare, Users, BookUser, Bell, Settings, ClipboardList, Layers, Library, PenSquare } from 'lucide-react';
@@ -26,10 +25,10 @@ const Sidebar: React.FC = () => {
 
     return (
         <div className="hidden md:flex flex-col w-64 bg-blue-800">
-            <div className="flex items-center justify-center h-20 shadow-md">
+            <Link to="/" className="flex items-center justify-center h-20 shadow-md hover:bg-blue-700 transition-colors">
                 <BookUser className="h-8 w-8 text-white mr-2"/>
                 <h1 className="text-xl text-white font-bold">IntakeFlow</h1>
-            </div>
+            </Link>
             <nav className="flex-1 px-2 py-4 space-y-2">
                 {navLinks.map(link => (
                     user && link.roles.includes(user.role) && (
