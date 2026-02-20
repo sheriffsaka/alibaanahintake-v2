@@ -2,7 +2,7 @@ import { Student, AppointmentSlot, Level, Gender, AdminUser, Role, NotificationS
 import { v4 as uuidv4 } from 'uuid';
 
 // Mock Database
-let students: Student[] = [];
+const students: Student[] = [];
 let appointmentSlots: AppointmentSlot[] = [];
 let levels: Level[] = [
     { id: 'level-1', name: 'Beginner', isActive: true, sortOrder: 1 },
@@ -23,7 +23,7 @@ let adminUsers: AdminUser[] = [
     { id: 'user-4', name: 'Yusuf Ibrahim', email: 'male.desk@al-ibaanah.com', role: Role.MaleFrontDesk, isActive: true },
     { id: 'user-5', name: 'Aisha Omar', email: 'female.desk@al-ibaanah.com', role: Role.FemaleFrontDesk, isActive: false },
 ];
-let siteContent: SiteContent = {
+const siteContent: SiteContent = {
     logoUrl: "https://res.cloudinary.com/di7okmjsx/image/upload/v1772398555/Al-Ibaanah_Vertical_Logo_pf389m.svg",
     officialSiteUrl: "https://ibaanah.com/",
     heroVideoUrl: { 
@@ -216,11 +216,11 @@ export const updateProgram = async(p: Program): Promise<Program> => { programs =
 
 // --- Site Content ---
 export const getSiteContent = async(): Promise<SiteContent> => simulateDelay(siteContent);
-export const updateSiteContent = async(key: keyof SiteContent, value: any): Promise<void> => { (siteContent as any)[key] = value; return simulateDelay(undefined); }
+export const updateSiteContent = async(key: keyof SiteContent, value: unknown): Promise<void> => { (siteContent as Record<string, unknown>)[key] = value; return simulateDelay(undefined); }
 
 // --- Users ---
 export const getAdminUsers = async (): Promise<AdminUser[]> => simulateDelay(adminUsers);
-export const createAdminUser = async(user: Omit<AdminUser, 'id'>, password?: string): Promise<AdminUser> => { const newUser = { ...user, id: uuidv4() }; adminUsers.push(newUser); return simulateDelay(newUser); };
+export const createAdminUser = async(user: Omit<AdminUser, 'id'>): Promise<AdminUser> => { const newUser = { ...user, id: uuidv4() }; adminUsers.push(newUser); return simulateDelay(newUser); };
 export const updateAdminUser = async(user: AdminUser): Promise<AdminUser> => { adminUsers = adminUsers.map(u => u.id === user.id ? user : u); return simulateDelay(user); };
 export const deleteAdminUser = async(userId: string): Promise<{ success: boolean }> => { adminUsers = adminUsers.filter(u => u.id !== userId); return simulateDelay({ success: true }); };
 

@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Role } from '../../types';
 import { LayoutDashboard, CalendarCog, CheckSquare, Users, BookUser, Bell, Settings, ClipboardList, Layers, Library, PenSquare } from 'lucide-react';
 
-const Sidebar: React.FC = () => {
+const Sidebar: React.FC<{ isOpen: boolean }> = ({ isOpen }) => {
     const { user } = useAuth();
 
     const navLinks = [
@@ -24,7 +24,7 @@ const Sidebar: React.FC = () => {
     const inactiveLinkClass = "text-gray-300 hover:bg-blue-600 hover:text-white";
 
     return (
-        <div className="hidden md:flex flex-col w-64 bg-blue-800">
+        <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-blue-800 transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out md:relative md:translate-x-0 md:flex md:flex-col`}>
             <Link to="/" className="flex items-center justify-center h-20 shadow-md hover:bg-blue-700 transition-colors">
                 <BookUser className="h-8 w-8 text-white mr-2"/>
                 <h1 className="text-xl text-white font-bold">IntakeFlow</h1>

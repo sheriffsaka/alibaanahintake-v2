@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getSiteContent, updateSiteContent } from '../../services/apiService';
-import { SiteContent, FaqItem } from '../../types';
+import { SiteContent } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Button from '../common/Button';

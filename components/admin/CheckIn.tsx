@@ -1,18 +1,19 @@
 
 import React, { useState } from 'react';
-import { findStudent, checkInStudent } from '../../services/apiService';
+import { findStudent, checkInStudent, getScheduleById } from '../../services/apiService';
 import { Student } from '../../types';
 import Card from '../common/Card';
 import Input from '../common/Input';
 import Button from '../common/Button';
 import Spinner from '../common/Spinner';
-import { Search, User, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Search, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 
 const CheckIn: React.FC = () => {
   const [query, setQuery] = useState('');
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [appointmentTime, setAppointmentTime] = useState('');
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,13 +26,22 @@ const CheckIn: React.FC = () => {
       const foundStudent = await findStudent(query);
       if (foundStudent) {
         setStudent(foundStudent);
+        const fetchSlotTime = async () => {
+            if (foundStudent.appointmentSlotId) {
+                const studentSlot = await getScheduleById(foundStudent.appointmentSlotId);
+                if (studentSlot) {
+                    setAppointmentTime(`${studentSlot.date} @ ${studentSlot.startTime} - ${studentSlot.endTime}`);
+                }
+            }
+        };
+        fetchSlotTime();
         if (foundStudent.status === 'checked-in') {
             setMessage({ type: 'info', text: 'This student has already been checked in.' });
         }
       } else {
         setMessage({ type: 'error', text: 'No student found with the provided details.' });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: 'error', text: 'An error occurred during search.' });
     } finally {
       setLoading(false);
@@ -46,7 +56,7 @@ const CheckIn: React.FC = () => {
       const updatedStudent = await checkInStudent(student.id);
       setStudent(updatedStudent);
       setMessage({ type: 'success', text: 'Student checked in successfully!' });
-    } catch (error: any) {
+    } catch (error) {
         setMessage({ type: 'error', text: error.message || 'Failed to check in.' });
     } finally {
       setLoading(false);
@@ -89,7 +99,10 @@ const CheckIn: React.FC = () => {
             <p><strong>Reg. Code:</strong> <span className="font-mono">{student.registrationCode}</span></p>
             <p><strong>Level:</strong> {student.level?.name || 'N/A'}</p>
             <p><strong>Status:</strong> <span className={`font-semibold ${student.status === 'checked-in' ? 'text-green-600' : 'text-blue-600'}`}>{student.status.toUpperCase()}</span></p>
+            <p><strong>Appointment:</strong> {appointmentTime}</p>
           </div>
+          <div className="mt-6 flex flex-col items-center">
+            <img src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(student.registrationCode)}&size=128x128`} alt="Registration QR Code" className="mb-4" />
           <div className="mt-6 text-center">
             <Button 
                 onClick={handleCheckIn} 
@@ -99,6 +112,7 @@ const CheckIn: React.FC = () => {
                 {loading ? 'Processing...' : 'Mark as Checked-In'}
             </Button>
           </div>
+        </div>
         </Card>
       )}
     </Card>

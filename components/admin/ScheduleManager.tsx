@@ -55,7 +55,7 @@ const ScheduleManager: React.FC = () => {
 
   const handleOpenModal = (slot?: AppointmentSlot) => {
     if (slot) {
-        const { level, ...slotForEditing } = slot;
+        const { ...slotForEditing } = slot;
         setEditingSlot(slotForEditing);
     } else {
         const defaultLevelId = levels.length > 0 ? levels[0].id : '';
@@ -83,13 +83,13 @@ const ScheduleManager: React.FC = () => {
         if (editingSlot.id) { // Editing existing
             await updateSchedule(editingSlot as Omit<AppointmentSlot, 'level'>);
         } else { // Creating new
-            const { id, booked, ...newSlotData } = editingSlot;
+            const { ...newSlotData } = editingSlot;
             await createSchedule(newSlotData as Omit<AppointmentSlot, 'id' | 'booked' | 'level'>);
         }
         
         handleCloseModal();
         fetchSlots(currentPage); // Refetch the current page
-    } catch (error: any) {
+    } catch (error) {
         console.error("Failed to save schedule slot:", error);
         alert(`Failed to save slot. Please check the details and try again.\n\nError: ${error.message}`);
     }

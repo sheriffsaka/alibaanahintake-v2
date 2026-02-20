@@ -59,7 +59,7 @@ const UserManagement: React.FC = () => {
         }
         handleCloseModal();
         fetchUsers();
-    } catch (error: any) {
+    } catch (error) {
         alert(`Failed to save user: ${error.message}`);
     }
   };
@@ -69,7 +69,7 @@ const UserManagement: React.FC = () => {
           try {
             await deleteAdminUser(userId);
             fetchUsers();
-          } catch(e: any) {
+          } catch(e) {
               alert(e.message);
           }
       }

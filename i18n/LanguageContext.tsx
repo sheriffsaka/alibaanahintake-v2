@@ -15,7 +15,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [language, setLanguage] = useState<Language>('en');
-  const [dir, setDir] = useState<'ltr' | 'rtl'>('ltr');
+  const [dir] = useState<'ltr' | 'rtl'>('ltr');
 
   useEffect(() => {
     // This logic is made more robust to prevent runtime errors in production.
@@ -23,7 +23,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     const langConfig = langs[language];
     const newDir = (langConfig && 'dir' in langConfig && langConfig.dir === 'rtl') ? 'rtl' : 'ltr';
     
-    setDir(newDir);
+    
 
     if (document.documentElement) {
       document.documentElement.dir = newDir;

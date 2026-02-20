@@ -25,7 +25,7 @@ const LoginPage: React.FC = () => {
     try {
       await login(email, password);
       navigate('/admin');
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message || 'An unknown error occurred.');
     } finally {
       setLoading(false);

@@ -70,7 +70,7 @@ const Dashboard: React.FC = () => {
         <Card className="flex items-center space-x-4">
             <div className="p-3 bg-green-100 rounded-full"><CalendarDays className="h-6 w-6 text-green-600"/></div>
             <div>
-                <p className="text-sm text-gray-500">Today's Expected</p>
+                <p className="text-sm text-gray-500">Today&apos;s Expected</p>
                 <p className="text-2xl font-bold text-gray-800">{data.todayExpected}</p>
             </div>
         </Card>

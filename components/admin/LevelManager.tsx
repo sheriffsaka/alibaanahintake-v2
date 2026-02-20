@@ -52,7 +52,7 @@ const LevelManager: React.FC = () => {
         }
         handleCloseModal();
         fetchLevels();
-    } catch (error: any) {
+    } catch (error) {
         alert(`Failed to save level: ${error.message}`);
     }
   };
@@ -62,7 +62,7 @@ const LevelManager: React.FC = () => {
           try {
             await deleteLevel(levelId);
             fetchLevels();
-          } catch(e: any) {
+          } catch(e) {
               alert(e.message);
           }
       }

@@ -1,10 +1,10 @@
 
 import { supabase } from './supabaseClient';
-import { Student, AppointmentSlot, Level, AdminUser, Role, NotificationSettings, AppSettings, Program, SiteContent, Gender, ProgramResource } from '../types';
+import { Student, AppointmentSlot, Level, AdminUser, NotificationSettings, AppSettings, Program, SiteContent, Gender, ProgramResource } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper function to convert student data from snake_case to camelCase
-const studentFromSupabase = (s: any): Student => ({
+const studentFromSupabase = (s: Record<string, unknown>): Student => ({ // Using unknown is safer than any
     id: s.id,
     surname: s.surname,
     firstname: s.firstname,
@@ -22,7 +22,7 @@ const studentFromSupabase = (s: any): Student => ({
     createdAt: s.created_at,
 });
 
-const slotFromSupabase = (d: any): AppointmentSlot => ({
+const slotFromSupabase = (d: Record<string, unknown>): AppointmentSlot => ({ // Using unknown is safer than any
     id: d.id,
     startTime: d.start_time,
     endTime: d.end_time,
@@ -167,7 +167,7 @@ export const getDashboardData = async () => {
     return {
         ...data,
         slotUtilization: Array.isArray(data.slotUtilization) 
-            ? data.slotUtilization.map((s: any) => ({
+            ? data.slotUtilization.map((s: Record<string, unknown>) => ({ // Using unknown is safer than any
                 name: `${s.date} ${s.start_time}`,
                 booked: s.booked,
                 capacity: s.capacity,
@@ -293,7 +293,7 @@ export const deleteLevel = async(levelId: string): Promise<{ success: boolean }>
 
 
 // --- Program Management ---
-const programFromSupabase = (p: any): Program => ({
+const programFromSupabase = (p: Record<string, unknown>): Program => ({ // Using unknown is safer than any
     id: p.id,
     name: p.name,
     description: p.description,
@@ -407,7 +407,7 @@ const uploadResourceFile = async (programId: string, file: File): Promise<string
 };
 
 export const createProgramResource = async (resourceData: Omit<ProgramResource, 'id' | 'created_at'>, file?: File): Promise<ProgramResource> => {
-    let resourceToCreate = { ...resourceData };
+    const resourceToCreate = { ...resourceData };
 
     if (file) {
         const fileUrl = await uploadResourceFile(resourceData.program_id, file);
@@ -420,7 +420,7 @@ export const createProgramResource = async (resourceData: Omit<ProgramResource, 
 };
 
 export const updateProgramResource = async (resourceData: Omit<ProgramResource, 'created_at'>, file?: File): Promise<ProgramResource> => {
-    let resourceToUpdate = { ...resourceData };
+    const resourceToUpdate = { ...resourceData };
     
     if (file) {
         const fileUrl = await uploadResourceFile(resourceData.program_id, file);
@@ -476,12 +476,12 @@ export const getSiteContent = async (): Promise<SiteContent> => {
     const fetchedContent = data.reduce((acc, { key, value }) => {
         acc[key] = value;
         return acc;
-    }, {} as any);
+    }, {} as Record<string, unknown>); // Using unknown is safer than any
 
     return { ...defaultContent, ...fetchedContent };
 };
 
-export const updateSiteContent = async (key: keyof SiteContent, value: any): Promise<void> => {
+export const updateSiteContent = async (key: keyof SiteContent, value: unknown): Promise<void> => {
     const { error } = await supabase
         .from('asset_settings')
         .update({ value: value })

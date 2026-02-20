@@ -19,7 +19,7 @@ class ErrorBoundary extends Component<Props, State> {
     };
   }
 
-  public static getDerivedStateFromError(_: Error): State {
+  public static getDerivedStateFromError(): State {
     // Update state so the next render will show the fallback UI.
     return { hasError: true };
   }
@@ -37,7 +37,7 @@ class ErrorBoundary extends Component<Props, State> {
           <ShieldAlert className="h-16 w-16 text-red-500 mb-4" />
           <h1 className="text-2xl font-bold text-gray-800 mb-2">Something went wrong.</h1>
           <p className="text-gray-600 mb-6">
-            We're sorry, the application has encountered an unexpected error.
+            We&apos;re sorry, the application has encountered an unexpected error.
             <br />
             Please try refreshing the page to continue.
           </p>

@@ -14,14 +14,14 @@ interface AdmissionSlipProps {
 const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
   const { t, language } = useTranslation();
   const [appointmentTime, setAppointmentTime] = useState('');
-  const [slot, setSlot] = useState<any>(null);
+  
 
   useEffect(() => {
     const fetchSlotTime = async () => {
       if (!student.appointmentSlotId) return;
       const studentSlot = await getScheduleById(student.appointmentSlotId);
       if (studentSlot) {
-        setSlot(studentSlot);
+        
         setAppointmentTime(`${studentSlot.startTime} - ${studentSlot.endTime}`);
       }
     };

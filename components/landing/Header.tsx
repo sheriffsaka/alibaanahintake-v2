@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import AlIbaanahLogo from './AlIbaanahLogo';
-import { ChevronDown, ExternalLink, Globe } from 'lucide-react';
+import { ChevronDown, ExternalLink, Globe, Menu, X } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { langs } from '../../i18n/locales';
 import { Gender } from '../../types';
@@ -13,6 +13,7 @@ const Header: React.FC = () => {
   const { content } = useSiteContent();
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [bookingDropdownOpen, setBookingDropdownOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLangChange = (langKey: keyof typeof langs) => {
     changeLanguage(langKey);
@@ -91,7 +92,75 @@ const Header: React.FC = () => {
               {t('staffLogin')}
             </Link>
           </nav>
+          <div className="md:hidden">
+            <button onClick={() => setIsMenuOpen(!isMenuOpen)}>
+              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
+        {isMenuOpen && (
+          <div className="md:hidden bg-white py-4">
+            <nav className="flex flex-col items-center space-y-4">
+            <Link to="/programs" className="text-sm font-medium text-gray-600 hover:text-brand-green" onClick={() => setIsMenuOpen(false)}>
+              {t('programsNav')}
+            </Link>
+            <div className="relative">
+              <button 
+                onClick={() => setLangDropdownOpen(!langDropdownOpen)}
+                className="flex items-center text-sm font-medium text-gray-600 hover:text-brand-green"
+              >
+                <Globe className="h-4 w-4 mr-1" />
+                <span>{langs[language].nativeName}</span>
+                <ChevronDown className="h-4 w-4 ml-1" />
+              </button>
+              {langDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg z-10">
+                  <ul className="py-1">
+                    {(Object.keys(langs) as Array<keyof typeof langs>).map((langKey) => (
+                       <li key={langKey}>
+                        <button 
+                            onClick={() => { handleLangChange(langKey); setIsMenuOpen(false); }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                            {langs[langKey].nativeName}
+                        </button>
+                       </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <a href={content?.officialSiteUrl} target="_blank" rel="noopener noreferrer" className="flex items-center text-sm font-medium text-gray-600 hover:text-brand-green" onClick={() => setIsMenuOpen(false)}>
+              <span>{t('officialSite')}</span>
+              <ExternalLink className="h-4 w-4 ml-1" />
+            </a>
+            <div className="relative">
+                <button 
+                    onClick={() => setBookingDropdownOpen(!bookingDropdownOpen)}
+                    className="bg-brand-green text-white px-5 py-2.5 rounded-md text-sm font-semibold hover:bg-brand-green-light transition-colors flex items-center"
+                >
+                    {t('bookAssessment')}
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                </button>
+                {bookingDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-10 border">
+                        <ul className="py-1">
+                            <li>
+                                <Link to="/enroll" state={{ gender: Gender.Male }} onClick={() => { setBookingDropdownOpen(false); setIsMenuOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">{t('maleIntake')}</Link>
+                            </li>
+                            <li>
+                                <Link to="/enroll" state={{ gender: Gender.Female }} onClick={() => { setBookingDropdownOpen(false); setIsMenuOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">{t('femaleIntake')}</Link>
+                            </li>
+                        </ul>
+                    </div>
+                )}
+            </div>
+            <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-brand-green" onClick={() => setIsMenuOpen(false)}>
+              {t('staffLogin')}
+            </Link>
+            </nav>
+          </div>
+        )}
       </div>
     </header>
   );

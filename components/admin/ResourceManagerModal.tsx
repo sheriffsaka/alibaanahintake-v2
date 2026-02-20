@@ -141,7 +141,7 @@ const ResourceManagerModal: React.FC<ResourceManagerModalProps> = ({ program, on
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <Select label={t('resourceTypeLabel')} name="resource_type" value={editingResource.resource_type} onChange={handleInputChange}
-                                                options={Object.values(ResourceType).map(rt => ({ value: rt, label: t(`resource${rt.charAt(0).toUpperCase() + rt.slice(1)}` as any) }))} />
+                                                options={Object.values(ResourceType).map(rt => ({ value: rt, label: t(`resource${rt.charAt(0).toUpperCase() + rt.slice(1)}`) }))} />
                                             <Input label={t('sortOrder')} name="sort_order" type="number" value={editingResource.sort_order} onChange={handleInputChange} />
                                         </div>
                                         {editingResource.resource_type === ResourceType.Video ? (

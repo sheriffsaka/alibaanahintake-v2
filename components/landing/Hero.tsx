@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, PlayCircle, X } from 'lucide-react';
+import { PlayCircle, X } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { Gender } from '../../types';
 import { useSiteContent } from '../../contexts/SiteContentContext';

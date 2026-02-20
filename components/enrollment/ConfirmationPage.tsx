@@ -37,7 +37,7 @@ const ConfirmationPage: React.FC = () => {
         };
         const newStudent = await submitRegistration(registrationData);
         dispatch({ type: 'CONFIRM_REGISTRATION', payload: newStudent });
-      } catch (err: any) {
+      } catch (err) {
         setError(t('bookingFailedMessage'));
         console.error(err);
       } finally {
@@ -45,8 +45,8 @@ const ConfirmationPage: React.FC = () => {
       }
     };
     processRegistration();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    
+  }, [dispatch, state.confirmedRegistration, state.formData, state.selectedSlotDate, state.selectedSlotId, t]);
 
   const handleBackToPortal = () => {
       dispatch({ type: 'RESET' });

@@ -61,7 +61,7 @@ const ProgramManager: React.FC = () => {
       }
       handleCloseModal();
       fetchPrograms();
-    } catch (error: any) {
+    } catch (error) {
       alert(`Failed to save program: ${error.message}`);
     }
   };

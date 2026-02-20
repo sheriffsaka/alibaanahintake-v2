@@ -93,7 +93,7 @@ const SlotPicker: React.FC = () => {
       <div className="mb-6">
         <h3 className="font-semibold text-gray-700 mb-2 flex items-center"><Calendar className="h-5 w-5 mr-2" />{t('dateSelectPrompt')}</h3>
         {loading ? <Spinner/> : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
             {availableDates.length > 0 ? availableDates.map(date => (
                 <button
                     key={date}
