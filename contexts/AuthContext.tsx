@@ -23,22 +23,50 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const getInitialSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        if (session?.user) {
-            try {
-                const profile = await getAdminUserProfile(session.user.id);
-                setUser(profile);
-            } catch (error) {
-                console.error("Failed to fetch user profile on initial load:", error);
-                // The user is authenticated with Supabase but has no profile. Log them out.
-                await apiLogout();
-            }
+        // Safely get the session without risky destructuring
+        const { data, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error('Error fetching initial session:', error);
+          // Allow app to load in a logged-out state
+          setSession(null);
+          setUser(null);
+          return;
         }
-      } catch (error) {
-          console.error("Failed to get initial Supabase session:", error);
+
+        const currentSession = data?.session;
+        setSession(currentSession);
+
+        if (currentSession?.user) {
+          try {
+            const profile = await getAdminUserProfile(currentSession.user.id);
+            if (profile?.isActive) {
+               setUser(profile);
+            } else {
+               // If profile is not found or user is inactive, log them out.
+               // getAdminUserProfile throws on not found, so this case handles inactive.
+               throw new Error(profile ? "User is not active" : "User profile not found");
+            }
+          } catch (profileError) {
+            console.error("Profile validation failed, logging out:", profileError);
+            // Ensure logout doesn't cause an unhandled exception
+            try {
+              await apiLogout();
+            } catch (logoutError) {
+              console.error("Error during logout:", logoutError);
+            }
+            // Reset state manually after logout
+            setUser(null);
+            setSession(null);
+          }
+        }
+      } catch (e) {
+        console.error("Critical error in getInitialSession:", e);
+        // Fallback to a clean, logged-out state
+        setUser(null);
+        setSession(null);
       } finally {
-          setLoading(false);
+        setLoading(false);
       }
     };
     
@@ -50,10 +78,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (session?.user) {
              try {
                 const profile = await getAdminUserProfile(session.user.id);
-                setUser(profile);
+                if (profile?.isActive) {
+                    setUser(profile);
+                } else {
+                    throw new Error(profile ? "User is not active" : "User profile not found");
+                }
             } catch (error) {
-                console.error("Failed to fetch user profile on auth state change:", error);
+                console.error("Auth state change profile validation failed, logging out:", error);
                 setUser(null);
+                try {
+                    await apiLogout();
+                } catch (logoutError) {
+                    console.error("Error during logout on auth state change:", logoutError);
+                }
             }
         } else {
           setUser(null);
