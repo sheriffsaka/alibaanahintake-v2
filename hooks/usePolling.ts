@@ -35,7 +35,11 @@ export const usePolling = (callback: () => Promise<void>, delay: number | null) 
     if (delay !== null) {
       // Start the polling immediately without waiting for the first delay
       tick(); 
-      return () => window.clearTimeout(timeoutId);
+      return () => {
+        if (timeoutId) {
+          window.clearTimeout(timeoutId);
+        }
+      };
     }
   }, [delay]);
 };

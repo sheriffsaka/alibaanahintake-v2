@@ -45,7 +45,7 @@ const Dashboard: React.FC = () => {
   usePolling(fetchDashboardData, POLLING_INTERVAL);
 
 
-  if (loading) return <Spinner />;
+  if (loading) return <div className="flex justify-center items-center h-64"><Spinner /></div>;
   
   if (error && !data) return <p className="text-center text-red-500">{error.replace(" Retrying in background...", "")}</p>;
 
