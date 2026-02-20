@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient';
 import { Student, AppointmentSlot, Level, AdminUser, Role, NotificationSettings, AppSettings, Program, SiteContent, Gender, ProgramResource } from '../types';
 import { v4 as uuidv4 } from 'uuid';
@@ -303,17 +304,39 @@ const programFromSupabase = (p: any): Program => ({
 });
 
 export const getPrograms = async(): Promise<Program[]> => {
-    const { data, error } = await supabase
+    const { data: programData, error: programError } = await supabase
         .from('programs')
         .select('*')
         .order('sort_order', { ascending: true });
 
-    if (error) throw error;
+    if (programError) throw programError;
     
-    const programs = data.map(programFromSupabase);
-    const programMap: Map<string, Program> = new Map(programs.map(p => [p.id, { ...p, children: [] }]));
-    const nestedPrograms: Program[] = [];
+    const programs = programData.map(programFromSupabase);
+    const programMap: Map<string, Program> = new Map(programs.map(p => [p.id, { ...p, children: [], resources: [] }]));
 
+    // Fetch all resources for the visible programs
+    if (programs.length > 0) {
+        const programIds = programs.map(p => p.id);
+        const { data: resourceData, error: resourceError } = await supabase
+            .from('program_resources')
+            .select('*')
+            .in('program_id', programIds)
+            .order('sort_order', { ascending: true });
+
+        if (resourceError) throw resourceError;
+        
+        // Attach resources to their programs
+        if (resourceData) {
+            for (const resource of resourceData) {
+                if (programMap.has(resource.program_id)) {
+                    programMap.get(resource.program_id)?.resources?.push(resource);
+                }
+            }
+        }
+    }
+
+    // Nest programs
+    const nestedPrograms: Program[] = [];
     for (const program of programMap.values()) {
         if (program.parentId && programMap.has(program.parentId)) {
             const parent = programMap.get(program.parentId);

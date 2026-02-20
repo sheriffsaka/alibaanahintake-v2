@@ -4,6 +4,7 @@ export default {
     officialSite: 'RASMIY SAYT',
     staffLogin: 'XODIMLAR UCHUN',
     bookAssessment: 'BAHOLASHGA YOZILISH',
+    programsNav: 'Dasturlarimiz',
 
     // Hero
     assessmentIntakePortal: 'BAHOLASH VA QABUL PORTALI',
@@ -81,6 +82,12 @@ export default {
     toggleArchiveConfirm: 'Haqiqatan ham ushbu dasturni {action} qilmoqchimisiz?',
     saveProgram: 'Dasturni saqlash',
     manageResources: 'Resurslarni boshqarish',
+
+    // Programs Page (Public)
+    programsPageTitle: 'Bizning Akademik Dasturlarimiz',
+    programsPageDescription: 'Biz taklif etayotgan turli xil dasturlarni o\'rganing, poydevorli o\'qishdan tortib ilg\'or mavzulargacha.',
+    programResourcesTitle: 'O\'quv Resurslari',
+    noProgramsAvailable: 'Dastur haqidagi ma\'lumotlar hozirda yangilanmoqda. Iltimos, tez orada qayta tekshiring.',
 
     // --- Enrollment Flow ---
     step1Title: '1-qadam: Raqamli roʻyxatdan oʻtish ({gender})',

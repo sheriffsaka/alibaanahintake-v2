@@ -21,6 +21,7 @@ import LevelManager from './components/admin/LevelManager';
 import ProgramManager from './components/admin/ProgramManager';
 import { SiteContentProvider } from './contexts/SiteContentContext';
 import SiteContentManager from './components/admin/SiteContentManager';
+import ProgramsPage from './pages/ProgramsPage';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
               </SiteContentProvider>
             }>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/programs" element={<ProgramsPage />} />
               <Route path="/enroll" element={<EnrollmentPage />} />
               <Route path="/login" element={<LoginPage />} />
             </Route>

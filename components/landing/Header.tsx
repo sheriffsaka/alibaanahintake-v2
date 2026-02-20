@@ -32,6 +32,9 @@ const Header: React.FC = () => {
             </span>
           </div>
           <nav className="hidden md:flex items-center space-x-6">
+            <Link to="/programs" className="text-sm font-medium text-gray-600 hover:text-brand-green">
+              {t('programsNav')}
+            </Link>
             <div className="relative">
               <button 
                 onClick={() => setLangDropdownOpen(!langDropdownOpen)}

@@ -4,6 +4,7 @@ export default {
     officialSite: 'SITE OFFICIEL',
     staffLogin: 'CONNEXION EMPLOYÉS',
     bookAssessment: 'RÉSERVER L\'ÉVALUATION',
+    programsNav: 'Nos Programmes',
 
     // Hero
     assessmentIntakePortal: 'PORTAIL D\'ÉVALUATION ET D\'ADMISSION',
@@ -81,6 +82,12 @@ export default {
     toggleArchiveConfirm: 'Êtes-vous sûr de vouloir {action} ce programme ?',
     saveProgram: 'Enregistrer le programme',
     manageResources: 'Gérer les ressources',
+
+    // Programs Page (Public)
+    programsPageTitle: 'Nos Programmes Académiques',
+    programsPageDescription: 'Découvrez la variété des programmes que nous proposons, des études fondamentales aux sujets avancés.',
+    programResourcesTitle: 'Ressources Pédagogiques',
+    noProgramsAvailable: 'Les informations sur les programmes sont en cours de mise à jour. Veuillez revenir bientôt.',
 
     // --- Enrollment Flow ---
     step1Title: 'Étape 1 : Inscription numérique ({gender})',

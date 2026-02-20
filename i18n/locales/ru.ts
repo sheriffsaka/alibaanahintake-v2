@@ -4,6 +4,7 @@ export default {
     officialSite: 'ОФИЦИАЛЬНЫЙ САЙТ',
     staffLogin: 'ВХОД ДЛЯ ПЕРСОНАЛА',
     bookAssessment: 'ЗАПИСАТЬСЯ НА ОЦЕНКУ',
+    programsNav: 'Наши Программы',
 
     // Hero
     assessmentIntakePortal: 'ПОРТАЛ ОЦЕНКИ И ПРИЕМА',
@@ -81,6 +82,12 @@ export default {
     toggleArchiveConfirm: 'Вы уверены, что хотите {action} эту программу?',
     saveProgram: 'Сохранить программу',
     manageResources: 'Управлять ресурсами',
+
+    // Programs Page (Public)
+    programsPageTitle: 'Наши Учебные Программы',
+    programsPageDescription: 'Ознакомьтесь с разнообразием предлагаемых нами программ, от базовых курсов до продвинутых тем.',
+    programResourcesTitle: 'Учебные Ресурсы',
+    noProgramsAvailable: 'Информация о программах в настоящее время обновляется. Пожалуйста, зайдите позже.',
 
     // --- Enrollment Flow ---
     step1Title: 'Шаг 1: Цифровая регистрация ({gender})',

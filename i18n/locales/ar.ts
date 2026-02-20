@@ -4,6 +4,7 @@ export default {
     officialSite: 'الموقع الرسمي',
     staffLogin: 'دخول الموظفين',
     bookAssessment: 'حجز تقييم',
+    programsNav: 'برامجنا',
 
     // Hero
     assessmentIntakePortal: 'بوابة التقييم والتسجيل',
@@ -82,6 +83,12 @@ export default {
     saveProgram: 'حفظ البرنامج',
     manageResources: 'إدارة الموارد',
     
+    // Programs Page (Public)
+    programsPageTitle: 'برامجنا الأكاديمية',
+    programsPageDescription: 'استكشف مجموعة متنوعة من البرامج التي نقدمها، من الدراسات التأسيسية إلى الموضوعات المتقدمة.',
+    programResourcesTitle: 'مصادر تعليمية',
+    noProgramsAvailable: 'يتم حاليًا تحديث معلومات البرنامج. يرجى المراجعة مرة أخرى قريبًا.',
+
     // --- Enrollment Flow ---
     // Form
     step1Title: 'الخطوة 1: التسجيل الرقمي ({gender})',

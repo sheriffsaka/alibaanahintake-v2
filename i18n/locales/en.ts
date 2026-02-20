@@ -4,6 +4,7 @@ export default {
     officialSite: 'OFFICIAL SITE',
     staffLogin: 'STAFF LOGIN',
     bookAssessment: 'BOOK ASSESSMENT',
+    programsNav: 'Our Programs',
 
     // Hero
     assessmentIntakePortal: 'ASSESSMENT & INTAKE PORTAL',
@@ -81,6 +82,12 @@ export default {
     toggleArchiveConfirm: 'Are you sure you want to {action} this program?',
     saveProgram: 'Save Program',
     manageResources: 'Manage Resources',
+
+    // Programs Page (Public)
+    programsPageTitle: 'Our Academic Programs',
+    programsPageDescription: 'Explore the variety of programs we offer, from foundational studies to advanced topics.',
+    programResourcesTitle: 'Learning Resources',
+    noProgramsAvailable: 'Program information is currently being updated. Please check back soon.',
 
     // --- Enrollment Flow ---
     // Form

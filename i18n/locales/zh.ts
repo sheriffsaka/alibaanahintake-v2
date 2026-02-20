@@ -4,6 +4,7 @@ export default {
     officialSite: '官方网站',
     staffLogin: '员工登录',
     bookAssessment: '预约评估',
+    programsNav: '我们的课程',
 
     // Hero
     assessmentIntakePortal: '评估与录取门户',
@@ -81,6 +82,12 @@ export default {
     toggleArchiveConfirm: '您确定要对此项目执行 {action} 操作吗？',
     saveProgram: '保存项目',
     manageResources: '管理资源',
+
+    // Programs Page (Public)
+    programsPageTitle: '我们的学术课程',
+    programsPageDescription: '探索我们提供的各种课程，从基础研究到高级主题。',
+    programResourcesTitle: '学习资源',
+    noProgramsAvailable: '课程信息目前正在更新中。请稍后再回来查看。',
 
     // --- Enrollment Flow ---
     step1Title: '步骤 1: 数字注册 ({gender})',
