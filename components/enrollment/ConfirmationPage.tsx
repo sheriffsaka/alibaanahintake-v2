@@ -30,8 +30,10 @@ const ConfirmationPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
+        const { whatsappCountryCode, whatsapp, ...restFormData } = state.formData;
         const registrationData = {
-          ...state.formData,
+          ...restFormData,
+          whatsapp: `${whatsappCountryCode}${whatsapp}`,
           intakeDate: state.selectedSlotDate,
           appointmentSlotId: state.selectedSlotId,
         };

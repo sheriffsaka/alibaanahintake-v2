@@ -12,6 +12,7 @@ const getInitialState = (gender: Gender): EnrollmentState => ({
     surname: '',
     firstname: '',
     othername: '',
+    whatsappCountryCode: '+20',
     whatsapp: '',
     email: '',
     gender: gender,

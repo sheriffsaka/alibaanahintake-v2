@@ -64,14 +64,21 @@ export const getAdminUserProfile = async (userId: string): Promise<AdminUser | n
 
 // --- Student Public API ---
 export const getAvailableDatesForLevel = async(levelId: string, gender: Gender): Promise<string[]> => {
+    console.log('>>> Fetching dates for level:', levelId, 'gender:', gender);
     const settings = await getAppSettings();
-    if (!settings.registrationOpen) return [];
+    console.log('>>> App settings:', settings);
+    if (!settings.isRegistrationOpen) {
+        console.warn('>>> Registration is CLOSED');
+        return [];
+    }
     
     const { data, error } = await supabase
         .from('available_appointment_slots')
         .select('date')
         .eq('level_id', levelId)
         .eq('gender', gender);
+    
+    console.log('>>> Supabase response (dates):', { data, error });
 
     if (error) {
         console.error('Error fetching available dates:', error);
@@ -595,13 +602,13 @@ export const updateNotificationSettings = async(settings: NotificationSettings):
 export const getAppSettings = async(): Promise<AppSettings> => {
     const { data, error } = await supabase.from('app_settings').select('*').eq('id', 1).single();
     if (error) throw error;
-    return { registrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
+    return { isRegistrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
 };
 export const updateAppSettings = async(settings: AppSettings): Promise<AppSettings> => {
-    const { registrationOpen, maxDailyCapacity } = settings;
-    const { data, error } = await supabase.from('app_settings').update({ registration_open: registrationOpen, max_daily_capacity: maxDailyCapacity }).eq('id', 1).select().single();
+    const { isRegistrationOpen, maxDailyCapacity } = settings;
+    const { data, error } = await supabase.from('app_settings').update({ registration_open: isRegistrationOpen, max_daily_capacity: maxDailyCapacity }).eq('id', 1).select().single();
     if (error) throw error;
-    return { registrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
+    return { isRegistrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
 };
 
 export const updateAppSetting = async (key: keyof AppSettings, value: boolean): Promise<AppSettings> => {
@@ -610,5 +617,5 @@ export const updateAppSetting = async (key: keyof AppSettings, value: boolean): 
     };
     const { data, error } = await supabase.from('app_settings').update(updates).eq('id', 1).select().single();
     if (error) throw error;
-    return { registrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
+    return { isRegistrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
 };

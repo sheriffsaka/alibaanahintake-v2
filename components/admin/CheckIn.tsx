@@ -105,7 +105,7 @@ const CheckIn: React.FC = () => {
             {appointmentDate && new Date().toDateString() !== appointmentDate.toDateString() && (
               <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mt-4" role="alert">
                 <p className="font-bold">Warning</p>
-                <p>This student's appointment is not for today.</p>
+                <p>This student&apos;s appointment is not for today.</p>
               </div>
             )}
           </div>

@@ -108,7 +108,7 @@ export interface NotificationSettings {
 }
 
 export interface AppSettings {
-    registrationOpen: boolean;
+    isRegistrationOpen: boolean;
     maxDailyCapacity: number;
 }
 
@@ -118,6 +118,7 @@ export interface EnrollmentState {
         surname: string;
         firstname: string;
         othername: string;
+        whatsappCountryCode: string;
         whatsapp: string;
         email: string;
         gender: Gender;
