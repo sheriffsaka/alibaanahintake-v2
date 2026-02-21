@@ -62,11 +62,11 @@ const Settings: React.FC = () => {
                                 type="checkbox" 
                                 id="registrationToggle" 
                                 className="sr-only" 
-                                checked={settings.registrationOpen}
-                                onChange={(e) => handleChange('registrationOpen', e.target.checked)}
+                                checked={settings.isRegistrationOpen}
+                                onChange={(e) => handleChange('isRegistrationOpen', e.target.checked)}
                             />
                             <div className="block bg-gray-600 w-14 h-8 rounded-full"></div>
-                            <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${settings.registrationOpen ? 'transform translate-x-6 bg-green-400' : ''}`}></div>
+                            <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${settings.isRegistrationOpen ? 'transform translate-x-6 bg-green-400' : ''}`}></div>
                         </div>
                     </label>
                 </div>

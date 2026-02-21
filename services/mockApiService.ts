@@ -63,7 +63,7 @@ let notificationSettings: NotificationSettings = {
     reminder24h: { enabled: true, subject: 'Reminder: Your Al-Ibaanah Assessment is Tomorrow', body: '...' },
     reminderDayOf: { enabled: false, subject: 'Reminder: Your Al-Ibaanah Assessment is Today', body: '...' },
 };
-let appSettings: AppSettings = { registrationOpen: true, maxDailyCapacity: 100 };
+let appSettings: AppSettings = { isRegistrationOpen: true, maxDailyCapacity: 100 };
 
 const generateMockData = () => {
   if (appointmentSlots.length > 0) return;
@@ -103,13 +103,13 @@ export const getAdminUserProfile = async (userId: string): Promise<AdminUser | n
 
 // --- Public API ---
 export const getAvailableDatesForLevel = async(levelId: string, gender: Gender): Promise<string[]> => {
-    if (!appSettings.registrationOpen) return simulateDelay([]);
+    if (!appSettings.isRegistrationOpen) return simulateDelay([]);
     const availableDates = appointmentSlots.filter(s => s.levelId === levelId && s.gender === gender && s.booked < s.capacity).map(s => s.date);
     return simulateDelay([...new Set(availableDates)].sort());
 }
 
 export const getAvailableSlots = async (date: string, levelId: string, gender: Gender): Promise<AppointmentSlot[]> => {
-    if (!appSettings.registrationOpen) return simulateDelay([]);
+    if (!appSettings.isRegistrationOpen) return simulateDelay([]);
     return simulateDelay(appointmentSlots.filter(s => s.date === date && s.levelId === levelId && s.gender === gender));
 };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PlayCircle, X } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
