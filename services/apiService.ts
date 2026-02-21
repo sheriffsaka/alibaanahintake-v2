@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 import { Student, AppointmentSlot, Level, AdminUser, NotificationSettings, AppSettings, Program, SiteContent, Gender, ProgramResource } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
+
 // Helper function to convert student data from snake_case to camelCase
 const studentFromSupabase = (s: Record<string, unknown>): Student => ({ // Using unknown is safer than any
     id: s.id,
@@ -115,7 +116,44 @@ export const submitRegistration = async (
         throw new Error(error.message || "Failed to submit registration. The slot may have been filled.");
     }
 
-    return data as Student;
+    const newStudent = data as Student;
+
+    // Send confirmation email
+    try {
+        const notificationSettings = await getNotificationSettings();
+        if (notificationSettings.confirmation.enabled) {
+            const slot = await getScheduleById(appointmentSlotId);
+            if (slot) {
+                let subject = notificationSettings.confirmation.subject;
+                let body = notificationSettings.confirmation.body;
+
+                // Replace placeholders
+                subject = subject.replace('{{studentName}}', `${newStudent.firstname} ${newStudent.surname}`);
+                body = body.replace('{{studentName}}', `${newStudent.firstname} ${newStudent.surname}`);
+                body = body.replace('{{level}}', newStudent.level?.name || '');
+                body = body.replace('{{appointmentDate}}', slot.date);
+                body = body.replace('{{appointmentTime}}', `${slot.startTime} - ${slot.endTime}`);
+                body = body.replace('{{registrationCode}}', newStudent.registrationCode);
+
+                await fetch('/api/send-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        to: newStudent.email,
+                        subject: subject,
+                        html: body.replace(/\n/g, '<br>')
+                    })
+                });
+            }
+        }
+    } catch (emailError) {
+        console.error("Failed to send confirmation email:", emailError);
+        // Do not block registration if email fails
+    }
+
+    return newStudent;
 };
 
 // --- Admin API ---
@@ -562,6 +600,15 @@ export const getAppSettings = async(): Promise<AppSettings> => {
 export const updateAppSettings = async(settings: AppSettings): Promise<AppSettings> => {
     const { registrationOpen, maxDailyCapacity } = settings;
     const { data, error } = await supabase.from('app_settings').update({ registration_open: registrationOpen, max_daily_capacity: maxDailyCapacity }).eq('id', 1).select().single();
+    if (error) throw error;
+    return { registrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
+};
+
+export const updateAppSetting = async (key: keyof AppSettings, value: boolean): Promise<AppSettings> => {
+    const updates = {
+        [key === 'isRegistrationOpen' ? 'registration_open' : 'max_daily_capacity']: value
+    };
+    const { data, error } = await supabase.from('app_settings').update(updates).eq('id', 1).select().single();
     if (error) throw error;
     return { registrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
 };

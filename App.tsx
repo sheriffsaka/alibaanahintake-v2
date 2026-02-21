@@ -21,6 +21,7 @@ import LevelManager from './components/admin/LevelManager';
 import ProgramManager from './components/admin/ProgramManager';
 import { SiteContentProvider } from './contexts/SiteContentContext';
 import SiteContentManager from './components/admin/SiteContentManager';
+import AppSettingsManager from './components/admin/AppSettingsManager';
 import ProgramsPage from './pages/ProgramsPage';
 
 function App() {
@@ -93,6 +94,11 @@ function App() {
               <Route path="settings" element={
                 <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
                   <Settings />
+                </ProtectedRoute>
+              } />
+              <Route path="app-settings" element={
+                <ProtectedRoute allowedRoles={[Role.SuperAdmin]}>
+                  <AppSettingsManager />
                 </ProtectedRoute>
               } />
             </Route>

@@ -14,6 +14,7 @@ const CheckIn: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [appointmentTime, setAppointmentTime] = useState('');
+  const [appointmentDate, setAppointmentDate] = useState<Date | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +32,7 @@ const CheckIn: React.FC = () => {
                 const studentSlot = await getScheduleById(foundStudent.appointmentSlotId);
                 if (studentSlot) {
                     setAppointmentTime(`${studentSlot.date} @ ${studentSlot.startTime} - ${studentSlot.endTime}`);
+                    setAppointmentDate(new Date(studentSlot.date));
                 }
             }
         };
@@ -100,6 +102,12 @@ const CheckIn: React.FC = () => {
             <p><strong>Level:</strong> {student.level?.name || 'N/A'}</p>
             <p><strong>Status:</strong> <span className={`font-semibold ${student.status === 'checked-in' ? 'text-green-600' : 'text-blue-600'}`}>{student.status.toUpperCase()}</span></p>
             <p><strong>Appointment:</strong> {appointmentTime}</p>
+            {appointmentDate && new Date().toDateString() !== appointmentDate.toDateString() && (
+              <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mt-4" role="alert">
+                <p className="font-bold">Warning</p>
+                <p>This student's appointment is not for today.</p>
+              </div>
+            )}
           </div>
           <div className="mt-6 flex flex-col items-center">
             <img src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(student.registrationCode)}&size=128x128`} alt="Registration QR Code" className="mb-4" />

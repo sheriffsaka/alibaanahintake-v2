@@ -18,6 +18,7 @@ const Sidebar: React.FC<{ isOpen: boolean }> = ({ isOpen }) => {
         { to: 'users', text: 'User Mgmt', icon: <Users size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
         { to: 'notifications', text: 'Notifications', icon: <Bell size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
         { to: 'settings', text: 'Settings', icon: <Settings size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
+        { to: 'app-settings', text: 'App Settings', icon: <Settings size={20} />, roles: [Role.SuperAdmin] },
     ];
 
     const activeLinkClass = "bg-blue-700 text-white";

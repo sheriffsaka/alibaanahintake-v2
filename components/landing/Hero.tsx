@@ -4,11 +4,14 @@ import { PlayCircle, X } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { Gender } from '../../types';
 import { useSiteContent } from '../../contexts/SiteContentContext';
+import { getAppSettings } from '../../services/apiService';
+import { AppSettings } from '../../types';
 
 const Hero: React.FC = () => {
     const { t, language } = useTranslation();
     const { content } = useSiteContent();
     const [isVideoModalOpen, setVideoModalOpen] = useState(false);
+    const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
 
     const steps = [
         { number: 1, text: t('step1') },
@@ -17,6 +20,18 @@ const Hero: React.FC = () => {
     ];
 
     const videoUrl = content?.heroVideoUrl?.[language] || content?.heroVideoUrl?.en || '';
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const settings = await getAppSettings();
+                setAppSettings(settings);
+            } catch (error) {
+                console.error("Failed to fetch app settings:", error);
+            }
+        };
+        fetchSettings();
+    }, []);
 
   return (
     <>
@@ -46,16 +61,25 @@ const Hero: React.FC = () => {
                         {t('heroDescription')}
                     </p>
                     <div className="mt-8 flex flex-wrap gap-4">
-                        <Link to="/enroll" state={{ gender: Gender.Male }}>
-                            <button className="bg-white text-brand-green-dark font-semibold px-8 py-3 rounded-md shadow-lg hover:bg-gray-200 transition-colors">
-                                {t('maleIntake')}
-                            </button>
-                        </Link>
-                        <Link to="/enroll" state={{ gender: Gender.Female }}>
-                            <button className="border border-brand-yellow text-brand-yellow font-semibold px-8 py-3 rounded-md flex items-center hover:bg-brand-yellow/10 transition-colors">
-                                <span>{t('femaleIntake')}</span>
-                            </button>
-                        </Link>
+                        {appSettings?.isRegistrationOpen ? (
+                            <>
+                                <Link to="/enroll" state={{ gender: Gender.Male }}>
+                                    <button className="bg-white text-brand-green-dark font-semibold px-8 py-3 rounded-md shadow-lg hover:bg-gray-200 transition-colors">
+                                        {t('maleIntake')}
+                                    </button>
+                                </Link>
+                                <Link to="/enroll" state={{ gender: Gender.Female }}>
+                                    <button className="border border-brand-yellow text-brand-yellow font-semibold px-8 py-3 rounded-md flex items-center hover:bg-brand-yellow/10 transition-colors">
+                                        <span>{t('femaleIntake')}</span>
+                                    </button>
+                                </Link>
+                            </>
+                        ) : (
+                            <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
+                                <p className="font-bold">Registration Closed</p>
+                                <p>No Session or Slot Booking Going On. Please contact the school for further notice.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
