@@ -213,9 +213,9 @@ export const getDashboardData = async () => {
         ...data,
         slotUtilization: Array.isArray(data.slotUtilization) 
             ? data.slotUtilization.map((s: Record<string, unknown>) => ({ // Using unknown is safer than any
-                name: `${s.date} ${s.start_time}`,
-                booked: s.booked,
-                capacity: s.capacity,
+                name: `${s.date || ''} ${s.start_time || ''}`.trim() || 'Unknown Slot',
+                booked: Number(s.booked) || 0,
+                capacity: Number(s.capacity) || 0,
               }))
             : [],
     };

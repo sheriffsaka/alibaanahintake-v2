@@ -17,9 +17,12 @@ export const usePolling = (callback: () => Promise<void>, delay: number | null) 
 
   // Set up the interval.
   useEffect(() => {
-    let timeoutId: number;
+    let timeoutId: number | undefined;
+    let isMounted = true;
 
     async function tick() {
+      if (!isMounted) return;
+      
       try {
         await savedCallback.current();
       } catch (err) {
@@ -27,15 +30,18 @@ export const usePolling = (callback: () => Promise<void>, delay: number | null) 
         console.error("Error during polling execution:", err);
       }
 
-      if (delay !== null) {
+      if (delay !== null && isMounted) {
         // Schedule the next tick only after the current one has completed.
         timeoutId = window.setTimeout(tick, delay);
       }
     }
+
     if (delay !== null) {
       // Start the polling immediately without waiting for the first delay
       tick(); 
+      
       return () => {
+        isMounted = false;
         if (timeoutId) {
           window.clearTimeout(timeoutId);
         }

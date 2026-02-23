@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { getDashboardData } from '../../services/apiService';
 import Spinner from '../common/Spinner';
@@ -22,8 +22,7 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDashboardData = useCallback(async (isInitialLoad = false) => {
-    if (isInitialLoad) setLoading(true);
+  const fetchDashboardData = useCallback(async () => {
     setError(null);
     try {
       const dashboardData = await getDashboardData();
@@ -32,20 +31,14 @@ const Dashboard: React.FC = () => {
       console.error("Failed to fetch dashboard data", err);
       setError("Could not load dashboard data. Retrying in background...");
     } finally {
-      if (isInitialLoad) setLoading(false);
+      setLoading(false);
     }
   }, []);
 
-  // Initial data fetch
-  useEffect(() => {
-    fetchDashboardData(true);
-  }, [fetchDashboardData]);
-
-  // Set up polling for background refresh
+  // Set up polling for background refresh (includes initial fetch)
   usePolling(fetchDashboardData, POLLING_INTERVAL);
 
-
-  if (loading) return <div className="flex justify-center items-center h-64"><Spinner /></div>;
+  if (loading && !data) return <div className="flex justify-center items-center h-64"><Spinner /></div>;
   
   if (error && !data) return <p className="text-center text-red-500">{error.replace(" Retrying in background...", "")}</p>;
 

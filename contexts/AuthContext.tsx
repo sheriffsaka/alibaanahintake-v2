@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { AdminUser } from '../types';
 import { login as apiLogin, logout as apiLogout, getAdminUserProfile } from '../services/apiService';
 import { supabase } from '../services/supabaseClient';
@@ -103,24 +103,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
-  const login = async (email: string, password: string): Promise<void> => {
+  const login = useCallback(async (email: string, password: string): Promise<void> => {
     await apiLogin(email, password);
     // The onAuthStateChange listener will handle setting the user state.
-  };
+  }, []);
 
-  const logout = async () => {
-    await apiLogout();
-    setUser(null);
-    setSession(null);
-  };
+  const logout = useCallback(async () => {
+    try {
+      await apiLogout();
+    } catch (err) {
+      console.error("Error during logout:", err);
+    } finally {
+      setUser(null);
+      setSession(null);
+    }
+  }, []);
   
-  const value = {
+  const value = useMemo(() => ({
     user,
     session,
     loading,
     login,
     logout,
-  };
+  }), [user, session, loading, login, logout]);
 
   return (
     <AuthContext.Provider value={value}>
