@@ -6,6 +6,7 @@ import AlIbaanahLogo from '../landing/AlIbaanahLogo';
 import { MANDATORY_REQUIREMENTS } from '../../constants';
 import { CheckCircle, ListChecks } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
+import { useSiteContent } from '../../contexts/SiteContentContext';
 
 interface AdmissionSlipProps {
   student: Student;
@@ -13,6 +14,7 @@ interface AdmissionSlipProps {
 
 const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
   const { t, language } = useTranslation();
+  const { content } = useSiteContent();
   const [appointmentTime, setAppointmentTime] = useState('');
   
 
@@ -30,12 +32,16 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
 
   const appointmentDate = new Date(student.intakeDate);
 
+  const displayAddress = student.buildingNumber 
+    ? `${student.buildingNumber}${student.flatNumber ? ', Flat ' + student.flatNumber : ''}, ${student.streetName}, ${student.district}, ${student.state}`
+    : student.address;
+
   return (
     <div className="bg-white font-sans p-6 md:p-8 max-w-4xl mx-auto border rounded-lg">
       {/* Header */}
       <header className="flex flex-col sm:flex-row justify-between items-start pb-6 border-b">
         <div className="flex items-center">
-            <AlIbaanahLogo className="h-16 w-auto" />
+            <AlIbaanahLogo className="h-16 w-auto" logoUrl={content?.logoUrl} />
         </div>
         <div className="text-center sm:text-left mt-4 sm:mt-0 sm:mx-4">
             <h2 className="text-xl font-bold text-brand-green-dark">AL-IBAANAH ARABIC CENTER</h2>
@@ -52,7 +58,7 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
         {/* Left Column: Student Details */}
         <div className="md:col-span-2 space-y-6 relative">
              <div className="absolute inset-0 flex items-center justify-center z-0">
-                <AlIbaanahLogo className="h-64 w-auto text-gray-500 opacity-5" />
+                <AlIbaanahLogo className="h-64 w-auto text-gray-500 opacity-5" logoUrl={content?.logoUrl} />
             </div>
             <div className="relative z-10">
                 <InfoItem label={t('studentInfoLabel')} value={`${student.firstname} ${student.surname}`} valueClass="text-2xl font-bold" />
@@ -60,10 +66,10 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
             </div>
             <div className="grid grid-cols-2 gap-6 relative z-10">
                 <InfoItem label={t('targetLevelLabel')} value={student.level?.name || 'N/A'} valueClass="text-brand-green font-semibold"/>
-                <InfoItem label={t('internalGroupLabel')} value="B1" valueClass="text-brand-green font-semibold"/>
+                <InfoItem label={t('genderLabel')} value={student.gender} valueClass="text-brand-green font-semibold"/>
             </div>
              <div className="relative z-10">
-                 <InfoItem label={t('campusAddressLabel')} value="Al-Ibaanah Arabic Centre, Nasr City Branch, Evaluation Dept, Ground Floor, Zone A" />
+                 <InfoItem label={t('homeAddressLabel')} value={displayAddress} />
             </div>
         </div>
 

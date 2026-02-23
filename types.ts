@@ -72,7 +72,12 @@ export interface Student {
   email: string;
   gender: Gender;
   address: string;
-  level: Level; // Changed from enum to interface
+  buildingNumber?: string;
+  flatNumber?: string;
+  streetName?: string;
+  district?: string;
+  state?: string;
+  level: Level;
   levelId: string;
   intakeDate: string; // YYYY-MM-DD
   registrationCode: string;
@@ -122,7 +127,11 @@ export interface EnrollmentState {
         whatsapp: string;
         email: string;
         gender: Gender;
-        address: string;
+        buildingNumber: string;
+        flatNumber: string;
+        streetName: string;
+        district: string;
+        state: string;
         levelId: string;
     };
     selectedSlotId?: string;

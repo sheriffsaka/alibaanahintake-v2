@@ -14,6 +14,11 @@ const studentFromSupabase = (s: Record<string, unknown>): Student => ({ // Using
     email: s.email,
     gender: s.gender,
     address: s.address,
+    buildingNumber: s.building_number,
+    flatNumber: s.flat_number,
+    streetName: s.street_name,
+    district: s.district,
+    state: s.state,
     level: s.levels, // Supabase returns joined table as plural 'levels'
     levelId: s.level_id || '',
     intakeDate: s.intake_date,

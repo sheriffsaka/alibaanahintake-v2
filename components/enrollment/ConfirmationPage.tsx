@@ -57,7 +57,12 @@ const ConfirmationPage: React.FC = () => {
 
   const handleDownloadImage = () => {
     if (slipRef.current) {
-        html2canvas(slipRef.current, { scale: 2 }).then(canvas => { // Increased scale for better quality
+        html2canvas(slipRef.current, { 
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff'
+        }).then(canvas => { // Increased scale for better quality
             const link = document.createElement('a');
             link.download = `Al-Ibaanah-Admission-Slip-${state.confirmedRegistration?.registrationCode}.png`;
             link.href = canvas.toDataURL('image/png');

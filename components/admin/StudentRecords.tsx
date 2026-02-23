@@ -9,7 +9,7 @@ import Button from '../common/Button';
 import { Download, Search, ArrowUpDown } from 'lucide-react';
 import useDebounce from '../../hooks/useDebounce';
 
-type SortKey = 'firstname' | 'email' | 'level' | 'intakeDate' | 'status' | 'createdAt' | '';
+type SortKey = 'firstname' | 'email' | 'level' | 'intakeDate' | 'status' | 'createdAt' | 'gender' | '';
 type SortDirection = 'asc' | 'desc';
 
 const PAGE_SIZE = 15;
@@ -28,12 +28,14 @@ const StudentRecords: React.FC = () => {
     const fetchStudents = async () => {
       setLoading(true);
       try {
-        const dbSortKey = sortKey === 'level' ? 'levels(name)' : sortKey;
+        let dbSortKey = sortKey === 'level' ? 'levels(name)' : sortKey;
+        if (!dbSortKey) dbSortKey = 'created_at';
+        
         const { students: data, count } = await getAllStudents(
             currentPage,
             PAGE_SIZE,
             debouncedSearchTerm,
-            dbSortKey || 'createdAt',
+            dbSortKey,
             sortDirection
         );
         setStudents(data);
@@ -53,7 +55,7 @@ const StudentRecords: React.FC = () => {
         setCurrentPage(1);
     }
   
-  }, [debouncedSearchTerm, sortKey, sortDirection, currentPage]);
+  }, [debouncedSearchTerm, sortKey, sortDirection]);
 
 
   const handleSort = (key: SortKey) => {
@@ -67,18 +69,27 @@ const StudentRecords: React.FC = () => {
 
   const exportToCSV = () => {
     alert("This will export only the records currently visible on this page. For a full data export, please use the database management tools.");
-    const headers = ['Name', 'Email', 'WhatsApp', 'Level', 'IntakeDate', 'Status', 'RegistrationCode'];
+    const headers = ['S/N', 'Name', 'Gender', 'Email', 'WhatsApp', 'Level', 'Address', 'IntakeDate', 'Status', 'RegistrationCode'];
     const csvContent = [
       headers.join(','),
-      ...students.map(s => [
-        `"${s.firstname} ${s.surname}"`,
-        s.email,
-        s.whatsapp,
-        s.level?.name || 'N/A',
-        s.intakeDate,
-        s.status,
-        s.registrationCode
-      ].join(','))
+      ...students.map((s, index) => {
+        const serialNumber = (currentPage - 1) * PAGE_SIZE + index + 1;
+        const fullAddress = s.buildingNumber 
+            ? `${s.buildingNumber}${s.flatNumber ? ', Flat ' + s.flatNumber : ''}, ${s.streetName}, ${s.district}, ${s.state}`
+            : s.address;
+        return [
+            serialNumber,
+            `"${s.firstname} ${s.surname}"`,
+            s.gender,
+            s.email,
+            s.whatsapp,
+            s.level?.name || 'N/A',
+            `"${fullAddress}"`,
+            s.intakeDate,
+            s.status,
+            s.registrationCode
+        ].join(',');
+      })
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -120,8 +131,12 @@ const StudentRecords: React.FC = () => {
         <table className="min-w-full bg-white text-sm">
           <thead className="bg-gray-100">
             <tr>
+              <th className="py-2 px-4 text-left font-semibold text-gray-600">S/N</th>
               <th className="py-2 px-4 text-left font-semibold text-gray-600 cursor-pointer" onClick={() => handleSort('firstname')}>
                 <div className="flex items-center">Name {renderSortIcon('firstname')}</div>
+              </th>
+              <th className="py-2 px-4 text-left font-semibold text-gray-600 cursor-pointer" onClick={() => handleSort('gender')}>
+                <div className="flex items-center">Gender {renderSortIcon('gender')}</div>
               </th>
               <th className="py-2 px-4 text-left font-semibold text-gray-600 cursor-pointer" onClick={() => handleSort('email')}>
                  <div className="flex items-center">Email {renderSortIcon('email')}</div>
@@ -130,6 +145,7 @@ const StudentRecords: React.FC = () => {
               <th className="py-2 px-4 text-left font-semibold text-gray-600 cursor-pointer" onClick={() => handleSort('level')}>
                  <div className="flex items-center">Level {renderSortIcon('level')}</div>
               </th>
+              <th className="py-2 px-4 text-left font-semibold text-gray-600">Address</th>
               <th className="py-2 px-4 text-left font-semibold text-gray-600 cursor-pointer" onClick={() => handleSort('intakeDate')}>
                  <div className="flex items-center">Intake Date {renderSortIcon('intakeDate')}</div>
               </th>
@@ -139,12 +155,19 @@ const StudentRecords: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {students.map(student => (
+            {students.map((student, index) => (
               <tr key={student.id} className="border-b hover:bg-gray-50">
+                <td className="py-2 px-4 text-gray-500">{(currentPage - 1) * PAGE_SIZE + index + 1}</td>
                 <td className="py-2 px-4">{student.firstname} {student.surname}</td>
+                <td className="py-2 px-4">{student.gender}</td>
                 <td className="py-2 px-4">{student.email}</td>
                 <td className="py-2 px-4">{student.whatsapp}</td>
                 <td className="py-2 px-4">{student.level?.name || 'N/A'}</td>
+                <td className="py-2 px-4 max-w-xs truncate" title={student.buildingNumber ? `${student.buildingNumber}, ${student.streetName}, ${student.district}, ${student.state}` : student.address}>
+                    {student.buildingNumber 
+                        ? `${student.buildingNumber}, ${student.streetName}, ${student.district}, ${student.state}`
+                        : student.address}
+                </td>
                 <td className="py-2 px-4">{student.intakeDate}</td>
                 <td className="py-2 px-4">
                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${student.status === 'checked-in' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>

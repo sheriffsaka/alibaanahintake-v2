@@ -16,7 +16,11 @@ const getInitialState = (gender: Gender): EnrollmentState => ({
     whatsapp: '',
     email: '',
     gender: gender,
-    address: '',
+    buildingNumber: '',
+    flatNumber: '',
+    streetName: '',
+    district: '',
+    state: '',
     levelId: '',
   },
 });

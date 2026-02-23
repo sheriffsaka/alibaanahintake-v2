@@ -65,6 +65,11 @@ CREATE TABLE IF NOT EXISTS public.students (
     email TEXT NOT NULL,
     gender gender_enum NOT NULL,
     address TEXT NOT NULL,
+    building_number TEXT,
+    flat_number TEXT,
+    street_name TEXT,
+    district TEXT,
+    state TEXT,
     intake_date DATE NOT NULL,
     registration_code TEXT NOT NULL UNIQUE,
     appointment_slot_id UUID NOT NULL,
@@ -84,6 +89,22 @@ BEGIN
         ALTER TABLE public.students 
             ADD CONSTRAINT students_level_id_fkey 
             FOREIGN KEY (level_id) REFERENCES public.levels(id) ON DELETE RESTRICT;
+    END IF;
+    -- Add new address columns if they don't exist
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.students'::regclass AND attname = 'building_number') THEN
+        ALTER TABLE public.students ADD COLUMN building_number TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.students'::regclass AND attname = 'flat_number') THEN
+        ALTER TABLE public.students ADD COLUMN flat_number TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.students'::regclass AND attname = 'street_name') THEN
+        ALTER TABLE public.students ADD COLUMN street_name TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.students'::regclass AND attname = 'district') THEN
+        ALTER TABLE public.students ADD COLUMN district TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.students'::regclass AND attname = 'state') THEN
+        ALTER TABLE public.students ADD COLUMN state TEXT;
     END IF;
 END;
 $$;
@@ -394,7 +415,11 @@ BEGIN
     UPDATE public.appointment_slots SET booked = selected_slot.booked + 1 WHERE id = slot_id;
 
     -- Insert the new student and return the new record
-    INSERT INTO public.students (surname, firstname, othername, whatsapp, email, gender, address, level_id, intake_date, appointment_slot_id, registration_code)
+    INSERT INTO public.students (
+        surname, firstname, othername, whatsapp, email, gender, address, 
+        building_number, flat_number, street_name, district, state,
+        level_id, intake_date, appointment_slot_id, registration_code
+    )
     VALUES (
         student_data->>'surname',
         student_data->>'firstname',
@@ -403,6 +428,11 @@ BEGIN
         student_data->>'email',
         (student_data->>'gender')::gender_enum,
         student_data->>'address',
+        student_data->>'buildingNumber',
+        student_data->>'flatNumber',
+        student_data->>'streetName',
+        student_data->>'district',
+        student_data->>'state',
         (student_data->>'levelId')::UUID,
         (student_data->>'intakeDate')::date,
         slot_id,
@@ -419,6 +449,11 @@ BEGIN
         'email', new_student_record.email,
         'gender', new_student_record.gender,
         'address', new_student_record.address,
+        'buildingNumber', new_student_record.building_number,
+        'flatNumber', new_student_record.flat_number,
+        'streetName', new_student_record.street_name,
+        'district', new_student_record.district,
+        'state', new_student_record.state,
         'levelId', new_student_record.level_id,
         'level', jsonb_build_object('id', new_student_record.level_id, 'name', level_name_text),
         'intakeDate', new_student_record.intake_date,
