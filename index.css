@@ -5,6 +5,17 @@
   --color-brand-green-light: #2a6858;
   --color-brand-green-dark: #0a382b;
   --color-brand-yellow: #facc15;
+
+  /* Override default blue and indigo to match brand colors */
+  --color-blue-100: #e0f2f1;
+  --color-blue-200: #b2dfdb;
+  --color-blue-500: #0f4c3b;
+  --color-blue-600: #0f4c3b;
+  --color-blue-700: #0a382b;
+  --color-blue-800: #0a382b;
+
+  --color-indigo-100: #e0f2f1;
+  --color-indigo-600: #0f4c3b;
 }
 
 body {

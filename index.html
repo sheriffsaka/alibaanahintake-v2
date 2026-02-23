@@ -5,7 +5,6 @@
     <link rel="icon" type="image/png" href="https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Al-Ibaanah IntakeFlow</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
       /* Additional custom base styles if needed */
       body {
@@ -25,39 +24,18 @@
           width: 100%;
         }
       }
+      @keyframes spin { to { transform: rotate(360deg); } }
     </style>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            'brand-green': {
-              DEFAULT: '#0f4c3b',
-              light: '#2a6858',
-              dark: '#0a382b',
-            },
-            'brand-yellow': '#facc15', // a vibrant yellow
-            blue: { // Override default blue
-              100: '#e0f2f1',
-              200: '#b2dfdb',
-              500: '#0f4c3b',
-              600: '#0f4c3b',
-              700: '#0a382b',
-              800: '#0a382b',
-            },
-             indigo: { // Override default indigo
-              100: '#e0f2f1',
-              600: '#0f4c3b',
-            }
-          },
-        },
-      },
-    }
-  </script>
-<link rel="stylesheet" href="/index.css">
-</head>
+  </head>
   <body class="bg-white">
-    <div id="root"></div>
+    <div id="root">
+      <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; color: #0f4c3b;">
+        <div style="text-align: center;">
+          <div style="width: 40px; height: 40px; border: 3px solid #facc15; border-top-color: #0f4c3b; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
+          <p>Loading Al-Ibaanah IntakeFlow...</p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

@@ -72,34 +72,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     getInitialSession();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        if (session?.user) {
-             try {
-                const profile = await getAdminUserProfile(session.user.id);
-                if (profile?.isActive) {
-                    setUser(profile);
-                } else {
-                    throw new Error(profile ? "User is not active" : "User profile not found");
-                }
-            } catch (error) {
-                console.error("Auth state change profile validation failed, logging out:", error);
-                setUser(null);
-                try {
-                    await apiLogout();
-                } catch (logoutError) {
-                    console.error("Error during logout on auth state change:", logoutError);
-                }
-            }
-        } else {
-          setUser(null);
+    let subscription: { unsubscribe: () => void } | null = null;
+
+    try {
+      const { data: authListener } = supabase.auth.onAuthStateChange(
+        async (_event, session) => {
+          setSession(session);
+          if (session?.user) {
+               try {
+                  const profile = await getAdminUserProfile(session.user.id);
+                  if (profile?.isActive) {
+                      setUser(profile);
+                  } else {
+                      throw new Error(profile ? "User is not active" : "User profile not found");
+                  }
+              } catch (error) {
+                  console.error("Auth state change profile validation failed, logging out:", error);
+                  setUser(null);
+                  try {
+                      await apiLogout();
+                  } catch (logoutError) {
+                      console.error("Error during logout on auth state change:", logoutError);
+                  }
+              }
+          } else {
+            setUser(null);
+          }
         }
-      }
-    );
+      );
+      subscription = authListener?.subscription;
+    } catch (authError) {
+      console.error("Failed to set up auth listener:", authError);
+    }
 
     return () => {
-        authListener?.subscription?.unsubscribe();
+        subscription?.unsubscribe();
     };
   }, []);
 
