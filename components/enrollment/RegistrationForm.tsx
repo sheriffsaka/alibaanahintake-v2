@@ -84,18 +84,18 @@ const RegistrationForm: React.FC = () => {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">{t('step1Title', { gender: state.formData.gender })}</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-12">
         <Input label={t('surnameLabel')} name="surname" value={state.formData.surname} onChange={handleChange} error={errors.surname} icon={<User className="h-4 w-4 text-gray-400" />} required />
         <Input label={t('firstnameLabel')} name="firstname" value={state.formData.firstname} onChange={handleChange} error={errors.firstname} icon={<User className="h-4 w-4 text-gray-400" />} required />
       </div>
       <Input label={t('othernameLabel')} name="othername" value={state.formData.othername} onChange={handleChange} icon={<User className="h-4 w-4 text-gray-400" />} />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-12">
         <div className="flex flex-col">
           <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
             <Phone className="h-4 w-4 mr-2 text-gray-400" />
             {t('whatsappLabel')} <span className="text-red-500 ml-1">*</span>
           </label>
-          <div className="flex gap-4">
+          <div className="flex gap-2">
             <select
               name="whatsappCountryCode"
               value={state.formData.whatsappCountryCode}
