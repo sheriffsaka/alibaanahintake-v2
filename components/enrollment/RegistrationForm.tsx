@@ -238,15 +238,15 @@ const RegistrationForm: React.FC = () => {
             {t('addressLabel')}
         </label>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Input label={t('buildingNumberLabel')} name="buildingNumber" value={state.formData.buildingNumber} onChange={handleChange} error={errors.buildingNumber} placeholder="e.g. 12" required />
-            <Input label={t('flatNumberLabel')} name="flatNumber" value={state.formData.flatNumber} onChange={handleChange} placeholder="e.g. 4B" />
+            <Input label={t('buildingNumberLabel')} name="buildingNumber" value={state.formData.buildingNumber} onChange={handleChange} error={errors.buildingNumber} placeholder="Building Number" required />
+            <Input label={t('flatNumberLabel')} name="flatNumber" value={state.formData.flatNumber} onChange={handleChange} placeholder="Flat Number" />
             <div className="col-span-2">
-                <Input label={t('streetNameLabel')} name="streetName" value={state.formData.streetName} onChange={handleChange} error={errors.streetName} placeholder="e.g. Al-Nasr St" required />
+                <Input label={t('streetNameLabel')} name="streetName" value={state.formData.streetName} onChange={handleChange} error={errors.streetName} placeholder="Street Name" required />
             </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label={t('districtLabel')} name="district" value={state.formData.district} onChange={handleChange} error={errors.district} placeholder="e.g. Nasr City" required />
-            <Input label={t('stateLabel')} name="state" value={state.formData.state} onChange={handleChange} error={errors.state} placeholder="e.g. Cairo" required />
+            <Input label={t('districtLabel')} name="district" value={state.formData.district} onChange={handleChange} error={errors.district} placeholder="District Name" required />
+            <Input label={t('stateLabel')} name="state" value={state.formData.state} onChange={handleChange} error={errors.state} placeholder="State" required />
         </div>
       </div>
 
