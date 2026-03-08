@@ -106,6 +106,12 @@ BEGIN
     IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.students'::regclass AND attname = 'state') THEN
         ALTER TABLE public.students ADD COLUMN state TEXT;
     END IF;
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.students'::regclass AND attname = 'reminder_24h_sent') THEN
+        ALTER TABLE public.students ADD COLUMN reminder_24h_sent BOOLEAN DEFAULT false;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.students'::regclass AND attname = 'reminder_day_of_sent') THEN
+        ALTER TABLE public.students ADD COLUMN reminder_day_of_sent BOOLEAN DEFAULT false;
+    END IF;
 END;
 $$;
 

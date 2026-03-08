@@ -624,3 +624,34 @@ export const updateAppSetting = async (key: keyof AppSettings, value: boolean): 
     if (error) throw error;
     return { isRegistrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
 };
+
+export const sendTestEmail = async (to: string, subject: string, html: string): Promise<void> => {
+    const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ to, subject, html })
+    });
+    
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send test email');
+    }
+};
+
+export const triggerReminders = async (secret: string): Promise<any> => {
+    const response = await fetch('/api/cron/reminders', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${secret}`
+        }
+    });
+    
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to trigger reminders');
+    }
+    return response.json();
+};
