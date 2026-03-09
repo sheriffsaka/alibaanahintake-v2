@@ -17,6 +17,7 @@ const PAGE_SIZE = 15;
 const StudentRecords: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const [sortKey, setSortKey] = useState<SortKey>('createdAt');
@@ -24,28 +25,41 @@ const StudentRecords: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalStudents, setTotalStudents] = useState(0);
 
+  const fetchStudents = async () => {
+    setLoading(true);
+    setError(null);
+    
+    const timeoutId = setTimeout(() => {
+        if (loading) {
+            setError("Request timed out. Please check your connection and try again.");
+            setLoading(false);
+        }
+    }, 20000); // 20 second timeout for potentially large student list
+
+    try {
+      let dbSortKey = sortKey === 'level' ? 'levels(name)' : sortKey;
+      if (!dbSortKey) dbSortKey = 'created_at';
+      
+      const { students: data, count } = await getAllStudents(
+          currentPage,
+          PAGE_SIZE,
+          debouncedSearchTerm,
+          dbSortKey,
+          sortDirection
+      );
+      clearTimeout(timeoutId);
+      setStudents(data);
+      setTotalStudents(count);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error("Failed to fetch students", error);
+      setError("Failed to load student records. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchStudents = async () => {
-      setLoading(true);
-      try {
-        let dbSortKey = sortKey === 'level' ? 'levels(name)' : sortKey;
-        if (!dbSortKey) dbSortKey = 'created_at';
-        
-        const { students: data, count } = await getAllStudents(
-            currentPage,
-            PAGE_SIZE,
-            debouncedSearchTerm,
-            dbSortKey,
-            sortDirection
-        );
-        setStudents(data);
-        setTotalStudents(count);
-      } catch (error) {
-        console.error("Failed to fetch students", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchStudents();
   }, [currentPage, debouncedSearchTerm, sortKey, sortDirection]);
   

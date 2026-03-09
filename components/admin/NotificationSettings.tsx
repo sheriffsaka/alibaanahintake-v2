@@ -11,6 +11,7 @@ import { CheckCircle, Send, Play, ShieldCheck } from 'lucide-react';
 const NotificationSettings: React.FC = () => {
     const [settings, setSettings] = useState<TNotificationSettings | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [testing, setTesting] = useState<string | null>(null);
@@ -19,18 +20,32 @@ const NotificationSettings: React.FC = () => {
     const [runningReminders, setRunningReminders] = useState(false);
     const [cronResult, setCronResult] = useState<any>(null);
 
-    useEffect(() => {
-        const fetchSettings = async () => {
-            setLoading(true);
-            try {
-                const data = await getNotificationSettings();
-                setSettings(data);
-            } catch (error) {
-                console.error("Failed to fetch notification settings", error);
-            } finally {
+    const fetchSettings = async () => {
+        setLoading(true);
+        setError(null);
+        
+        // Create a timeout to prevent indefinite loading
+        const timeoutId = setTimeout(() => {
+            if (loading) {
+                setError("Request timed out. Please check your connection and try again.");
                 setLoading(false);
             }
-        };
+        }, 15000); // 15 second timeout
+
+        try {
+            const data = await getNotificationSettings();
+            clearTimeout(timeoutId);
+            setSettings(data);
+        } catch (error) {
+            clearTimeout(timeoutId);
+            console.error("Failed to fetch notification settings", error);
+            setError("Failed to load settings. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchSettings();
     }, []);
 
@@ -101,7 +116,25 @@ const NotificationSettings: React.FC = () => {
         }
     };
 
-    if (loading) return <Spinner />;
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <Spinner />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                <p className="text-red-600 font-medium">{error}</p>
+                <Button onClick={fetchSettings}>
+                    Retry
+                </Button>
+            </div>
+        );
+    }
+
     if (!settings) return <p>Could not load settings.</p>;
 
     const renderNotificationSection = (

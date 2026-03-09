@@ -179,8 +179,9 @@ async function startServer() {
 
     app.get('(.*)', async (req, res, next) => {
       const url = req.originalUrl;
-      // Only handle GET requests that accept HTML and are not API calls
-      if (req.method !== 'GET' || url.startsWith('/api') || !req.accepts('html')) {
+      console.log('>>> Dev catch-all hit for URL:', url);
+      // Only handle GET requests that are not API calls
+      if (req.method !== 'GET' || url.startsWith('/api')) {
         return next();
       }
 
@@ -202,12 +203,23 @@ async function startServer() {
     const distPath = path.resolve(__dirname, 'dist');
     app.use(express.static(distPath));
     app.get('(.*)', (req, res, next) => {
-      if (req.originalUrl.startsWith('/api') || !req.accepts('html')) {
+      if (req.originalUrl.startsWith('/api')) {
         return next();
       }
-      res.sendFile(path.resolve(distPath, 'index.html'));
+      const indexPath = path.resolve(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        console.error('>>> index.html NOT FOUND in dist at:', indexPath);
+        res.status(404).send('Application not found. Please try again later.');
+      }
     });
   }
+
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error('>>> Global Server Error:', err);
+    res.status(500).send('Internal Server Error');
+  });
 
   const PORT = 3000;
   app.listen(PORT, '0.0.0.0', () => {

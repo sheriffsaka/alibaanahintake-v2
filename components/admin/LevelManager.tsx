@@ -11,17 +11,30 @@ import { useTranslation } from '../../i18n/LanguageContext';
 const LevelManager: React.FC = () => {
   const [levels, setLevels] = useState<Level[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLevel, setEditingLevel] = useState<Partial<Level> | null>(null);
   const { t } = useTranslation();
 
   const fetchLevels = async () => {
     setLoading(true);
+    setError(null);
+    
+    const timeoutId = setTimeout(() => {
+        if (loading) {
+            setError("Request timed out. Please check your connection and try again.");
+            setLoading(false);
+        }
+    }, 15000);
+
     try {
       const data = await getLevels(true); // Fetch all levels, including inactive
+      clearTimeout(timeoutId);
       setLevels(data);
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error("Failed to fetch levels", error);
+      setError("Failed to load levels. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -75,7 +88,24 @@ const LevelManager: React.FC = () => {
     setEditingLevel({ ...editingLevel, [name]: val });
   };
   
-  if (loading) return <Spinner />;
+  if (loading) {
+    return (
+        <div className="flex items-center justify-center h-64">
+            <Spinner />
+        </div>
+    );
+  }
+
+  if (error) {
+    return (
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+            <p className="text-red-600 font-medium">{error}</p>
+            <Button onClick={fetchLevels}>
+                Retry
+            </Button>
+        </div>
+    );
+  }
 
   return (
     <Card title={t('levelManagerTitle')}>
