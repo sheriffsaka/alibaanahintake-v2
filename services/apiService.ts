@@ -66,6 +66,20 @@ export const logout = async (): Promise<void> => {
     if (error) throw error;
 };
 
+export const sendOTP = async (email: string): Promise<void> => {
+    const { error } = await supabase.auth.signInWithOtp({ email });
+    if (error) throw error;
+};
+
+export const verifyOTP = async (email: string, token: string): Promise<void> => {
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
+    if (error) {
+        // Try 'signin' type if 'signup' fails, as it might be an existing user
+        const { error: signinError } = await supabase.auth.verifyOtp({ email, token, type: 'signin' });
+        if (signinError) throw signinError;
+    }
+};
+
 export const getAdminUserProfile = async (userId: string): Promise<AdminUser | null> => {
     try {
         const { data, error } = await supabase

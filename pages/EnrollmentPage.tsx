@@ -6,6 +6,8 @@ import SlotPicker from '../components/enrollment/SlotPicker';
 import ConfirmationPage from '../components/enrollment/ConfirmationPage';
 import { EnrollmentContext } from '../contexts/EnrollmentContext';
 
+import EmailVerification from '../components/enrollment/EmailVerification';
+
 const getInitialState = (gender: Gender, levelId: string = ''): EnrollmentState => ({
   step: 1,
   formData: {
@@ -21,8 +23,10 @@ const getInitialState = (gender: Gender, levelId: string = ''): EnrollmentState 
     streetName: '',
     district: '',
     state: '',
+    address: '',
     levelId: levelId,
   },
+  isEmailVerified: false,
 });
 
 const enrollmentReducer = (state: EnrollmentState, action: EnrollmentAction): EnrollmentState => {
@@ -33,6 +37,8 @@ const enrollmentReducer = (state: EnrollmentState, action: EnrollmentAction): En
       return { ...state, step: state.step - 1 };
     case 'UPDATE_FORM':
       return { ...state, formData: { ...state.formData, ...action.payload } };
+    case 'SET_EMAIL_VERIFIED':
+      return { ...state, isEmailVerified: action.payload };
     case 'SELECT_SLOT':
         return { 
             ...state, 
@@ -61,8 +67,10 @@ const EnrollmentPage: React.FC = () => {
       case 1:
         return <RegistrationForm />;
       case 2:
-        return <SlotPicker />;
+        return <EmailVerification />;
       case 3:
+        return <SlotPicker />;
+      case 4:
         return <ConfirmationPage />;
       default:
         return <RegistrationForm />;

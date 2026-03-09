@@ -132,8 +132,10 @@ export interface EnrollmentState {
         streetName: string;
         district: string;
         state: string;
+        address: string;
         levelId: string;
     };
+    isEmailVerified: boolean;
     selectedSlotId?: string;
     selectedSlotDate?: string;
     confirmedRegistration?: Student;
@@ -143,6 +145,7 @@ export type EnrollmentAction =
     | { type: 'NEXT_STEP' }
     | { type: 'PREV_STEP' }
     | { type: 'UPDATE_FORM'; payload: Partial<EnrollmentState['formData']> }
+    | { type: 'SET_EMAIL_VERIFIED'; payload: boolean }
     | { type: 'SELECT_SLOT'; payload: { id: string, date: string } }
     | { type: 'CONFIRM_REGISTRATION'; payload: Student }
     | { type: 'RESET' };
