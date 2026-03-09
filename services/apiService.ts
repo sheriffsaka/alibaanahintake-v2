@@ -635,8 +635,14 @@ export const sendTestEmail = async (to: string, subject: string, html: string): 
     });
     
     if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send test email');
+        let errorMessage = 'Failed to send test email';
+        try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+            errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
     }
 };
 

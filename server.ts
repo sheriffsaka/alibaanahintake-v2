@@ -177,9 +177,12 @@ async function startServer() {
     
     app.use(vite.middlewares);
 
-    app.use('(.*)', async (req, res, next) => {
+    app.get('(.*)', async (req, res, next) => {
       const url = req.originalUrl;
-      if (url.startsWith('/api')) return next();
+      // Only handle GET requests that accept HTML and are not API calls
+      if (req.method !== 'GET' || url.startsWith('/api') || !req.accepts('html')) {
+        return next();
+      }
 
       try {
         const templatePath = path.resolve(__dirname, 'index.html');
@@ -198,7 +201,10 @@ async function startServer() {
   } else {
     const distPath = path.resolve(__dirname, 'dist');
     app.use(express.static(distPath));
-    app.get('(.*)', (req, res) => {
+    app.get('(.*)', (req, res, next) => {
+      if (req.originalUrl.startsWith('/api') || !req.accepts('html')) {
+        return next();
+      }
       res.sendFile(path.resolve(distPath, 'index.html'));
     });
   }
