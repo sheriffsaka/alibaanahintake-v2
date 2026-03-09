@@ -58,7 +58,7 @@ const ScheduleManager: React.FC = () => {
         const { ...slotForEditing } = slot;
         setEditingSlot(slotForEditing);
     } else {
-        const defaultLevelId = levels.length > 0 ? levels[0].id : '';
+        const defaultLevelId = (levels && levels.length > 0) ? levels[0].id : '';
         setEditingSlot({
             date: new Date().toISOString().split('T')[0],
             levelId: defaultLevelId,

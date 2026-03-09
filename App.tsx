@@ -23,91 +23,94 @@ import { SiteContentProvider } from './contexts/SiteContentContext';
 import SiteContentManager from './components/admin/SiteContentManager';
 import AppSettingsManager from './components/admin/AppSettingsManager';
 import ProgramsPage from './pages/ProgramsPage';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 function App() {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <HashRouter>
-          <Routes>
-            <Route element={
-              <SiteContentProvider>
-                <MainLayout />
-              </SiteContentProvider>
-            }>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/programs" element={<ProgramsPage />} />
-              <Route path="/enroll" element={<EnrollmentPage />} />
-              <Route path="/login" element={<LoginPage />} />
-            </Route>
-            
-            <Route 
-              path="/admin" 
-              element={
-                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk]}>
-                  <AdminPage />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="schedule" element={
-                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
-                  <ScheduleManager />
-                </ProtectedRoute>
-              } />
-               <Route path="levels" element={
-                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
-                  <LevelManager />
-                </ProtectedRoute>
-              } />
-              <Route path="programs" element={
-                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
-                  <ProgramManager />
-                </ProtectedRoute>
-              } />
-               <Route path="content" element={
-                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
-                  <SiteContentManager />
-                </ProtectedRoute>
-              } />
-              <Route path="check-in" element={
-                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk]}>
-                  <CheckIn />
-                </ProtectedRoute>
-              } />
-              <Route path="students" element={
-                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
-                  <StudentRecords />
-                </ProtectedRoute>
-              } />
-              <Route path="users" element={
-                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
-                  <UserManagement />
-                </ProtectedRoute>
-              } />
-              <Route path="notifications" element={
-                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
-                  <NotificationSettings />
-                </ProtectedRoute>
-              } />
-              <Route path="settings" element={
-                <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
-                  <Settings />
-                </ProtectedRoute>
-              } />
-              <Route path="app-settings" element={
-                <ProtectedRoute allowedRoles={[Role.SuperAdmin]}>
-                  <AppSettingsManager />
-                </ProtectedRoute>
-              } />
-            </Route>
-            
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </HashRouter>
-      </AuthProvider>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <AuthProvider>
+          <HashRouter>
+            <Routes>
+              <Route element={
+                <SiteContentProvider>
+                  <MainLayout />
+                </SiteContentProvider>
+              }>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/programs" element={<ProgramsPage />} />
+                <Route path="/enroll" element={<EnrollmentPage />} />
+                <Route path="/login" element={<LoginPage />} />
+              </Route>
+              
+              <Route 
+                path="/admin" 
+                element={
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk]}>
+                    <AdminPage />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="schedule" element={
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                    <ScheduleManager />
+                  </ProtectedRoute>
+                } />
+                 <Route path="levels" element={
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                    <LevelManager />
+                  </ProtectedRoute>
+                } />
+                <Route path="programs" element={
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                    <ProgramManager />
+                  </ProtectedRoute>
+                } />
+                 <Route path="content" element={
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                    <SiteContentManager />
+                  </ProtectedRoute>
+                } />
+                <Route path="check-in" element={
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk]}>
+                    <CheckIn />
+                  </ProtectedRoute>
+                } />
+                <Route path="students" element={
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                    <StudentRecords />
+                  </ProtectedRoute>
+                } />
+                <Route path="users" element={
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                    <UserManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="notifications" element={
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                    <NotificationSettings />
+                  </ProtectedRoute>
+                } />
+                <Route path="settings" element={
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                    <Settings />
+                  </ProtectedRoute>
+                } />
+                <Route path="app-settings" element={
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin]}>
+                    <AppSettingsManager />
+                  </ProtectedRoute>
+                } />
+              </Route>
+              
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </HashRouter>
+        </AuthProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }
 

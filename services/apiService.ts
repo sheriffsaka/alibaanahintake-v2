@@ -67,17 +67,22 @@ export const logout = async (): Promise<void> => {
 };
 
 export const getAdminUserProfile = async (userId: string): Promise<AdminUser | null> => {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-    
-    if (error) {
-        console.error("Error fetching profile:", error);
-        throw new Error("User profile not found or permission denied.");
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+        
+        if (error) {
+            console.error("Error fetching profile:", error);
+            return null;
+        }
+        return { ...data, isActive: data.is_active };
+    } catch (err) {
+        console.error("Critical error fetching profile:", err);
+        return null;
     }
-    return { ...data, isActive: data.is_active };
 }
 
 
@@ -326,13 +331,18 @@ export const deleteSchedule = async(slotId: string): Promise<{ success: boolean 
 
 // --- Level Management ---
 export const getLevels = async(includeInactive = false): Promise<Level[]> => {
-    let query = supabase.from('levels').select('*');
-    if (!includeInactive) {
-        query = query.eq('is_active', true);
+    try {
+        let query = supabase.from('levels').select('*');
+        if (!includeInactive) {
+            query = query.eq('is_active', true);
+        }
+        const { data, error } = await query.order('sort_order', { ascending: true });
+        if (error) throw error;
+        return data.map(l => ({...l, isActive: l.is_active, sortOrder: l.sort_order}));
+    } catch (err) {
+        console.error("Failed to fetch levels:", err);
+        return [];
     }
-    const { data, error } = await query.order('sort_order', { ascending: true });
-    if (error) throw error;
-    return data.map(l => ({...l, isActive: l.is_active, sortOrder: l.sort_order}));
 };
 
 export const createLevel = async(level: Omit<Level, 'id'>): Promise<Level> => {
@@ -619,9 +629,14 @@ export const updateNotificationSettings = async(settings: NotificationSettings):
 
 // --- App Settings ---
 export const getAppSettings = async(): Promise<AppSettings> => {
-    const { data, error } = await supabase.from('app_settings').select('*').eq('id', 1).single();
-    if (error) throw error;
-    return { isRegistrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
+    try {
+        const { data, error } = await supabase.from('app_settings').select('*').eq('id', 1).single();
+        if (error) throw error;
+        return { isRegistrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
+    } catch (err) {
+        console.error("Failed to fetch app settings, using defaults.", err);
+        return { isRegistrationOpen: false, maxDailyCapacity: 50 };
+    }
 };
 export const updateAppSettings = async(settings: AppSettings): Promise<AppSettings> => {
     const { isRegistrationOpen, maxDailyCapacity } = settings;

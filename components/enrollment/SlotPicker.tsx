@@ -22,50 +22,61 @@ const SlotPicker: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [levelName, setLevelName] = useState('...loading');
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchDates = async () => {
+    if (!levelId || !gender) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const dates = await getAvailableDatesForLevel(levelId, gender);
+      setAvailableDates(dates);
+    } catch (err) {
+      console.error("Failed to fetch dates", err);
+      setError("Failed to load available dates. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSlots = async () => {
+    if (!selectedDate || !levelId || !gender) return;
+    setLoadingSlots(true);
+    setSelectedSlotId(null);
+    setError(null);
+    try {
+      const availableSlots = await getAvailableSlots(selectedDate, levelId, gender);
+      setSlots(availableSlots);
+    } catch (err) {
+      console.error("Failed to fetch slots", err);
+      setError("Failed to load available slots. Please try again.");
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
 
   useEffect(() => {
     const fetchLevelInfo = async () => {
         if (!levelId) return;
-        const allLevels = await getLevels(true);
-        const currentLevel = allLevels.find(l => l.id === levelId);
-        if (currentLevel) {
-            setLevelName(currentLevel.name);
+        try {
+            const allLevels = await getLevels(true);
+            const currentLevel = allLevels.find(l => l.id === levelId);
+            if (currentLevel) {
+                setLevelName(currentLevel.name);
+            }
+        } catch (err) {
+            console.error("Failed to fetch level info", err);
+            setLevelName("Unknown Level");
         }
     };
     fetchLevelInfo();
   }, [levelId]);
 
   useEffect(() => {
-    if (!levelId || !gender) return;
-    const fetchDates = async () => {
-      setLoading(true);
-      try {
-        const dates = await getAvailableDatesForLevel(levelId, gender);
-        setAvailableDates(dates);
-      } catch (error) {
-        console.error("Failed to fetch dates", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchDates();
   }, [levelId, gender]);
 
   useEffect(() => {
-    if (!selectedDate || !levelId || !gender) return;
-
-    const fetchSlots = async () => {
-      setLoadingSlots(true);
-      setSelectedSlotId(null);
-      try {
-        const availableSlots = await getAvailableSlots(selectedDate, levelId, gender);
-        setSlots(availableSlots);
-      } catch (error) {
-        console.error("Failed to fetch slots", error);
-      } finally {
-        setLoadingSlots(false);
-      }
-    };
     fetchSlots();
   }, [selectedDate, levelId, gender]);
 
@@ -92,6 +103,12 @@ const SlotPicker: React.FC = () => {
       {/* Date Picker */}
       <div className="mb-6">
         <h3 className="font-semibold text-gray-700 mb-2 flex items-center"><Calendar className="h-5 w-5 mr-2" />{t('dateSelectPrompt')}</h3>
+        {error && !selectedDate && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 mb-4">
+                <p className="mb-2">{error}</p>
+                <Button onClick={fetchDates} size="sm">Retry</Button>
+            </div>
+        )}
         {loading ? <Spinner/> : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
             {availableDates.length > 0 ? availableDates.map(date => (
@@ -102,7 +119,7 @@ const SlotPicker: React.FC = () => {
                 >
                     {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
                 </button>
-            )) : <p className="col-span-full text-center text-gray-600">{t('noDatesAvailable')}</p>}
+            )) : !error && <p className="col-span-full text-center text-gray-600">{t('noDatesAvailable')}</p>}
             </div>
         )}
       </div>
@@ -111,6 +128,12 @@ const SlotPicker: React.FC = () => {
       {selectedDate && (
         <div>
             <h3 className="font-semibold text-gray-700 mb-3">{t('slotsForDateTitle', { date: formatDate(selectedDate)})}</h3>
+            {error && selectedDate && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 mb-4">
+                    <p className="mb-2">{error}</p>
+                    <Button onClick={fetchSlots} size="sm">Retry</Button>
+                </div>
+            )}
             {loadingSlots ? (
             <Spinner />
             ) : (

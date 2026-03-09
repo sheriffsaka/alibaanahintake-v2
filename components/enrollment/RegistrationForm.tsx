@@ -147,18 +147,30 @@ const RegistrationForm: React.FC = () => {
   const { state, dispatch } = context;
   const [errors, setErrors] = useState<Partial<typeof state.formData>>({});
   const [levels, setLevels] = useState<Level[]>([]);
+  const [loadingLevels, setLoadingLevels] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchLevels = async () => {
+  const fetchLevelsData = async () => {
+    setLoadingLevels(true);
+    setFetchError(null);
+    try {
         const activeLevels = await getLevels();
         setLevels(activeLevels);
         if (!state.formData.levelId && activeLevels.length > 0) {
             dispatch({ type: 'UPDATE_FORM', payload: { levelId: activeLevels[0].id } });
         }
-    };
-    fetchLevels();
-    
-  }, [dispatch, state.formData.levelId]);
+    } catch (err) {
+        console.error("Failed to fetch levels", err);
+        setFetchError("Failed to load levels. Please check your connection.");
+    } finally {
+        setLoadingLevels(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLevelsData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const validate = () => {
     const newErrors: Partial<typeof state.formData> = {};
@@ -250,7 +262,16 @@ const RegistrationForm: React.FC = () => {
         </div>
       </div>
 
-      <Select label={t('levelLabel')} name="levelId" value={state.formData.levelId} onChange={handleChange} options={levels.map(l => ({ value: l.id, label: l.name }))} />
+      {loadingLevels ? (
+        <div className="animate-pulse h-10 bg-gray-200 rounded"></div>
+      ) : fetchError ? (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 flex justify-between items-center">
+            <span>{fetchError}</span>
+            <Button onClick={fetchLevelsData} size="sm" variant="outline">Retry</Button>
+        </div>
+      ) : (
+        <Select label={t('levelLabel')} name="levelId" value={state.formData.levelId} onChange={handleChange} options={levels.map(l => ({ value: l.id, label: l.name }))} />
+      )}
       <div className="pt-4">
         <Button type="submit" fullWidth>{t('nextButton')}</Button>
       </div>

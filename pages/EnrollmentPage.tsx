@@ -6,7 +6,7 @@ import SlotPicker from '../components/enrollment/SlotPicker';
 import ConfirmationPage from '../components/enrollment/ConfirmationPage';
 import { EnrollmentContext } from '../contexts/EnrollmentContext';
 
-const getInitialState = (gender: Gender): EnrollmentState => ({
+const getInitialState = (gender: Gender, levelId: string = ''): EnrollmentState => ({
   step: 1,
   formData: {
     surname: '',
@@ -21,7 +21,7 @@ const getInitialState = (gender: Gender): EnrollmentState => ({
     streetName: '',
     district: '',
     state: '',
-    levelId: '',
+    levelId: levelId,
   },
 });
 
@@ -43,7 +43,7 @@ const enrollmentReducer = (state: EnrollmentState, action: EnrollmentAction): En
     case 'CONFIRM_REGISTRATION':
         return { ...state, confirmedRegistration: action.payload };
     case 'RESET':
-        return getInitialState(state.formData.gender);
+        return getInitialState(state.formData.gender, state.formData.levelId);
     default:
       return state;
   }
@@ -52,8 +52,9 @@ const enrollmentReducer = (state: EnrollmentState, action: EnrollmentAction): En
 const EnrollmentPage: React.FC = () => {
   const location = useLocation();
   const preselectedGender = location.state?.gender === Gender.Female ? Gender.Female : Gender.Male;
+  const preselectedLevelId = location.state?.levelId || '';
   
-  const [state, dispatch] = useReducer(enrollmentReducer, getInitialState(preselectedGender));
+  const [state, dispatch] = useReducer(enrollmentReducer, getInitialState(preselectedGender, preselectedLevelId));
 
   const renderStep = () => {
     switch (state.step) {
