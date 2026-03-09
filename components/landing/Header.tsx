@@ -2,15 +2,17 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import AlIbaanahLogo from './AlIbaanahLogo';
-import { ChevronDown, ExternalLink, Globe, Menu, X } from 'lucide-react';
+import { ChevronDown, ExternalLink, Globe, Menu, X, LayoutDashboard } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { langs } from '../../i18n/locales';
 import { Gender } from '../../types';
 import { useSiteContent } from '../../contexts/SiteContentContext';
+import { useAuth } from '../../hooks/useAuth';
 
 const Header: React.FC = () => {
   const { t, changeLanguage, language } = useTranslation();
   const { content } = useSiteContent();
+  const { user } = useAuth();
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [bookingDropdownOpen, setBookingDropdownOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -88,9 +90,16 @@ const Header: React.FC = () => {
                     </div>
                 )}
             </div>
-            <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-brand-green">
-              {t('staffLogin')}
-            </Link>
+            {user ? (
+              <Link to="/admin" className="flex items-center text-sm font-medium text-brand-green hover:text-brand-green-light">
+                <LayoutDashboard className="h-4 w-4 mr-1" />
+                <span>Dashboard</span>
+              </Link>
+            ) : (
+              <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-brand-green">
+                {t('staffLogin')}
+              </Link>
+            )}
           </nav>
           <div className="md:hidden">
             <button onClick={() => setIsMenuOpen(!isMenuOpen)}>
@@ -155,9 +164,16 @@ const Header: React.FC = () => {
                     </div>
                 )}
             </div>
-            <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-brand-green" onClick={() => setIsMenuOpen(false)}>
-              {t('staffLogin')}
-            </Link>
+            {user ? (
+              <Link to="/admin" className="flex items-center text-sm font-medium text-brand-green hover:text-brand-green-light" onClick={() => setIsMenuOpen(false)}>
+                <LayoutDashboard className="h-4 w-4 mr-1" />
+                <span>Dashboard</span>
+              </Link>
+            ) : (
+              <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-brand-green" onClick={() => setIsMenuOpen(false)}>
+                {t('staffLogin')}
+              </Link>
+            )}
             </nav>
           </div>
         )}

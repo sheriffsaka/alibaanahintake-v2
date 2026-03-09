@@ -25,12 +25,13 @@ const StudentRecords: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalStudents, setTotalStudents] = useState(0);
 
-  const fetchStudents = async () => {
+  const fetchStudents = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     
+    const isPending = { current: true };
     const timeoutId = setTimeout(() => {
-        if (loading) {
+        if (isPending.current) {
             setError("Request timed out. Please check your connection and try again.");
             setLoading(false);
         }
@@ -47,29 +48,30 @@ const StudentRecords: React.FC = () => {
           dbSortKey,
           sortDirection
       );
+      isPending.current = false;
       clearTimeout(timeoutId);
       setStudents(data);
       setTotalStudents(count);
-    } catch (error) {
+    } catch (err) {
+      isPending.current = false;
       clearTimeout(timeoutId);
-      console.error("Failed to fetch students", error);
+      console.error("Failed to fetch students", err);
       setError("Failed to load student records. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, debouncedSearchTerm, sortKey, sortDirection]);
 
   useEffect(() => {
     fetchStudents();
-  }, [currentPage, debouncedSearchTerm, sortKey, sortDirection]);
+  }, [fetchStudents]);
   
   // Effect to reset to page 1 when search term or sort changes
   useEffect(() => {
     if(currentPage !== 1) {
         setCurrentPage(1);
     }
-  
-  }, [debouncedSearchTerm, sortKey, sortDirection]);
+  }, [debouncedSearchTerm, sortKey, sortDirection, currentPage]);
 
 
   const handleSort = (key: SortKey) => {
@@ -122,6 +124,17 @@ const StudentRecords: React.FC = () => {
   };
 
   const totalPages = Math.ceil(totalStudents / PAGE_SIZE);
+
+  if (error && students.length === 0) {
+    return (
+      <Card title="Student Records">
+        <div className="p-8 text-center">
+          <p className="text-red-500 mb-4">{error}</p>
+          <Button onClick={fetchStudents}>Retry</Button>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card title="Student Records">

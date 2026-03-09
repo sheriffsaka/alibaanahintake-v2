@@ -4,6 +4,20 @@ import { Student, AppointmentSlot, Level, AdminUser, NotificationSettings, AppSe
 import { v4 as uuidv4 } from 'uuid';
 
 
+const fetchWithTimeout = async (resource: string, options: RequestInit & { timeout?: number } = {}) => {
+    const { timeout = 15000 } = options;
+    
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    
+    const response = await fetch(resource, {
+        ...options,
+        signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+};
+
 // Helper function to convert student data from snake_case to camelCase
 const studentFromSupabase = (s: Record<string, unknown>): Student => ({ // Using unknown is safer than any
     id: s.id,
@@ -147,7 +161,7 @@ export const submitRegistration = async (
                 body = body.replace('{{appointmentTime}}', `${slot.startTime} - ${slot.endTime}`);
                 body = body.replace('{{registrationCode}}', newStudent.registrationCode);
 
-                await fetch('/api/send-email', {
+                await fetchWithTimeout('/api/send-email', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -626,7 +640,7 @@ export const updateAppSetting = async (key: keyof AppSettings, value: boolean): 
 };
 
 export const sendTestEmail = async (to: string, subject: string, html: string): Promise<void> => {
-    const response = await fetch('/api/send-email', {
+    const response = await fetchWithTimeout('/api/send-email', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -639,15 +653,15 @@ export const sendTestEmail = async (to: string, subject: string, html: string): 
         try {
             const errorData = await response.json();
             errorMessage = errorData.error || errorMessage;
-        } catch (e) {
+        } catch {
             errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         throw new Error(errorMessage);
     }
 };
 
-export const triggerReminders = async (secret: string): Promise<any> => {
-    const response = await fetch('/api/cron/reminders', {
+export const triggerReminders = async (secret: string): Promise<unknown> => {
+    const response = await fetchWithTimeout('/api/cron/reminders', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

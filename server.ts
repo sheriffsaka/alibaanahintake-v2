@@ -12,6 +12,12 @@ async function startServer() {
   const app = express();
   app.use(express.json());
 
+  // Request logging middleware
+  app.use((req, res, next) => {
+    console.log(`>>> ${req.method} ${req.url}`);
+    next();
+  });
+
   // Health check route
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
@@ -64,13 +70,14 @@ async function startServer() {
       const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
       // Helper to send reminder
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sendReminder = async (student: any, template: any, type: '24h' | 'dayOf') => {
-        let body = template.body;
+        let body = template.body as string;
         body = body.replace(/{{studentName}}/g, `${student.firstname} ${student.surname}`);
         body = body.replace(/{{level}}/g, student.levels?.name || 'Assigned Level');
         body = body.replace(/{{appointmentDate}}/g, student.appointment_slots?.date);
         body = body.replace(/{{appointmentTime}}/g, `${student.appointment_slots?.start_time} - ${student.appointment_slots?.end_time}`);
-        body = body.replace(/{{registrationCode}}/g, student.registration_code);
+        body = body.replace(/{{registrationCode}}/g, student.registration_code as string);
 
         try {
           await resend.emails.send({
@@ -216,7 +223,7 @@ async function startServer() {
     });
   }
 
-  app.use((err: any, req: any, res: any, next: any) => {
+  app.use((err: Error, _req: express.Request, res: express.Response) => {
     console.error('>>> Global Server Error:', err);
     res.status(500).send('Internal Server Error');
   });

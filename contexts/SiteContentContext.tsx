@@ -25,10 +25,23 @@ export const SiteContentProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   useEffect(() => {
     const fetchContent = async () => {
+        const isPending = { current: true };
+        const timeoutId = setTimeout(() => {
+            if (isPending.current) {
+                console.warn("Site content fetch timed out, using defaults.");
+                setContent(defaultContent);
+                setLoading(false);
+            }
+        }, 10000);
+
         try {
             const siteContent = await getSiteContent();
+            isPending.current = false;
+            clearTimeout(timeoutId);
             setContent(siteContent);
         } catch (error) {
+            isPending.current = false;
+            clearTimeout(timeoutId);
             console.error("Failed to fetch site content, using defaults.", error);
             setContent(defaultContent);
         } finally {

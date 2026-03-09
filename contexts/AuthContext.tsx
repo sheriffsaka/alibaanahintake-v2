@@ -22,15 +22,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const getInitialSession = async () => {
+      const timeoutId = setTimeout(() => {
+        if (loading) {
+          console.warn('Initial session fetch timed out');
+          setLoading(false);
+        }
+      }, 10000); // 10 second timeout for initial auth
+
       try {
         // Safely get the session without risky destructuring
         const { data, error } = await supabase.auth.getSession();
 
         if (error) {
           console.error('Error fetching initial session:', error);
-          // Allow app to load in a logged-out state
+          clearTimeout(timeoutId);
           setSession(null);
           setUser(null);
+          setLoading(false);
           return;
         }
 
@@ -43,29 +51,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (profile?.isActive) {
                setUser(profile);
             } else {
-               // If profile is not found or user is inactive, log them out.
-               // getAdminUserProfile throws on not found, so this case handles inactive.
                throw new Error(profile ? "User is not active" : "User profile not found");
             }
           } catch (profileError) {
             console.error("Profile validation failed, logging out:", profileError);
-            // Ensure logout doesn't cause an unhandled exception
             try {
               await apiLogout();
             } catch (logoutError) {
               console.error("Error during logout:", logoutError);
             }
-            // Reset state manually after logout
             setUser(null);
             setSession(null);
           }
         }
       } catch (e) {
         console.error("Critical error in getInitialSession:", e);
-        // Fallback to a clean, logged-out state
         setUser(null);
         setSession(null);
       } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
       }
     };
@@ -108,7 +112,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => {
         subscription?.unsubscribe();
     };
-  }, []);
+  }, [loading]);
 
   const login = useCallback(async (email: string, password: string): Promise<void> => {
     await apiLogin(email, password);

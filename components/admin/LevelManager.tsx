@@ -20,8 +20,9 @@ const LevelManager: React.FC = () => {
     setLoading(true);
     setError(null);
     
+    const isPending = { current: true };
     const timeoutId = setTimeout(() => {
-        if (loading) {
+        if (isPending.current) {
             setError("Request timed out. Please check your connection and try again.");
             setLoading(false);
         }
@@ -29,9 +30,11 @@ const LevelManager: React.FC = () => {
 
     try {
       const data = await getLevels(true); // Fetch all levels, including inactive
+      isPending.current = false;
       clearTimeout(timeoutId);
       setLevels(data);
     } catch (error) {
+      isPending.current = false;
       clearTimeout(timeoutId);
       console.error("Failed to fetch levels", error);
       setError("Failed to load levels. Please try again.");

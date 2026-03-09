@@ -10,19 +10,33 @@ const AppSettingsManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchSettings = async () => {
+    setLoading(true);
+    setError(null);
+    const isPending = { current: true };
+    const timeoutId = setTimeout(() => {
+        if (isPending.current) {
+            setError("Request timed out. Please check your connection and try again.");
+            setLoading(false);
+        }
+    }, 15000);
+
+    try {
+      const fetchedSettings = await getAppSettings();
+      isPending.current = false;
+      clearTimeout(timeoutId);
+      setSettings(fetchedSettings);
+    } catch (err) {
+      isPending.current = false;
+      clearTimeout(timeoutId);
+      setError('Failed to load settings.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        setLoading(true);
-        const fetchedSettings = await getAppSettings();
-        setSettings(fetchedSettings);
-      } catch (err) {
-        setError('Failed to load settings.');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchSettings();
   }, []);
 
@@ -42,9 +56,19 @@ const AppSettingsManager: React.FC = () => {
     }
   };
 
-  if (loading) return <Spinner />;
-  if (error) return <p className="text-red-500">{error}</p>;
-  if (!settings) return <p>No settings found.</p>;
+  if (loading) return <div className="flex justify-center p-8"><Spinner /></div>;
+  if (error) return (
+    <div className="p-8 text-center">
+      <p className="text-red-500 mb-4">{error}</p>
+      <button 
+        onClick={fetchSettings}
+        className="px-4 py-2 bg-brand-green text-white rounded hover:bg-brand-green-dark transition-colors"
+      >
+        Retry
+      </button>
+    </div>
+  );
+  if (!settings) return <p className="p-8 text-center">No settings found.</p>;
 
   return (
     <Card title="Application Settings">

@@ -12,7 +12,13 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
+
+  React.useEffect(() => {
+    if (!authLoading && user) {
+      navigate('/admin');
+    }
+  }, [user, authLoading, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

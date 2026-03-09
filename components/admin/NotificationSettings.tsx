@@ -18,15 +18,16 @@ const NotificationSettings: React.FC = () => {
     const [testEmail, setTestEmail] = useState('');
     const [cronSecret, setCronSecret] = useState('');
     const [runningReminders, setRunningReminders] = useState(false);
-    const [cronResult, setCronResult] = useState<any>(null);
+    const [cronResult, setCronResult] = useState<unknown>(null);
 
     const fetchSettings = async () => {
         setLoading(true);
         setError(null);
         
+        const isPending = { current: true };
         // Create a timeout to prevent indefinite loading
         const timeoutId = setTimeout(() => {
-            if (loading) {
+            if (isPending.current) {
                 setError("Request timed out. Please check your connection and try again.");
                 setLoading(false);
             }
@@ -34,9 +35,11 @@ const NotificationSettings: React.FC = () => {
 
         try {
             const data = await getNotificationSettings();
+            isPending.current = false;
             clearTimeout(timeoutId);
             setSettings(data);
         } catch (error) {
+            isPending.current = false;
             clearTimeout(timeoutId);
             console.error("Failed to fetch notification settings", error);
             setError("Failed to load settings. Please try again.");
