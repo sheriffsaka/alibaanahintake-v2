@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useCallback } from 'react';
 import { EnrollmentContext } from '../../contexts/EnrollmentContext';
 import Button from '../common/Button';
 import Input from '../common/Input';
@@ -21,7 +21,7 @@ const EmailVerification: React.FC = () => {
   useEffect(() => {
     // Automatically send OTP when component mounts
     handleSendOTP();
-  }, []);
+  }, [handleSendOTP]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -31,19 +31,20 @@ const EmailVerification: React.FC = () => {
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  const handleSendOTP = async () => {
+  const handleSendOTP = useCallback(async () => {
     if (countdown > 0) return;
     setResending(true);
     setError(null);
     try {
       await sendOTP(state.formData.email);
       setCountdown(60); // 60 seconds cooldown
-    } catch (err: any) {
-      setError(err.message || "Failed to send verification code.");
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message || "Failed to send verification code.");
     } finally {
       setResending(false);
     }
-  };
+  }, [countdown, state.formData.email]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +56,7 @@ const EmailVerification: React.FC = () => {
       await verifyOTP(state.formData.email, otp);
       dispatch({ type: 'SET_EMAIL_VERIFIED', payload: true });
       dispatch({ type: 'NEXT_STEP' });
-    } catch (err: any) {
+    } catch {
       setError(t('errorInvalidCode'));
     } finally {
       setLoading(false);
@@ -106,7 +107,7 @@ const EmailVerification: React.FC = () => {
               className={`flex items-center gap-1 ${countdown > 0 ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:text-blue-700'}`}
             >
               <RefreshCw className={`h-4 w-4 ${resending ? 'animate-spin' : ''}`} />
-              {countdown > 0 ? `Resend in ${countdown}s` : t('resendCodeButton')}
+              {countdown > 0 ? t('resendCountdown', { seconds: countdown.toString() }) : t('resendCodeButton')}
             </button>
           </div>
         </div>

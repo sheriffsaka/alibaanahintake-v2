@@ -105,6 +105,11 @@ export default {
     districtLabel: 'الحي',
     stateLabel: 'المحافظة',
     levelLabel: 'المستوى المسجل له',
+    buildingNumberPlaceholder: 'رقم المبنى',
+    flatNumberPlaceholder: 'رقم الشقة',
+    streetNamePlaceholder: 'اسم الشارع',
+    districtPlaceholder: 'اسم الحي',
+    statePlaceholder: 'المحافظة',
     nextButton: 'التالي: التحقق من البريد',
     errorFirstnameRequired: 'الاسم الأول مطلوب',
     errorSurnameRequired: 'اللقب مطلوب',
@@ -123,6 +128,7 @@ export default {
     verificationCodeLabel: 'رمز التحقق',
     verifyButton: 'تحقق ومتابعة',
     resendCodeButton: 'إعادة إرسال الرمز',
+    resendCountdown: 'إعادة الإرسال خلال {seconds} ثانية',
     errorInvalidCode: 'رمز التحقق غير صالح أو منتهي الصلاحية. يرجى المحاولة مرة أخرى.',
 
     // Slot Picker

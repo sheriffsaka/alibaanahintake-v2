@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useCallback } from 'react';
 import { EnrollmentContext } from '../../contexts/EnrollmentContext';
 import { getAvailableSlots, getAvailableDatesForLevel, getLevels } from '../../services/apiService';
 import { AppointmentSlot } from '../../types';
@@ -24,7 +24,7 @@ const SlotPicker: React.FC = () => {
   const [levelName, setLevelName] = useState('...loading');
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDates = async () => {
+  const fetchDates = useCallback(async () => {
     if (!levelId || !gender) return;
     setLoading(true);
     setError(null);
@@ -37,9 +37,9 @@ const SlotPicker: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [levelId, gender]);
 
-  const fetchSlots = async () => {
+  const fetchSlots = useCallback(async () => {
     if (!selectedDate || !levelId || !gender) return;
     setLoadingSlots(true);
     setSelectedSlotId(null);
@@ -53,7 +53,7 @@ const SlotPicker: React.FC = () => {
     } finally {
       setLoadingSlots(false);
     }
-  };
+  }, [selectedDate, levelId, gender]);
 
   useEffect(() => {
     const fetchLevelInfo = async () => {
@@ -74,11 +74,11 @@ const SlotPicker: React.FC = () => {
 
   useEffect(() => {
     fetchDates();
-  }, [levelId, gender]);
+  }, [fetchDates]);
 
   useEffect(() => {
     fetchSlots();
-  }, [selectedDate, levelId, gender]);
+  }, [fetchSlots]);
 
   const handleConfirm = () => {
       if (selectedSlotId) {

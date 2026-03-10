@@ -105,6 +105,11 @@ export default {
     districtLabel: 'District',
     stateLabel: 'State',
     levelLabel: 'Level Registering For',
+    buildingNumberPlaceholder: 'Building Number',
+    flatNumberPlaceholder: 'Flat Number',
+    streetNamePlaceholder: 'Street Name',
+    districtPlaceholder: 'District Name',
+    statePlaceholder: 'State',
     nextButton: 'Next: Verify Email',
     errorFirstnameRequired: 'First name is required',
     errorSurnameRequired: 'Surname is required',
@@ -123,6 +128,7 @@ export default {
     verificationCodeLabel: 'Verification Code',
     verifyButton: 'Verify and Continue',
     resendCodeButton: 'Resend Code',
+    resendCountdown: 'Resend in {seconds}s',
     errorInvalidCode: 'Invalid or expired verification code. Please try again.',
 
     // Slot Picker

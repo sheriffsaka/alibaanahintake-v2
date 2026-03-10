@@ -8,7 +8,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://snytpzughzqdho
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueXRwenVnaHpxZGhvdXFqb3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMDg4OTYsImV4cCI6MjA4Njg4NDg5Nn0.CGKjooJkDFm2VVyz3QXiZ5ksK5tZfo3FG56D5zlF6w8';
 
 // Custom fetch with timeout for Supabase
-const fetchWithTimeout = async (url: string, options: any = {}) => {
+const fetchWithTimeout = async (url: string, options: RequestInit = {}) => {
   const timeout = 15000; // 15 seconds timeout
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
