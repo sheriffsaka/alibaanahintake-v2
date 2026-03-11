@@ -181,6 +181,7 @@ const RegistrationForm: React.FC = () => {
     else if (!/\S+@\S+\.\S+/.test(state.formData.email)) newErrors.email = t('errorEmailInvalid');
     
     if (!state.formData.buildingNumber) newErrors.buildingNumber = t('errorBuildingRequired');
+    if (!state.formData.flatNumber) newErrors.flatNumber = t('errorFlatNumberRequired');
     if (!state.formData.streetName) newErrors.streetName = t('errorStreetRequired');
     if (!state.formData.district) newErrors.district = t('errorDistrictRequired');
     if (!state.formData.state) newErrors.state = t('errorStateRequired');
@@ -251,7 +252,7 @@ const RegistrationForm: React.FC = () => {
         </label>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <Input label={t('buildingNumberLabel')} name="buildingNumber" value={state.formData.buildingNumber} onChange={handleChange} error={errors.buildingNumber} placeholder="Building Number" required />
-            <Input label={t('flatNumberLabel')} name="flatNumber" value={state.formData.flatNumber} onChange={handleChange} placeholder="Flat Number" />
+            <Input label={t('flatNumberLabel')} name="flatNumber" value={state.formData.flatNumber} onChange={handleChange} error={errors.flatNumber} placeholder="Flat Number" required />
             <div className="col-span-2">
                 <Input label={t('streetNameLabel')} name="streetName" value={state.formData.streetName} onChange={handleChange} error={errors.streetName} placeholder="Street Name" required />
             </div>

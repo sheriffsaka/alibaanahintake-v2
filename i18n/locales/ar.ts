@@ -100,7 +100,7 @@ export default {
     genderLabel: 'الجنس',
     addressLabel: 'العنوان في مصر',
     buildingNumberLabel: 'رقم المبنى',
-    flatNumberLabel: 'رقم الشقة (اختياري)',
+    flatNumberLabel: 'رقم الشقة',
     streetNameLabel: 'اسم الشارع',
     districtLabel: 'الحي',
     stateLabel: 'المحافظة',
@@ -121,6 +121,7 @@ export default {
     errorStreetRequired: 'اسم الشارع مطلوب',
     errorDistrictRequired: 'الحي مطلوب',
     errorStateRequired: 'المحافظة مطلوبة',
+    errorFlatNumberRequired: 'رقم الشقة مطلوب',
 
     // Email Verification
     verifyEmailTitle: 'تحقق من بريدك الإلكتروني',

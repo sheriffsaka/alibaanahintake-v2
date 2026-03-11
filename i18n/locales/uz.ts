@@ -99,7 +99,7 @@ export default {
     genderLabel: 'Jins',
     addressLabel: 'Misrdagi uy manzili',
     buildingNumberLabel: 'Bino raqami',
-    flatNumberLabel: 'Xonadon raqami (ixtiyoriy)',
+    flatNumberLabel: 'Xonadon raqami',
     streetNameLabel: 'Ko\'cha nomi',
     districtLabel: 'Tuman',
     stateLabel: 'Viloyat',
@@ -120,6 +120,7 @@ export default {
     errorStreetRequired: 'Ko\'cha nomi kiritilishi shart',
     errorDistrictRequired: 'Tuman kiritilishi shart',
     errorStateRequired: 'Viloyat kiritilishi shart',
+    errorFlatNumberRequired: 'Xonadon raqami kiritilishi shart',
 
     // Email Verification
     verifyEmailTitle: 'Elektron pochtangizni tasdiqlang',

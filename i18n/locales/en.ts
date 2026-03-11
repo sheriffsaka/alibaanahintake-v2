@@ -100,7 +100,7 @@ export default {
     genderLabel: 'Gender',
     addressLabel: 'Home Address in Egypt',
     buildingNumberLabel: 'Building Number',
-    flatNumberLabel: 'Flat Number (Optional)',
+    flatNumberLabel: 'Flat Number',
     streetNameLabel: 'Street Name',
     districtLabel: 'District',
     stateLabel: 'State',
@@ -121,6 +121,7 @@ export default {
     errorStreetRequired: 'Street name is required',
     errorDistrictRequired: 'District is required',
     errorStateRequired: 'State is required',
+    errorFlatNumberRequired: 'Flat number is required',
 
     // Email Verification
     verifyEmailTitle: 'Verify Your Email',

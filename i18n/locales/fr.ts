@@ -99,7 +99,7 @@ export default {
     genderLabel: 'Genre',
     addressLabel: 'Adresse personnelle en Égypte',
     buildingNumberLabel: 'Numéro de bâtiment',
-    flatNumberLabel: 'Numéro d\'appartement (facultatif)',
+    flatNumberLabel: 'Numéro d\'appartement',
     streetNameLabel: 'Nom de la rue',
     districtLabel: 'Quartier',
     stateLabel: 'Gouvernorat/État',
@@ -120,6 +120,7 @@ export default {
     errorStreetRequired: 'Le nom de la rue est requis',
     errorDistrictRequired: 'Le quartier est requis',
     errorStateRequired: 'L\'état est requis',
+    errorFlatNumberRequired: 'Le numéro d\'appartement est requis',
 
     // Email Verification
     verifyEmailTitle: 'Vérifiez votre e-mail',

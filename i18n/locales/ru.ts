@@ -99,7 +99,7 @@ export default {
     genderLabel: 'Пол',
     addressLabel: 'Домашний адрес в Египте',
     buildingNumberLabel: 'Номер здания',
-    flatNumberLabel: 'Номер квартиры (необязательно)',
+    flatNumberLabel: 'Номер квартиры',
     streetNameLabel: 'Название улицы',
     districtLabel: 'Район',
     stateLabel: 'Область/Штат',
@@ -115,6 +115,7 @@ export default {
     errorStreetRequired: 'Название улицы обязательно',
     errorDistrictRequired: 'Район обязателен',
     errorStateRequired: 'Область обязательна',
+    errorFlatNumberRequired: 'Номер квартиры обязателен',
 
     // Email Verification
     verifyEmailTitle: 'Подтвердите ваш e-mail',

@@ -99,7 +99,7 @@ export default {
     genderLabel: '性别',
     addressLabel: '在埃及的家庭住址',
     buildingNumberLabel: '楼号',
-    flatNumberLabel: '房间号（可选）',
+    flatNumberLabel: '房间号',
     streetNameLabel: '街道名称',
     districtLabel: '区',
     stateLabel: '省/州',
@@ -120,6 +120,7 @@ export default {
     errorStreetRequired: '街道名称是必需的',
     errorDistrictRequired: '区是必需的',
     errorStateRequired: '省/州是必需的',
+    errorFlatNumberRequired: '房间号是必需的',
 
     // Email Verification
     verifyEmailTitle: '验证您的电子邮件',
