@@ -2,11 +2,10 @@ import React, { useReducer } from 'react';
 import { useLocation } from 'react-router-dom';
 import { EnrollmentState, EnrollmentAction, Gender } from '../types';
 import RegistrationForm from '../components/enrollment/RegistrationForm';
+import EmailVerification from '../components/enrollment/EmailVerification';
 import SlotPicker from '../components/enrollment/SlotPicker';
 import ConfirmationPage from '../components/enrollment/ConfirmationPage';
 import { EnrollmentContext } from '../contexts/EnrollmentContext';
-
-import EmailVerification from '../components/enrollment/EmailVerification';
 
 const getInitialState = (gender: Gender, levelId: string = ''): EnrollmentState => ({
   step: 1,

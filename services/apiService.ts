@@ -86,6 +86,11 @@ export const verifyOTP = async (email: string, token: string): Promise<void> => 
     console.log('>>> OTP verified successfully');
 };
 
+export const checkSession = async (): Promise<boolean> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return !!session;
+};
+
 export const getAdminUserProfile = async (userId: string): Promise<AdminUser | null> => {
     try {
         const { data, error } = await supabase
