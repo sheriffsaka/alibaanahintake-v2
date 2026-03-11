@@ -49,6 +49,27 @@ class ErrorBoundary extends Component<Props, State> {
             <p className="text-gray-600 mb-8">
               We encountered an unexpected error. This might be due to a connection issue or a temporary glitch.
             </p>
+            
+            {this.state.error && (
+              <div className="mb-8 text-left">
+                <details className="bg-red-50 p-4 rounded-xl border border-red-100">
+                  <summary className="text-sm font-semibold text-red-700 cursor-pointer hover:text-red-800">
+                    Technical Details
+                  </summary>
+                  <div className="mt-3">
+                    <p className="text-xs font-mono text-red-600 break-all whitespace-pre-wrap">
+                      {this.state.error.name}: {this.state.error.message}
+                    </p>
+                    {this.state.error.stack && (
+                      <p className="text-[10px] font-mono text-red-400 mt-2 overflow-auto max-h-32">
+                        {this.state.error.stack}
+                      </p>
+                    )}
+                  </div>
+                </details>
+              </div>
+            )}
+
             <div className="space-y-3">
               <button
                 onClick={this.handleReset}

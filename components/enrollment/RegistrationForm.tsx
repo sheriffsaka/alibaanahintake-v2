@@ -194,7 +194,7 @@ const RegistrationForm: React.FC = () => {
     e.preventDefault();
     if (validate()) {
       // Concatenate address for display purposes in confirmation/slip
-      const fullAddress = `${state.formData.buildingNumber}${state.formData.flatNumber ? ', Flat ' + state.formData.flatNumber : ''}, ${state.formData.streetName}, ${state.formData.district}, ${state.formData.state}`;
+      const fullAddress = `${state.formData.buildingNumber}, Flat ${state.formData.flatNumber}, ${state.formData.streetName}, ${state.formData.district}, ${state.formData.state}`;
       dispatch({ type: 'UPDATE_FORM', payload: { address: fullAddress } });
       dispatch({ type: 'NEXT_STEP' });
     }

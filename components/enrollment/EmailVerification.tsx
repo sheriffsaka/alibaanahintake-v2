@@ -18,21 +18,7 @@ const EmailVerification: React.FC = () => {
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
-  useEffect(() => {
-    // Automatically send OTP when component mounts
-    handleSendOTP();
-  }, [handleSendOTP]);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (countdown > 0) {
-      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-    }
-    return () => clearTimeout(timer);
-  }, [countdown]);
-
   const handleSendOTP = useCallback(async () => {
-    if (countdown > 0) return;
     setResending(true);
     setError(null);
     try {
@@ -44,7 +30,21 @@ const EmailVerification: React.FC = () => {
     } finally {
       setResending(false);
     }
-  }, [countdown, state.formData.email]);
+  }, [state.formData.email]);
+
+  useEffect(() => {
+    // Automatically send OTP when component mounts
+    handleSendOTP();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,8 +56,10 @@ const EmailVerification: React.FC = () => {
       await verifyOTP(state.formData.email, otp);
       dispatch({ type: 'SET_EMAIL_VERIFIED', payload: true });
       dispatch({ type: 'NEXT_STEP' });
-    } catch {
-      setError(t('errorInvalidCode'));
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error('Verification error:', error);
+      setError(error.message || t('errorInvalidCode'));
     } finally {
       setLoading(false);
     }

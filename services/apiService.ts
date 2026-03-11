@@ -72,12 +72,18 @@ export const sendOTP = async (email: string): Promise<void> => {
 };
 
 export const verifyOTP = async (email: string, token: string): Promise<void> => {
+    console.log('>>> Verifying OTP for:', email, 'token:', token);
     const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
     if (error) {
+        console.warn('>>> Signup OTP verification failed, trying signin:', error.message);
         // Try 'signin' type if 'signup' fails, as it might be an existing user
         const { error: signinError } = await supabase.auth.verifyOtp({ email, token, type: 'signin' });
-        if (signinError) throw signinError;
+        if (signinError) {
+            console.error('>>> Signin OTP verification failed:', signinError.message);
+            throw signinError;
+        }
     }
+    console.log('>>> OTP verified successfully');
 };
 
 export const getAdminUserProfile = async (userId: string): Promise<AdminUser | null> => {
@@ -344,6 +350,17 @@ export const deleteSchedule = async(slotId: string): Promise<{ success: boolean 
 
 
 // --- Level Management ---
+export const testConnection = async () => {
+  try {
+    const { data, error } = await supabase.from('app_settings').select('id').limit(1);
+    if (error) throw error;
+    return { success: true, data };
+  } catch (err) {
+    console.error("Supabase connection test failed:", err);
+    return { success: false, error: err };
+  }
+};
+
 export const getLevels = async(includeInactive = false): Promise<Level[]> => {
     try {
         let query = supabase.from('levels').select('*');

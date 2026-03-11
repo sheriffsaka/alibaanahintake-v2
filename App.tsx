@@ -24,6 +24,7 @@ import SiteContentManager from './components/admin/SiteContentManager';
 import AppSettingsManager from './components/admin/AppSettingsManager';
 import ProgramsPage from './pages/ProgramsPage';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import DatabaseStatus from './components/common/DatabaseStatus';
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
       <LanguageProvider>
         <AuthProvider>
           <HashRouter>
+            <DatabaseStatus />
             <Routes>
               <Route element={
                 <SiteContentProvider>
