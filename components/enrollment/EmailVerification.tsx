@@ -26,7 +26,11 @@ const EmailVerification: React.FC = () => {
       setCountdown(60); // 60 seconds cooldown
     } catch (err: unknown) {
       const error = err as Error;
-      setError(error.message || "Failed to send verification code.");
+      if (error.message.includes('rate limit')) {
+        setError("Email rate limit exceeded. Please wait a few minutes or check your inbox for the previous code/link.");
+      } else {
+        setError(error.message || "Failed to send verification code.");
+      }
     } finally {
       setResending(false);
     }
@@ -69,12 +73,12 @@ const EmailVerification: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const isVerified = await checkSession();
+      const isVerified = await checkSession(state.formData.email);
       if (isVerified) {
         dispatch({ type: 'SET_EMAIL_VERIFIED', payload: true });
         dispatch({ type: 'NEXT_STEP' });
       } else {
-        setError("Verification link not yet clicked. Please check your email.");
+        setError("Verification link not yet clicked or user not found. Please check your email.");
       }
     } catch (err: unknown) {
       const error = err as Error;

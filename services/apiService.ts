@@ -86,9 +86,26 @@ export const verifyOTP = async (email: string, token: string): Promise<void> => 
     console.log('>>> OTP verified successfully');
 };
 
-export const checkSession = async (): Promise<boolean> => {
+export const checkSession = async (email?: string): Promise<boolean> => {
+    // First check local session
     const { data: { session } } = await supabase.auth.getSession();
-    return !!session;
+    if (session) return true;
+
+    // If no local session and email provided, check server-side confirmation status
+    // This handles the case where the user verified in a different tab/context
+    if (email) {
+        try {
+            const response = await fetch(`/api/auth/is-confirmed?email=${encodeURIComponent(email)}`);
+            if (response.ok) {
+                const data = await response.json();
+                return !!data.confirmed;
+            }
+        } catch (err) {
+            console.error('Error checking confirmation status:', err);
+        }
+    }
+
+    return false;
 };
 
 export const getAdminUserProfile = async (userId: string): Promise<AdminUser | null> => {

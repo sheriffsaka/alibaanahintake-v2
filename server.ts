@@ -175,6 +175,47 @@ async function startServer() {
     }
   });
 
+  // Check if a user is confirmed in Supabase Auth (using service role)
+  app.get('/api/auth/is-confirmed', async (req, res) => {
+    const { email } = req.query;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!supabaseUrl || !supabaseServiceKey) {
+        return res.status(500).json({ error: 'Missing Supabase configuration' });
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      });
+
+      // Use admin API to list users and find by email
+      const { data: { users }, error } = await supabase.auth.admin.listUsers();
+      
+      if (error) throw error;
+
+      const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+      
+      if (user && user.email_confirmed_at) {
+        return res.json({ confirmed: true });
+      }
+
+      res.json({ confirmed: false });
+    } catch (error) {
+      console.error('Check confirmation error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     console.log('>>> Starting Vite in middleware mode...');
     const vite = await createViteServer({
