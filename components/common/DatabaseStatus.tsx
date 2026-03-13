@@ -57,7 +57,14 @@ const DatabaseStatus: React.FC = () => {
             {status === 'testing' ? 'Testing Database Connection...' : 'Database Connection Failed'}
           </p>
           {errorDetails && (
-            <p className="text-xs opacity-80 mt-1 max-w-xs truncate">{errorDetails}</p>
+            <div className="mt-1">
+              <p className="text-xs font-mono bg-black/5 p-1 rounded break-all max-w-[250px]">
+                {errorDetails}
+              </p>
+              <p className="text-[10px] opacity-60 mt-1">
+                Check your Supabase URL and Key in Settings.
+              </p>
+            </div>
           )}
         </div>
         {status === 'error' && (

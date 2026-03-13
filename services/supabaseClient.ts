@@ -28,7 +28,9 @@ const fetchWithTimeout = async (url: string, options: RequestInit = {}) => {
 
 // This check ensures that the app will fail loudly if even the fallback keys are somehow removed.
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Supabase URL and Anon Key are required. Please add them to your environment variables or provide fallbacks in supabaseClient.ts.");
+  console.error("Supabase configuration missing!");
+} else {
+  console.log("Supabase initialized with URL:", supabaseUrl.substring(0, 15) + "...");
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
