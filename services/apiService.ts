@@ -99,8 +99,16 @@ export const checkSession = async (email?: string): Promise<boolean> => {
             if (response.ok) {
                 const data = await response.json();
                 return !!data.confirmed;
+            } else if (response.status === 500) {
+                const data = await response.json();
+                if (data.error && data.error.includes('SUPABASE_SERVICE_ROLE_KEY')) {
+                    throw new Error('SUPABASE_SERVICE_ROLE_KEY_MISSING');
+                }
             }
         } catch (err) {
+            if (err instanceof Error && err.message === 'SUPABASE_SERVICE_ROLE_KEY_MISSING') {
+                throw err;
+            }
             console.error('Error checking confirmation status:', err);
         }
     }

@@ -18,6 +18,21 @@ const EmailVerification: React.FC = () => {
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
+  useEffect(() => {
+    // Listen for auth state changes (e.g. if user clicks magic link in another tab)
+    const { data: { subscription } } = supabase.auth.onAuthStateChanged((event, session) => {
+      console.log('>>> Auth state changed in EmailVerification:', event, session?.user?.email);
+      if (session && session.user.email?.toLowerCase() === state.formData.email.toLowerCase()) {
+        dispatch({ type: 'SET_EMAIL_VERIFIED', payload: true });
+        dispatch({ type: 'NEXT_STEP' });
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [state.formData.email, dispatch]);
+
   const handleSendOTP = useCallback(async () => {
     setResending(true);
     setError(null);
@@ -78,11 +93,15 @@ const EmailVerification: React.FC = () => {
         dispatch({ type: 'SET_EMAIL_VERIFIED', payload: true });
         dispatch({ type: 'NEXT_STEP' });
       } else {
-        setError("Verification link not yet clicked or user not found. Please check your email.");
+        setError("Verification link not yet clicked. Please check your email inbox (and spam folder).");
       }
     } catch (err: unknown) {
       const error = err as Error;
-      setError(error.message || "Failed to check status.");
+      if (error.message === 'SUPABASE_SERVICE_ROLE_KEY_MISSING') {
+        setError("The server is not configured to check verification status automatically. Please set the SUPABASE_SERVICE_ROLE_KEY in settings or use the 6-digit code from your email.");
+      } else {
+        setError(error.message || "Failed to check status.");
+      }
     } finally {
       setLoading(false);
     }
@@ -99,46 +118,47 @@ const EmailVerification: React.FC = () => {
           {t('verifyEmailDescription', { email: state.formData.email })}
         </p>
         <p className="text-sm text-blue-600 font-medium mt-3 bg-blue-50 py-2 px-4 rounded-lg inline-block">
-          Tip: You can click the link in the email OR enter the code below.
+          Tip: Click the link in the email to verify automatically.
         </p>
       </div>
 
-      <form onSubmit={handleVerify} className="space-y-4">
-        <Input
-          label={t('verificationCodeLabel')}
-          value={otp}
-          onChange={(e) => setOtp(e.target.value)}
-          placeholder="Enter 6-digit code"
-          icon={<ShieldCheck className="h-4 w-4 text-gray-400" />}
-          error={error || undefined}
-        />
+      <div className="space-y-4">
+        <Button 
+          type="button" 
+          fullWidth 
+          onClick={handleCheckStatus}
+          loading={loading}
+          icon={<CheckCircle className="h-5 w-5" />}
+          className="py-4 text-lg"
+        >
+          I&apos;ve Clicked the Verification Link
+        </Button>
 
-        <div className="flex flex-col gap-3">
-          <Button type="submit" fullWidth loading={loading} disabled={!otp}>
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-gray-200"></span>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-white px-2 text-gray-500">Or enter code manually</span>
+          </div>
+        </div>
+
+        <form onSubmit={handleVerify} className="space-y-4">
+          <Input
+            label={t('verificationCodeLabel')}
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+            placeholder="Enter 6-digit code"
+            icon={<ShieldCheck className="h-4 w-4 text-gray-400" />}
+            error={error || undefined}
+          />
+
+          <Button type="submit" fullWidth variant="outline" loading={loading} disabled={!otp}>
             {t('verifyButton')}
           </Button>
+        </form>
           
-          <div className="relative my-2">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-200"></span>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-gray-500">Or if you clicked the link</span>
-            </div>
-          </div>
-
-          <Button 
-            type="button" 
-            variant="outline" 
-            fullWidth 
-            onClick={handleCheckStatus}
-            loading={loading}
-            icon={<CheckCircle className="h-4 w-4" />}
-          >
-            I&apos;ve Clicked the Verification Link
-          </Button>
-          
-          <div className="flex justify-between items-center text-sm">
+        <div className="flex justify-between items-center text-sm pt-4">
             <button
               type="button"
               onClick={() => dispatch({ type: 'PREV_STEP' })}
@@ -157,8 +177,7 @@ const EmailVerification: React.FC = () => {
               {countdown > 0 ? t('resendCountdown', { seconds: countdown.toString() }) : t('resendCodeButton')}
             </button>
           </div>
-        </div>
-      </form>
+      </div>
     </div>
   );
 };

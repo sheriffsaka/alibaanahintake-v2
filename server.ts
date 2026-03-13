@@ -178,6 +178,8 @@ async function startServer() {
   // Check if a user is confirmed in Supabase Auth (using service role)
   app.get('/api/auth/is-confirmed', async (req, res) => {
     const { email } = req.query;
+    console.log(`>>> Checking confirmation for: ${email}`);
+    
     if (!email || typeof email !== 'string') {
       return res.status(400).json({ error: 'Email is required' });
     }
@@ -187,8 +189,14 @@ async function startServer() {
       const supabaseUrl = process.env.VITE_SUPABASE_URL;
       const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-      if (!supabaseUrl || !supabaseServiceKey) {
-        return res.status(500).json({ error: 'Missing Supabase configuration' });
+      if (!supabaseUrl) {
+        console.error('>>> VITE_SUPABASE_URL is missing');
+        return res.status(500).json({ error: 'Missing Supabase URL' });
+      }
+      
+      if (!supabaseServiceKey) {
+        console.error('>>> SUPABASE_SERVICE_ROLE_KEY is missing. Server-side verification check will not work.');
+        return res.status(500).json({ error: 'Server not configured for admin verification. Please set SUPABASE_SERVICE_ROLE_KEY.' });
       }
 
       const supabase = createClient(supabaseUrl, supabaseServiceKey, {
@@ -198,20 +206,37 @@ async function startServer() {
         }
       });
 
-      // Use admin API to list users and find by email
-      const { data: { users }, error } = await supabase.auth.admin.listUsers();
-      
-      if (error) throw error;
+      // We might need to loop if there are many users, but for now we check the first few pages
+      let page = 1;
+      let found = false;
+      let confirmed = false;
 
-      const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
-      
-      if (user && user.email_confirmed_at) {
-        return res.json({ confirmed: true });
+      while (page <= 5) { // Check up to 5 pages (250 users)
+        const { data: { users }, error } = await supabase.auth.admin.listUsers({
+          page: page,
+          perPage: 50
+        });
+        
+        if (error) {
+          console.error(`>>> Error listing users on page ${page}:`, error);
+          throw error;
+        }
+
+        if (!users || users.length === 0) break;
+
+        const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+        if (user) {
+          found = true;
+          confirmed = !!user.email_confirmed_at || !!user.last_sign_in_at;
+          console.log(`>>> User found: ${email}, confirmed: ${confirmed}`);
+          break;
+        }
+        page++;
       }
-
-      res.json({ confirmed: false });
+      
+      res.json({ confirmed, found });
     } catch (error) {
-      console.error('Check confirmation error:', error);
+      console.error('>>> Check confirmation error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
