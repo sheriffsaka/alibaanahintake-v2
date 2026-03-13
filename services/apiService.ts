@@ -381,11 +381,21 @@ export const deleteSchedule = async(slotId: string): Promise<{ success: boolean 
 
 // --- Level Management ---
 export const testConnection = async () => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
   try {
-    const { data, error } = await supabase.from('app_settings').select('id').limit(1);
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('id')
+      .limit(1)
+      .abortSignal(controller.signal);
+    
+    clearTimeout(timeoutId);
     if (error) throw error;
     return { success: true, data };
   } catch (err) {
+    clearTimeout(timeoutId);
     console.error("Supabase connection test failed:", err);
     return { success: false, error: err };
   }
@@ -588,32 +598,53 @@ export const deleteProgramResource = async (resource: ProgramResource): Promise<
 
 // --- Site Content Management ---
 export const getSiteContent = async (): Promise<SiteContent> => {
-    const { data, error } = await supabase.from('asset_settings').select('key, value');
-    
-    const defaultContent: SiteContent = {
-        logoUrl: '',
-        officialSiteUrl: '#',
-        heroVideoUrl: {},
-        faqItems: {},
-        campusAddress: '',
-        campusHours: ''
-    };
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    if (error) {
-        console.error("Error fetching site content, returning default.", error);
-        return defaultContent;
+    try {
+        const { data, error } = await supabase
+            .from('asset_settings')
+            .select('key, value')
+            .abortSignal(controller.signal);
+        
+        clearTimeout(timeoutId);
+        
+        const defaultContent: SiteContent = {
+            logoUrl: '',
+            officialSiteUrl: '#',
+            heroVideoUrl: {},
+            faqItems: {},
+            campusAddress: '',
+            campusHours: ''
+        };
+
+        if (error) {
+            console.error("Error fetching site content, returning default.", error);
+            return defaultContent;
+        }
+
+        if (!data) {
+            return defaultContent;
+        }
+        
+        const fetchedContent = data.reduce((acc, { key, value }) => {
+            acc[key] = value;
+            return acc;
+        }, {} as Record<string, unknown>);
+
+        return { ...defaultContent, ...fetchedContent };
+    } catch (err) {
+        clearTimeout(timeoutId);
+        console.error("Critical error fetching site content:", err);
+        return {
+            logoUrl: '',
+            officialSiteUrl: '#',
+            heroVideoUrl: {},
+            faqItems: {},
+            campusAddress: '',
+            campusHours: ''
+        };
     }
-
-    if (!data) {
-        return defaultContent;
-    }
-    
-    const fetchedContent = data.reduce((acc, { key, value }) => {
-        acc[key] = value;
-        return acc;
-    }, {} as Record<string, unknown>); // Using unknown is safer than any
-
-    return { ...defaultContent, ...fetchedContent };
 };
 
 export const updateSiteContent = async (key: keyof SiteContent, value: unknown): Promise<void> => {
@@ -690,11 +721,22 @@ export const updateNotificationSettings = async(settings: NotificationSettings):
 
 // --- App Settings ---
 export const getAppSettings = async(): Promise<AppSettings> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     try {
-        const { data, error } = await supabase.from('app_settings').select('*').eq('id', 1).single();
+        const { data, error } = await supabase
+            .from('app_settings')
+            .select('*')
+            .eq('id', 1)
+            .single()
+            .abortSignal(controller.signal);
+        
+        clearTimeout(timeoutId);
         if (error) throw error;
         return { isRegistrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
     } catch (err) {
+        clearTimeout(timeoutId);
         console.error("Failed to fetch app settings, using defaults.", err);
         return { isRegistrationOpen: false, maxDailyCapacity: 50 };
     }

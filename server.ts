@@ -250,7 +250,7 @@ async function startServer() {
     
     app.use(vite.middlewares);
 
-    app.get('(.*)', async (req, res, next) => {
+  app.get('*', async (req, res, next) => {
       const url = req.originalUrl;
       console.log('>>> Dev catch-all hit for URL:', url);
       // Only handle GET requests that are not API calls
@@ -275,7 +275,7 @@ async function startServer() {
   } else {
     const distPath = path.resolve(__dirname, 'dist');
     app.use(express.static(distPath));
-    app.get('(.*)', (req, res, next) => {
+    app.get('*', (req, res, next) => {
       if (req.originalUrl.startsWith('/api')) {
         return next();
       }
@@ -289,7 +289,7 @@ async function startServer() {
     });
   }
 
-  app.use((err: Error, _req: express.Request, res: express.Response) => {
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error('>>> Global Server Error:', err);
     res.status(500).send('Internal Server Error');
   });
