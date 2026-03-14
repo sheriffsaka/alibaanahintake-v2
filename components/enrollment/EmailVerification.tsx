@@ -5,6 +5,7 @@ import Input from '../common/Input';
 import { Mail, ShieldCheck, ArrowLeft, RefreshCw, CheckCircle } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { sendOTP, verifyOTP, checkSession } from '../../services/apiService';
+import { supabase } from '../../services/supabaseClient';
 
 const EmailVerification: React.FC = () => {
   const context = useContext(EnrollmentContext);
