@@ -381,21 +381,16 @@ export const deleteSchedule = async(slotId: string): Promise<{ success: boolean 
 
 // --- Level Management ---
 export const testConnection = async () => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
   try {
+    // Simple query with no complex abort logic to ensure compatibility
     const { data, error } = await supabase
       .from('app_settings')
       .select('id')
-      .limit(1)
-      .abortSignal(controller.signal);
+      .limit(1);
     
-    clearTimeout(timeoutId);
     if (error) throw error;
     return { success: true, data };
   } catch (err) {
-    clearTimeout(timeoutId);
     console.error("Supabase connection test failed:", err);
     return { success: false, error: err };
   }
@@ -598,16 +593,10 @@ export const deleteProgramResource = async (resource: ProgramResource): Promise<
 
 // --- Site Content Management ---
 export const getSiteContent = async (): Promise<SiteContent> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
     try {
         const { data, error } = await supabase
             .from('asset_settings')
-            .select('key, value')
-            .abortSignal(controller.signal);
-        
-        clearTimeout(timeoutId);
+            .select('key, value');
         
         const defaultContent: SiteContent = {
             logoUrl: '',
@@ -634,7 +623,6 @@ export const getSiteContent = async (): Promise<SiteContent> => {
 
         return { ...defaultContent, ...fetchedContent };
     } catch (err) {
-        clearTimeout(timeoutId);
         console.error("Critical error fetching site content:", err);
         return {
             logoUrl: '',
@@ -721,22 +709,16 @@ export const updateNotificationSettings = async(settings: NotificationSettings):
 
 // --- App Settings ---
 export const getAppSettings = async(): Promise<AppSettings> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
     try {
         const { data, error } = await supabase
             .from('app_settings')
             .select('*')
             .eq('id', 1)
-            .single()
-            .abortSignal(controller.signal);
+            .single();
         
-        clearTimeout(timeoutId);
         if (error) throw error;
         return { isRegistrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
     } catch (err) {
-        clearTimeout(timeoutId);
         console.error("Failed to fetch app settings, using defaults.", err);
         return { isRegistrationOpen: false, maxDailyCapacity: 50 };
     }
