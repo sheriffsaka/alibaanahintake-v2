@@ -21,7 +21,7 @@ const EmailVerification: React.FC = () => {
 
   useEffect(() => {
     // Listen for auth state changes (e.g. if user clicks magic link in another tab)
-    const { data: { subscription } } = supabase.auth.onAuthStateChanged((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('>>> Auth state changed in EmailVerification:', event, session?.user?.email);
       if (session && session.user.email?.toLowerCase() === state.formData.email.toLowerCase()) {
         dispatch({ type: 'SET_EMAIL_VERIFIED', payload: true });
