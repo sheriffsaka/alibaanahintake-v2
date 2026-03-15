@@ -125,12 +125,12 @@ export default {
 
     // Email Verification
     verifyEmailTitle: 'Verify Your Email',
-    verifyEmailDescription: 'We have sent a 6-digit verification code to {email}. Please enter it below to proceed.',
-    verificationCodeLabel: 'Verification Code',
+    verifyEmailDescription: 'We have sent a verification link to {email}. Please click the link to proceed.',
+    verificationCodeLabel: 'Verification Link',
     verifyButton: 'Verify and Continue',
-    resendCodeButton: 'Resend Code',
+    resendCodeButton: 'Resend Link',
     resendCountdown: 'Resend in {seconds}s',
-    errorInvalidCode: 'Invalid or expired verification code. Please try again.',
+    errorInvalidCode: 'Invalid or expired verification link. Please try again.',
 
     // Slot Picker
     slotPickerTitle: 'Step 3: Select an Appointment Slot',

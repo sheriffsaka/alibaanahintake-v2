@@ -67,11 +67,12 @@ export const logout = async (): Promise<void> => {
 };
 
 export const sendOTP = async (email: string): Promise<void> => {
-    console.log('>>> Sending Magic Link to:', email);
+    const redirectTo = window.location.origin + '/#/enroll';
+    console.log('>>> Sending Magic Link to:', email, 'Redirecting to:', redirectTo);
     const { error } = await supabase.auth.signInWithOtp({ 
         email,
         options: {
-            emailRedirectTo: window.location.origin + '/enrollment',
+            emailRedirectTo: redirectTo,
         }
     });
     if (error) {

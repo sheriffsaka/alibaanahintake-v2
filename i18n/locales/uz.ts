@@ -124,12 +124,12 @@ export default {
 
     // Email Verification
     verifyEmailTitle: 'Elektron pochtangizni tasdiqlang',
-    verifyEmailDescription: 'Biz {email} manziliga 6 xonali tasdiqlash kodini yubordik. Davom etish uchun uni pastga kiriting.',
-    verificationCodeLabel: 'Tasdiqlash kodi',
+    verifyEmailDescription: 'Biz {email} manziliga tasdiqlash havolasini yubordik. Davom etish uchun uni bosing.',
+    verificationCodeLabel: 'Tasdiqlash havolasi',
     verifyButton: 'Tasdiqlash va davom etish',
-    resendCodeButton: 'Kodni qayta yuborish',
+    resendCodeButton: 'Havolani qayta yuborish',
     resendCountdown: '{seconds} soniyadan keyin qayta yuborish',
-    errorInvalidCode: 'Tasdiqlash kodi noto\'g\'ri yoki muddati o\'tgan. Iltimos, qaytadan urinib ko\'ring.',
+    errorInvalidCode: 'Tasdiqlash havolasi noto\'g\'ri yoki muddati o\'tgan. Iltimos, qaytadan urinib ko\'ring.',
 
     slotPickerTitle: '3-qadam: Uchrashuv vaqtini tanlang',
     levelLabelSlot: 'Daraja',

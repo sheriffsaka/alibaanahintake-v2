@@ -119,12 +119,12 @@ export default {
 
     // Email Verification
     verifyEmailTitle: 'Подтвердите ваш e-mail',
-    verifyEmailDescription: 'Мы отправили 6-значный код подтверждения на {email}. Пожалуйста, введите его ниже, чтобы продолжить.',
-    verificationCodeLabel: 'Код подтверждения',
+    verifyEmailDescription: 'Мы отправили ссылку для подтверждения на {email}. Пожалуйста, перейдите по ней, чтобы продолжить.',
+    verificationCodeLabel: 'Ссылка для подтверждения',
     verifyButton: 'Подтвердить и продолжить',
-    resendCodeButton: 'Отправить код еще раз',
+    resendCodeButton: 'Отправить ссылку еще раз',
     resendCountdown: 'Повторная отправка через {seconds}с',
-    errorInvalidCode: 'Неверный или просроченный код подтверждения. Пожалуйста, попробуйте еще раз.',
+    errorInvalidCode: 'Неверная или просроченная ссылка для подтверждения. Пожалуйста, попробуйте еще раз.',
 
     slotPickerTitle: 'Шаг 3: Выберите время для встречи',
     levelLabelSlot: 'Уровень',

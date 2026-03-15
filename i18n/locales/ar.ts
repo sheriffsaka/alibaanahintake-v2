@@ -125,12 +125,12 @@ export default {
 
     // Email Verification
     verifyEmailTitle: 'تحقق من بريدك الإلكتروني',
-    verifyEmailDescription: 'لقد أرسلنا رمز تحقق مكونًا من 6 أرقام إلى {email}. يرجى إدخاله أدناه للمتابعة.',
-    verificationCodeLabel: 'رمز التحقق',
+    verifyEmailDescription: 'لقد أرسلنا رابط تحقق إلى {email}. يرجى النقر على الرابط للمتابعة.',
+    verificationCodeLabel: 'رابط التحقق',
     verifyButton: 'تحقق ومتابعة',
-    resendCodeButton: 'إعادة إرسال الرمز',
+    resendCodeButton: 'إعادة إرسال الرابط',
     resendCountdown: 'إعادة الإرسال خلال {seconds} ثانية',
-    errorInvalidCode: 'رمز التحقق غير صالح أو منتهي الصلاحية. يرجى المحاولة مرة أخرى.',
+    errorInvalidCode: 'رابط التحقق غير صالح أو منتهي الصلاحية. يرجى المحاولة مرة أخرى.',
 
     // Slot Picker
     slotPickerTitle: 'الخطوة 3: اختر موعدًا',

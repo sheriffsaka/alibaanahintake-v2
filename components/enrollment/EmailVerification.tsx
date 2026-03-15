@@ -18,6 +18,17 @@ const EmailVerification: React.FC = () => {
   const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
+    // Check if user is already verified when component mounts
+    const checkInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.user.email?.toLowerCase() === state.formData.email.toLowerCase()) {
+        console.log('>>> User already verified on mount:', session.user.email);
+        dispatch({ type: 'SET_EMAIL_VERIFIED', payload: true });
+        dispatch({ type: 'NEXT_STEP' });
+      }
+    };
+    checkInitialSession();
+
     // Listen for auth state changes (e.g. if user clicks magic link in another tab)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('>>> Auth state changed in EmailVerification:', event, session?.user?.email);
@@ -108,11 +119,11 @@ const EmailVerification: React.FC = () => {
         </div>
         <h2 className="text-2xl font-bold text-gray-800">{t('verifyEmailTitle')}</h2>
         <p className="text-gray-600 mt-2">
-          {t('verifyEmailDescription', { email: state.formData.email })}
+          We have sent a verification link to <strong>{state.formData.email}</strong>. Please click the link in your email to proceed.
         </p>
         <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
           <p className="text-sm text-blue-700 font-medium">
-            We&apos;ve sent a verification link to your email. Please click the link to continue your registration.
+            Check your inbox (and spam folder) for the verification link.
           </p>
         </div>
       </div>
@@ -151,7 +162,7 @@ const EmailVerification: React.FC = () => {
               className={`flex items-center gap-1 transition-colors ${countdown > 0 ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:text-blue-700'}`}
             >
               <RefreshCw className={`h-4 w-4 ${resending ? 'animate-spin' : ''}`} />
-              {countdown > 0 ? t('resendCountdown', { seconds: countdown.toString() }) : t('resendCodeButton')}
+              {countdown > 0 ? t('resendCountdown', { seconds: countdown.toString() }) : "Resend Link"}
             </button>
           </div>
       </div>

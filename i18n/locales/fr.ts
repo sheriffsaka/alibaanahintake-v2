@@ -124,12 +124,12 @@ export default {
 
     // Email Verification
     verifyEmailTitle: 'Vérifiez votre e-mail',
-    verifyEmailDescription: 'Nous avons envoyé un code de vérification à 6 chiffres à {email}. Veuillez le saisir ci-dessous pour continuer.',
-    verificationCodeLabel: 'Code de vérification',
+    verifyEmailDescription: 'Nous avons envoyé un lien de vérification à {email}. Veuillez cliquer sur le lien pour continuer.',
+    verificationCodeLabel: 'Lien de vérification',
     verifyButton: 'Vérifier et continuer',
-    resendCodeButton: 'Renvoyer le code',
+    resendCodeButton: 'Renvoyer le lien',
     resendCountdown: 'Renvoyer dans {seconds}s',
-    errorInvalidCode: 'Code de vérification invalide ou expiré. Veuillez réessayer.',
+    errorInvalidCode: 'Lien de vérification invalide ou expiré. Veuillez réessayer.',
 
     // Slot Picker
     slotPickerTitle: 'Étape 3 : Choisissez un créneau',
