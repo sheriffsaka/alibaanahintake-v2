@@ -64,28 +64,41 @@ const EmailVerification: React.FC = () => {
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  const handleCheckStatus = async () => {
-    setLoading(true);
+  const handleCheckStatus = async (isAuto = false) => {
+    if (!isAuto) setLoading(true);
     setError(null);
     try {
+      // If manual check, add a small delay to allow Supabase backend to sync
+      if (!isAuto) await new Promise(resolve => setTimeout(resolve, 1000));
+
       const isVerified = await checkSession(state.formData.email);
       if (isVerified) {
         dispatch({ type: 'SET_EMAIL_VERIFIED', payload: true });
         dispatch({ type: 'NEXT_STEP' });
-      } else {
-        setError("Verification link not yet clicked. Please check your email inbox (and spam folder).");
+      } else if (!isAuto) {
+        setError("We couldn't verify your email yet. Please make sure you clicked the link in the email we sent. If you've already clicked it, wait a few seconds and try again.");
       }
     } catch (err: unknown) {
       const error = err as Error;
       if (error.message === 'SUPABASE_SERVICE_ROLE_KEY_MISSING') {
         setError("The server is not configured to check verification status automatically. Please set the SUPABASE_SERVICE_ROLE_KEY in settings.");
-      } else {
+      } else if (!isAuto) {
         setError(error.message || "Failed to check status.");
       }
     } finally {
-      setLoading(false);
+      if (!isAuto) setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Poll for status every 5 seconds
+    const interval = setInterval(() => {
+      handleCheckStatus(true);
+    }, 5000);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.formData.email]);
 
   return (
     <div className="space-y-6">

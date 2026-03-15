@@ -227,8 +227,9 @@ async function startServer() {
         const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
         if (user) {
           found = true;
-          confirmed = !!user.email_confirmed_at || !!user.last_sign_in_at;
-          console.log(`>>> User found: ${email}, confirmed: ${confirmed}`);
+          // Check multiple fields for confirmation. Magic links might set last_sign_in_at but not email_confirmed_at
+          confirmed = !!user.email_confirmed_at || !!user.last_sign_in_at || !!user.confirmed_at;
+          console.log(`>>> User found: ${email}, confirmed: ${confirmed}, last_sign_in: ${user.last_sign_in_at}, email_confirmed: ${user.email_confirmed_at}, confirmed_at: ${user.confirmed_at}`);
           break;
         }
         page++;

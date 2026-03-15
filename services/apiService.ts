@@ -67,16 +67,27 @@ export const logout = async (): Promise<void> => {
 };
 
 export const sendOTP = async (email: string): Promise<void> => {
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) throw error;
+    // Try signup first for "Verify Email" branding instead of "Log In"
+    const { error } = await supabase.auth.signUp({
+        email,
+        password: uuidv4(), // Random password as we use link-based auth for students
+    });
+
+    if (error) {
+        // If user already exists, Supabase might return an error depending on settings
+        // Fallback to magic link (signInWithOtp) which works for both new and existing users
+        console.warn('>>> signUp failed, falling back to signInWithOtp:', error.message);
+        const { error: otpError } = await supabase.auth.signInWithOtp({ email });
+        if (otpError) throw otpError;
+    }
 };
 
 export const checkSession = async (email?: string): Promise<boolean> => {
-    // First check local session
+    // 1. Check local session (most reliable if in same browser/tab)
     const { data: { session } } = await supabase.auth.getSession();
-    if (session) return true;
+    if (session?.user?.email?.toLowerCase() === email?.toLowerCase()) return true;
 
-    // If no local session and email provided, check server-side confirmation status
+    // 2. If no local session and email provided, check server-side confirmation status
     // This handles the case where the user verified in a different tab/context
     if (email) {
         try {
