@@ -67,18 +67,16 @@ export const logout = async (): Promise<void> => {
 };
 
 export const sendOTP = async (email: string): Promise<void> => {
-    // Try signup first for "Verify Email" branding instead of "Log In"
-    const { error } = await supabase.auth.signUp({
+    console.log('>>> Sending Magic Link to:', email);
+    const { error } = await supabase.auth.signInWithOtp({ 
         email,
-        password: uuidv4(), // Random password as we use link-based auth for students
+        options: {
+            emailRedirectTo: window.location.origin + '/enrollment',
+        }
     });
-
     if (error) {
-        // If user already exists, Supabase might return an error depending on settings
-        // Fallback to magic link (signInWithOtp) which works for both new and existing users
-        console.warn('>>> signUp failed, falling back to signInWithOtp:', error.message);
-        const { error: otpError } = await supabase.auth.signInWithOtp({ email });
-        if (otpError) throw otpError;
+        console.error('>>> signInWithOtp error:', error);
+        throw error;
     }
 };
 
