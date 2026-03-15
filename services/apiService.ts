@@ -71,21 +71,6 @@ export const sendOTP = async (email: string): Promise<void> => {
     if (error) throw error;
 };
 
-export const verifyOTP = async (email: string, token: string): Promise<void> => {
-    console.log('>>> Verifying OTP for:', email, 'token:', token);
-    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
-    if (error) {
-        console.warn('>>> Signup OTP verification failed, trying signin:', error.message);
-        // Try 'signin' type if 'signup' fails, as it might be an existing user
-        const { error: signinError } = await supabase.auth.verifyOtp({ email, token, type: 'signin' });
-        if (signinError) {
-            console.error('>>> Signin OTP verification failed:', signinError.message);
-            throw signinError;
-        }
-    }
-    console.log('>>> OTP verified successfully');
-};
-
 export const checkSession = async (email?: string): Promise<boolean> => {
     // First check local session
     const { data: { session } } = await supabase.auth.getSession();

@@ -21,98 +21,92 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getInitialSession = async () => {
-      const timeoutId = setTimeout(() => {
-        if (loading) {
-          console.warn('Initial session fetch timed out');
-          setLoading(false);
-        }
-      }, 10000); // 10 second timeout for initial auth
+    let mounted = true;
 
+    const getInitialSession = async () => {
       try {
-        // Safely get the session without risky destructuring
         const { data, error } = await supabase.auth.getSession();
 
         if (error) {
           console.error('Error fetching initial session:', error);
-          clearTimeout(timeoutId);
-          setSession(null);
-          setUser(null);
-          setLoading(false);
+          if (mounted) {
+            setSession(null);
+            setUser(null);
+            setLoading(false);
+          }
           return;
         }
 
         const currentSession = data?.session;
-        setSession(currentSession);
+        if (mounted) setSession(currentSession);
 
         if (currentSession?.user) {
           try {
             const profile = await getAdminUserProfile(currentSession.user.id);
-            if (profile?.isActive) {
-               setUser(profile);
-            } else {
-               throw new Error(profile ? "User is not active" : "User profile not found");
+            if (mounted) {
+              if (profile?.isActive) {
+                setUser(profile);
+              } else {
+                setUser(null);
+                setSession(null);
+                await apiLogout();
+              }
             }
           } catch (profileError) {
-            console.error("Profile validation failed, logging out:", profileError);
-            try {
+            console.error("Profile validation failed:", profileError);
+            if (mounted) {
+              setUser(null);
+              setSession(null);
               await apiLogout();
-            } catch (logoutError) {
-              console.error("Error during logout:", logoutError);
             }
-            setUser(null);
-            setSession(null);
           }
         }
       } catch (e) {
         console.error("Critical error in getInitialSession:", e);
-        setUser(null);
-        setSession(null);
       } finally {
-        clearTimeout(timeoutId);
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
     
     getInitialSession();
 
-    let subscription: { unsubscribe: () => void } | null = null;
-
-    try {
-      const { data: authListener } = supabase.auth.onAuthStateChange(
-        async (_event, session) => {
-          setSession(session);
-          if (session?.user) {
-               try {
-                  const profile = await getAdminUserProfile(session.user.id);
-                  if (profile?.isActive) {
-                      setUser(profile);
-                  } else {
-                      throw new Error(profile ? "User is not active" : "User profile not found");
-                  }
-              } catch (error) {
-                  console.error("Auth state change profile validation failed, logging out:", error);
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+        
+        setSession(session);
+        if (session?.user) {
+          // Only fetch profile if it's a sign-in or refresh event to save calls
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || !user) {
+            try {
+              const profile = await getAdminUserProfile(session.user.id);
+              if (mounted) {
+                if (profile?.isActive) {
+                  setUser(profile);
+                } else {
                   setUser(null);
-                  try {
-                      await apiLogout();
-                  } catch (logoutError) {
-                      console.error("Error during logout on auth state change:", logoutError);
-                  }
+                  await apiLogout();
+                }
               }
-          } else {
-            setUser(null);
+            } catch (error) {
+              console.error("Auth state change profile validation failed:", error);
+              if (mounted) setUser(null);
+            }
           }
+        } else {
+          if (mounted) setUser(null);
         }
-      );
-      subscription = authListener?.subscription;
-    } catch (authError) {
-      console.error("Failed to set up auth listener:", authError);
-    }
+        
+        // Ensure loading is set to false if it wasn't already
+        if (mounted) setLoading(false);
+      }
+    );
 
     return () => {
-        subscription?.unsubscribe();
+      mounted = false;
+      authListener?.subscription.unsubscribe();
     };
-  }, [loading]);
+  }, [user]);
 
   const login = useCallback(async (email: string, password: string): Promise<void> => {
     await apiLogin(email, password);

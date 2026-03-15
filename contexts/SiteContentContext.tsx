@@ -32,7 +32,7 @@ export const SiteContentProvider: React.FC<{ children: ReactNode }> = ({ childre
                 setContent(defaultContent);
                 setLoading(false);
             }
-        }, 10000);
+        }, 5000); // Reduced to 5 seconds
 
         try {
             const siteContent = await getSiteContent();
