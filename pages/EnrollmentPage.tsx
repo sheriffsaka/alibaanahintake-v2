@@ -7,26 +7,44 @@ import SlotPicker from '../components/enrollment/SlotPicker';
 import ConfirmationPage from '../components/enrollment/ConfirmationPage';
 import { EnrollmentContext } from '../contexts/EnrollmentContext';
 
-const getInitialState = (gender: Gender, levelId: string = ''): EnrollmentState => ({
-  step: 1,
-  formData: {
-    surname: '',
-    firstname: '',
-    othername: '',
-    whatsappCountryCode: '+20',
-    whatsapp: '',
-    email: '',
-    gender: gender,
-    buildingNumber: '',
-    flatNumber: '',
-    streetName: '',
-    district: '',
-    state: '',
-    address: '',
-    levelId: levelId,
-  },
-  isEmailVerified: false,
-});
+const STORAGE_KEY = 'al_ibaanah_enrollment_state';
+
+const getInitialState = (gender: Gender, levelId: string = ''): EnrollmentState => {
+  const savedState = localStorage.getItem(STORAGE_KEY);
+  if (savedState) {
+    try {
+      const parsed = JSON.parse(savedState);
+      // Only resume if it's not a confirmed registration and not too old (e.g. 2 hours)
+      const isRecent = Date.now() - (parsed.timestamp || 0) < 2 * 60 * 60 * 1000;
+      if (isRecent && !parsed.confirmedRegistration) {
+        return { ...parsed, step: parsed.step || 1 };
+      }
+    } catch (e) {
+      console.error("Failed to parse saved enrollment state", e);
+    }
+  }
+
+  return {
+    step: 1,
+    formData: {
+      surname: '',
+      firstname: '',
+      othername: '',
+      whatsappCountryCode: '+20',
+      whatsapp: '',
+      email: '',
+      gender: gender,
+      buildingNumber: '',
+      flatNumber: '',
+      streetName: '',
+      district: '',
+      state: '',
+      address: '',
+      levelId: levelId,
+    },
+    isEmailVerified: false,
+  };
+};
 
 const enrollmentReducer = (state: EnrollmentState, action: EnrollmentAction): EnrollmentState => {
   switch (action.type) {
@@ -60,6 +78,15 @@ const EnrollmentPage: React.FC = () => {
   const preselectedLevelId = location.state?.levelId || '';
   
   const [state, dispatch] = useReducer(enrollmentReducer, getInitialState(preselectedGender, preselectedLevelId));
+
+  // Persist state to localStorage
+  React.useEffect(() => {
+    if (state.confirmedRegistration) {
+      localStorage.removeItem(STORAGE_KEY);
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, timestamp: Date.now() }));
+    }
+  }, [state]);
 
   const renderStep = () => {
     switch (state.step) {

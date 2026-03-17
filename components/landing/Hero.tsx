@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { PlayCircle, X } from 'lucide-react';
+import { PlayCircle, X, RefreshCw } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { Gender } from '../../types';
 import { useSiteContent } from '../../contexts/SiteContentContext';
@@ -12,6 +12,19 @@ const Hero: React.FC = () => {
     const { content } = useSiteContent();
     const [isVideoModalOpen, setVideoModalOpen] = useState(false);
     const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+    const [hasSavedEnrollment] = useState(() => {
+        const saved = localStorage.getItem('al_ibaanah_enrollment_state');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                const isRecent = Date.now() - (parsed.timestamp || 0) < 2 * 60 * 60 * 1000;
+                return !!(isRecent && !parsed.confirmedRegistration);
+            } catch {
+                return false;
+            }
+        }
+        return false;
+    });
 
     const steps = [
         { number: 1, text: t('step1') },
@@ -61,7 +74,14 @@ const Hero: React.FC = () => {
                         {t('heroDescription')}
                     </p>
                     <div className="mt-8 flex flex-wrap gap-4">
-                        {appSettings?.isRegistrationOpen ? (
+                        {hasSavedEnrollment ? (
+                            <Link to="/enroll" className="w-full sm:w-auto">
+                                <button className="w-full bg-brand-yellow text-brand-green-dark font-bold px-8 py-4 rounded-md shadow-xl hover:bg-yellow-400 transition-all transform hover:scale-105 flex items-center justify-center gap-2">
+                                    <RefreshCw className="h-5 w-5" />
+                                    <span>Resume Your Enrollment</span>
+                                </button>
+                            </Link>
+                        ) : appSettings?.isRegistrationOpen ? (
                             <>
                                 <Link to="/enroll" state={{ gender: Gender.Male }}>
                                     <button className="bg-white text-brand-green-dark font-semibold px-8 py-3 rounded-md shadow-lg hover:bg-gray-200 transition-colors">

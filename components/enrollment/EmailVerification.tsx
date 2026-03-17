@@ -33,6 +33,7 @@ const EmailVerification: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('>>> Auth state changed in EmailVerification:', event, session?.user?.email);
       if (session && session.user.email?.toLowerCase() === state.formData.email.toLowerCase()) {
+        console.log('>>> Verification successful via auth state change!');
         dispatch({ type: 'SET_EMAIL_VERIFIED', payload: true });
         dispatch({ type: 'NEXT_STEP' });
       }
@@ -119,7 +120,12 @@ const EmailVerification: React.FC = () => {
         </div>
         <h2 className="text-2xl font-bold text-gray-800">{t('verifyEmailTitle')}</h2>
         <p className="text-gray-600 mt-2">
-          We have sent a verification link to <strong>{state.formData.email}</strong>. Please click the link in your email to proceed.
+          We have sent a verification link to <strong>{state.formData.email}</strong>. 
+          Please click the link in your email to proceed. 
+          <br/>
+          <span className="text-xs text-gray-400 mt-1 block">
+            Note: The link will open in a new tab. Once clicked, this page will automatically advance.
+          </span>
         </p>
         <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
           <p className="text-sm text-blue-700 font-medium">
