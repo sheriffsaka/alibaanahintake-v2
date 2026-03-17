@@ -250,33 +250,10 @@ async function startServer() {
     });
     
     app.use(vite.middlewares);
-
-  app.get('*', async (req, res, next) => {
-      const url = req.originalUrl;
-      console.log('>>> Dev catch-all hit for URL:', url);
-      // Only handle GET requests that are not API calls
-      if (req.method !== 'GET' || url.startsWith('/api')) {
-        return next();
-      }
-
-      try {
-        const templatePath = path.resolve(__dirname, 'index.html');
-        if (!fs.existsSync(templatePath)) {
-          console.error('>>> index.html NOT FOUND at:', templatePath);
-          return res.status(500).send('index.html not found');
-        }
-        let template = fs.readFileSync(templatePath, 'utf-8');
-        template = await vite.transformIndexHtml(url, template);
-        res.status(200).set({ 'Content-Type': 'text/html' }).send(template);
-      } catch (e) {
-        vite.ssrFixStacktrace(e as Error);
-        next(e);
-      }
-    });
   } else {
     const distPath = path.resolve(__dirname, 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res, next) => {
+    app.get('*all', (req, res, next) => {
       if (req.originalUrl.startsWith('/api')) {
         return next();
       }

@@ -1,10 +1,9 @@
 import React, { useContext, useState, useEffect, useCallback } from 'react';
 import { EnrollmentContext } from '../../contexts/EnrollmentContext';
 import Button from '../common/Button';
-import { Mail, ArrowLeft, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { Mail, ArrowLeft, RefreshCw, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
-import { sendOTP, checkSession } from '../../services/apiService';
-import { supabase } from '../../services/supabaseClient';
+import { sendOTP, verifyOTP, savePreRegistration } from '../../services/apiService';
 
 const EmailVerification: React.FC = () => {
   const context = useContext(EnrollmentContext);
@@ -12,37 +11,11 @@ const EmailVerification: React.FC = () => {
   
   const { t } = useTranslation();
   const { state, dispatch } = context;
+  const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
-
-  useEffect(() => {
-    // Check if user is already verified when component mounts
-    const checkInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && session.user.email?.toLowerCase() === state.formData.email.toLowerCase()) {
-        console.log('>>> User already verified on mount:', session.user.email);
-        dispatch({ type: 'SET_EMAIL_VERIFIED', payload: true });
-        dispatch({ type: 'NEXT_STEP' });
-      }
-    };
-    checkInitialSession();
-
-    // Listen for auth state changes (e.g. if user clicks magic link in another tab)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('>>> Auth state changed in EmailVerification:', event, session?.user?.email);
-      if (session && session.user.email?.toLowerCase() === state.formData.email.toLowerCase()) {
-        console.log('>>> Verification successful via auth state change!');
-        dispatch({ type: 'SET_EMAIL_VERIFIED', payload: true });
-        dispatch({ type: 'NEXT_STEP' });
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [state.formData.email, dispatch]);
 
   const handleSendOTP = useCallback(async () => {
     setResending(true);
@@ -53,7 +26,7 @@ const EmailVerification: React.FC = () => {
     } catch (err: unknown) {
       const error = err as Error;
       if (error.message.includes('rate limit')) {
-        setError("Email rate limit exceeded. Please wait a few minutes or check your inbox for the previous code/link.");
+        setError("Email rate limit exceeded. Please wait a few minutes or check your inbox for the previous code.");
       } else {
         setError(error.message || "Failed to send verification code.");
       }
@@ -76,41 +49,30 @@ const EmailVerification: React.FC = () => {
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  const handleCheckStatus = async (isAuto = false) => {
-    if (!isAuto) setLoading(true);
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otp.length !== 6) {
+      setError("Please enter a valid 6-digit code.");
+      return;
+    }
+
+    setLoading(true);
     setError(null);
     try {
-      // If manual check, add a small delay to allow Supabase backend to sync
-      if (!isAuto) await new Promise(resolve => setTimeout(resolve, 1000));
+      await verifyOTP(state.formData.email, otp);
+      
+      // Save pre-registration data as requested
+      await savePreRegistration(state.formData);
 
-      const isVerified = await checkSession(state.formData.email);
-      if (isVerified) {
-        dispatch({ type: 'SET_EMAIL_VERIFIED', payload: true });
-        dispatch({ type: 'NEXT_STEP' });
-      } else if (!isAuto) {
-        setError("We couldn't verify your email yet. Please make sure you clicked the link in the email we sent. If you've already clicked it, wait a few seconds and try again.");
-      }
+      dispatch({ type: 'SET_EMAIL_VERIFIED', payload: true });
+      dispatch({ type: 'NEXT_STEP' });
     } catch (err: unknown) {
       const error = err as Error;
-      if (error.message === 'SUPABASE_SERVICE_ROLE_KEY_MISSING') {
-        setError("The server is not configured to check verification status automatically. Please set the SUPABASE_SERVICE_ROLE_KEY in settings.");
-      } else if (!isAuto) {
-        setError(error.message || "Failed to check status.");
-      }
+      setError(error.message || "Invalid or expired verification code. Please try again.");
     } finally {
-      if (!isAuto) setLoading(false);
+      setLoading(false);
     }
   };
-
-  useEffect(() => {
-    // Poll for status every 5 seconds
-    const interval = setInterval(() => {
-      handleCheckStatus(true);
-    }, 5000);
-
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.formData.email]);
 
   return (
     <div className="space-y-6">
@@ -120,58 +82,67 @@ const EmailVerification: React.FC = () => {
         </div>
         <h2 className="text-2xl font-bold text-gray-800">{t('verifyEmailTitle')}</h2>
         <p className="text-gray-600 mt-2">
-          We have sent a verification link to <strong>{state.formData.email}</strong>. 
-          Please click the link in your email to proceed. 
-          <br/>
-          <span className="text-xs text-gray-400 mt-1 block">
-            Note: The link will open in a new tab. Once clicked, this page will automatically advance.
-          </span>
+          {t('verifyEmailDescription', { email: state.formData.email })}
         </p>
-        <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
-          <p className="text-sm text-blue-700 font-medium">
-            Check your inbox (and spam folder) for the verification link.
-          </p>
-        </div>
       </div>
 
-      <div className="space-y-4">
+      <form onSubmit={handleVerify} className="space-y-6">
+        <div className="space-y-2">
+          <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
+            {t('verificationCodeLabel')}
+          </label>
+          <input
+            id="otp"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="\d{6}"
+            maxLength={6}
+            value={otp}
+            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+            placeholder={t('otpPlaceholder')}
+            className="block w-full px-4 py-4 text-center text-3xl tracking-[1em] font-mono border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+            required
+          />
+        </div>
+
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start gap-2">
             <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
             <span>{error}</span>
           </div>
         )}
+
         <Button 
-          type="button" 
+          type="submit" 
           fullWidth 
-          onClick={handleCheckStatus}
           loading={loading}
-          icon={<CheckCircle className="h-5 w-5" />}
+          icon={<ShieldCheck className="h-5 w-5" />}
           className="py-4 text-lg shadow-sm hover:shadow-md transition-shadow"
         >
-          I&apos;ve Clicked the Verification Link
+          {t('verifyButton')}
         </Button>
 
         <div className="flex justify-between items-center text-sm pt-4">
-            <button
-              type="button"
-              onClick={() => dispatch({ type: 'PREV_STEP' })}
-              className="text-gray-500 hover:text-gray-700 flex items-center gap-1 transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" /> {t('backButton')}
-            </button>
+          <button
+            type="button"
+            onClick={() => dispatch({ type: 'PREV_STEP' })}
+            className="text-gray-500 hover:text-gray-700 flex items-center gap-1 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" /> {t('backButton')}
+          </button>
 
-            <button
-              type="button"
-              onClick={handleSendOTP}
-              disabled={countdown > 0 || resending}
-              className={`flex items-center gap-1 transition-colors ${countdown > 0 ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:text-blue-700'}`}
-            >
-              <RefreshCw className={`h-4 w-4 ${resending ? 'animate-spin' : ''}`} />
-              {countdown > 0 ? t('resendCountdown', { seconds: countdown.toString() }) : "Resend Link"}
-            </button>
-          </div>
-      </div>
+          <button
+            type="button"
+            onClick={handleSendOTP}
+            disabled={countdown > 0 || resending}
+            className={`flex items-center gap-1 transition-colors ${countdown > 0 ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:text-blue-700'}`}
+          >
+            <RefreshCw className={`h-4 w-4 ${resending ? 'animate-spin' : ''}`} />
+            {countdown > 0 ? t('resendCountdown', { seconds: countdown.toString() }) : t('resendCodeButton')}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

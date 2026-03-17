@@ -67,17 +67,50 @@ export const logout = async (): Promise<void> => {
 };
 
 export const sendOTP = async (email: string): Promise<void> => {
-    const redirectTo = window.location.origin + '/#/enroll';
-    console.log('>>> Sending Magic Link to:', email, 'Redirecting to:', redirectTo);
+    console.log('>>> Sending 6-digit OTP to:', email);
     const { error } = await supabase.auth.signInWithOtp({ 
         email,
-        options: {
-            emailRedirectTo: redirectTo,
-        }
     });
     if (error) {
         console.error('>>> signInWithOtp error:', error);
         throw error;
+    }
+};
+
+export const verifyOTP = async (email: string, token: string): Promise<void> => {
+    console.log('>>> Verifying OTP for:', email);
+    const { error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email'
+    });
+    if (error) {
+        console.error('>>> verifyOtp error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Saves student data as a "pre-registration" before slot booking.
+ * This ensures we have the student's details even if they don't finish booking.
+ */
+export const savePreRegistration = async (studentData: Record<string, unknown>): Promise<void> => {
+    console.log('>>> Saving pre-registration data to Supabase:', studentData);
+    
+    const { error } = await supabase
+        .from('pre_registrations')
+        .upsert({
+            email: (studentData.email as string).toLowerCase(),
+            first_name: studentData.firstname,
+            surname: studentData.surname,
+            form_data: studentData,
+            verified_at: new Date().toISOString()
+        }, { onConflict: 'email' });
+
+    if (error) {
+        console.error('>>> savePreRegistration error:', error);
+        // We don't throw here to avoid blocking the user if the pre-registration table doesn't exist yet
+        // or has RLS issues, as the final registration is the most important.
     }
 };
 

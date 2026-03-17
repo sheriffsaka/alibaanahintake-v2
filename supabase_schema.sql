@@ -115,6 +115,23 @@ BEGIN
 END;
 $$;
 
+-- 4b. Create the pre_registrations table for leads who verified email but haven't booked a slot.
+CREATE TABLE IF NOT EXISTS public.pre_registrations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT NOT NULL UNIQUE,
+    first_name TEXT NOT NULL,
+    surname TEXT NOT NULL,
+    form_data JSONB NOT NULL,
+    verified_at TIMESTAMPTZ DEFAULT now(),
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+COMMENT ON TABLE public.pre_registrations IS 'Stores student data after email verification but before final slot booking.';
+ALTER TABLE public.pre_registrations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public insert to pre_registrations" ON public.pre_registrations;
+CREATE POLICY "Allow public insert to pre_registrations" ON public.pre_registrations FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow admin read access to pre_registrations" ON public.pre_registrations;
+CREATE POLICY "Allow admin read access to pre_registrations" ON public.pre_registrations FOR SELECT USING (get_my_role() IS NOT NULL);
+
 -- Add foreign key constraint separately to avoid issues on re-runs
 DO $$
 BEGIN
