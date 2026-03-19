@@ -39,7 +39,7 @@ async function startServer() {
       const supabaseUrl = process.env.VITE_SUPABASE_URL;
       const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       const resendKey = process.env.VITE_RESEND_API_KEY;
-      const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@yourdomain.com';
+      const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
 
       if (!supabaseUrl || !supabaseServiceKey || !resendKey) {
         return res.status(500).json({ error: 'Missing configuration' });
