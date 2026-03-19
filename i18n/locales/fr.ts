@@ -3,7 +3,7 @@ export default {
     // Header
     officialSite: 'SITE OFFICIEL',
     staffLogin: 'CONNEXION EMPLOYÉS',
-    bookAssessment: 'RÉSERVER L\'ÉVALUATION',
+    bookAssessment: 'RÉSERVER UN CRÉNEAU',
     programsNav: 'Nos Programmes',
 
     // Hero
@@ -11,20 +11,20 @@ export default {
     yourJourney: 'Votre Parcours',
     startsOnCampus: 'Commence sur le Campus',
     heroDescription: 'Bienvenue sur IntakeFlow Al-Ibaanah. Réservez votre créneau d\'évaluation de placement obligatoire et simplifiez votre arrivée sur notre campus du Caire.',
-    maleIntake: 'Inscription Section Hommes',
-    femaleIntake: 'Inscription Section Femmes',
+    maleIntake: 'Inscription Section Hommes (Réserver un créneau)',
+    femaleIntake: 'Inscription Section Femmes (Réserver un créneau)',
     officialWebsite: 'Site Officiel',
-    step1: 'Inscription sur ibaanah.com',
-    step2: 'Réserver un créneau sur ce portail',
-    step3: 'Arriver pour l\'évaluation',
+    step1: 'Remplir le formulaire de réservation',
+    step2: 'Vérifier votre e-mail',
+    step3: 'Choisir un créneau',
 
     // Benefits
     digitalIntakeBenefits: 'Avantages de l\'admission numérique',
     benefitsDescription: "Nous avons modernisé notre processus d'arrivée pour garantir que votre premier jour à Al-Ibaanah soit fluide et efficace.",
-    benefit1Title: 'Réservation de rendez-vous numérique',
+    benefit1Title: 'Réservation de créneau numérique',
     benefit1Desc: "Sélectionnez un créneau horaire spécifique pour votre évaluation sur le campus. Plus d'attente dans de longues files.",
     benefit2Title: 'Tickets d\'admission instantanés',
-    benefit2Desc: "Recevez un code d'inscription numérique et un ticket immédiatement après avoir réservé votre évaluation.",
+    benefit2Desc: "Recevez un code de réservation et un ticket immédiatement après avoir réservé votre créneau.",
     benefit3Title: 'Enregistrement rapide',
     benefit3Desc: "Notre réception utilise le scan de QR/Code pour une expérience d'enregistrement en 60 secondes à votre arrivée.",
 
@@ -44,7 +44,7 @@ export default {
     operatingHours: 'Heures d\'ouverture',
     campusAddress: 'Bloc 12, Rue 18, Nasr City, Le Caire, Égypte',
     campusHours: 'Dimanche - Jeudi, 9h00 - 14h00',
-    readyToBook: 'Prêt à réserver une évaluation ?',
+    readyToBook: 'Prêt à réserver un créneau ?',
 
     // Footer
     copyright: 'Institut Al-Ibaanah. Tous droits réservés.',
@@ -82,7 +82,7 @@ export default {
     toggleArchiveConfirm: 'Êtes-vous sûr de vouloir {action} ce programme ?',
     saveProgram: 'Enregistrer le programme',
     manageResources: 'Gérer les ressources',
-
+    
     // Programs Page (Public)
     programsPageTitle: 'Nos Programmes Académiques',
     programsPageDescription: 'Découvrez la variété des programmes que nous proposons, des études fondamentales aux sujets avancés.',
@@ -90,7 +90,7 @@ export default {
     noProgramsAvailable: 'Les informations sur les programmes sont en cours de mise à jour. Veuillez revenir bientôt.',
 
     // --- Enrollment Flow ---
-    step1Title: 'Étape 1 : Inscription numérique ({gender})',
+    step1Title: 'Étape 1 : Remplir le formulaire de réservation ({gender})',
     surnameLabel: 'Nom de famille',
     firstnameLabel: 'Prénom',
     othernameLabel: 'Autre nom (facultatif)',
@@ -103,13 +103,14 @@ export default {
     streetNameLabel: 'Nom de la rue',
     districtLabel: 'Quartier',
     stateLabel: 'Gouvernorat/État',
-    levelLabel: 'Niveau d\'inscription',
+    levelLabel: 'Niveau pour la réservation',
     buildingNumberPlaceholder: 'Numéro de bâtiment',
     flatNumberPlaceholder: 'Numéro d\'appartement',
     streetNamePlaceholder: 'Nom de la rue',
     districtPlaceholder: 'Nom du quartier',
     statePlaceholder: 'État / Région',
     nextButton: 'Suivant : Vérifier l\'e-mail',
+    disclaimer: 'Avertissement : Ceci n\'est pas un formulaire d\'inscription. Il s\'agit d\'un formulaire de réservation de créneau (formulaire de présélection).',
     errorFirstnameRequired: 'Le prénom est requis',
     errorSurnameRequired: 'Le nom de famille est requis',
     errorWhatsappRequired: 'Le numéro WhatsApp est requis',
@@ -132,7 +133,7 @@ export default {
     errorInvalidCode: 'Lien de vérification invalide ou expiré. Veuillez réessayer.',
 
     // Slot Picker
-    slotPickerTitle: 'Étape 3 : Choisissez un créneau',
+    slotPickerTitle: 'Étape 3 : Choisir un créneau',
     levelLabelSlot: 'Niveau',
     dateSelectPrompt: 'Choisissez une date disponible :',
     noDatesAvailable: 'Aucune date disponible pour ce niveau.',
@@ -144,11 +145,11 @@ export default {
     confirmButton: 'Confirmer et continuer',
 
     // Confirmation Page
-    confirmingRegistrationTitle: 'Confirmation de votre inscription...',
+    confirmingRegistrationTitle: 'Confirmation de votre réservation de créneau...',
     bookingFailedTitle: 'Échec de la réservation',
     bookingFailedMessage: "La réservation du créneau a échoué. Le créneau est peut-être déjà complet. Veuillez revenir en arrière et essayer un autre créneau.",
     goBackButton: 'Retour',
-    registrationSuccessTitle: 'Inscription réussie !',
+    registrationSuccessTitle: 'Réservation de créneau réussie !',
     registrationSuccessMessage: 'Votre rendez-vous est confirmé. Veuillez consulter votre ticket d\'admission ci-dessous.',
     downloadButton: 'Télécharger comme image',
     printButton: 'Imprimer / Enregistrer en PDF',
@@ -157,7 +158,7 @@ export default {
 
     // Admission Slip
     admissionSlipTitle: 'TICKET D\'ADMISSION',
-    registrationIdLabel: 'ID D\'INSCRIPTION',
+    registrationIdLabel: 'ID DE RÉSERVATION',
     studentInfoLabel: 'INFORMATIONS ÉTUDIANT',
     targetLevelLabel: 'NIVEAU VISÉ',
     internalGroupLabel: 'GROUPE INTERNE',

@@ -49,9 +49,16 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
         </div>
         <div className="bg-gray-100 rounded-lg p-3 text-center mt-4 sm:mt-0">
             <p className="text-xs text-gray-500 font-bold">{t('registrationIdLabel')}</p>
-            <p className="font-mono font-bold text-lg text-red-700">{student.registrationCode.replace('AI-', 'AIB-2026-')}</p>
+            <p className="font-mono font-bold text-lg text-red-700">{student.registrationCode}</p>
         </div>
       </header>
+
+      {/* Disclaimer */}
+      <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg text-center">
+          <p className="text-xs text-red-700 font-bold italic">
+              {t('disclaimer')}
+          </p>
+      </div>
 
       {/* Main Content */}
       <main className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-8">

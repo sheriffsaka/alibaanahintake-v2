@@ -3,7 +3,7 @@ export default {
     // Header
     officialSite: 'الموقع الرسمي',
     staffLogin: 'دخول الموظفين',
-    bookAssessment: 'حجز تقييم',
+    bookAssessment: 'حجز موعد',
     programsNav: 'برامجنا',
 
     // Hero
@@ -11,12 +11,12 @@ export default {
     yourJourney: 'رحلتك',
     startsOnCampus: 'تبدأ في الحرم الجامعي',
     heroDescription: 'أهلاً بك في بوابة الإبانة. أمّن موعدك الإلزامي لتقييم تحديد المستوى وسهّل وصولك إلى حرمنا الجامعي في القاهرة.',
-    maleIntake: 'تسجيل قسم الرجال',
-    femaleIntake: 'تسجيل قسم النساء',
+    maleIntake: 'تسجيل قسم الرجال (حجز موعد)',
+    femaleIntake: 'تسجيل قسم النساء (حجز موعد)',
     officialWebsite: 'الموقع الرسمي',
-    step1: 'التسجيل في ibaanah.com',
-    step2: 'حجز موعد على هذه البوابة',
-    step3: 'الوصول للتقييم',
+    step1: 'ملء استمارة حجز الموعد',
+    step2: 'التحقق من بريدك الإلكتروني',
+    step3: 'اختر موعدًا',
 
     // Benefits
     digitalIntakeBenefits: 'مزايا التسجيل الرقمي',
@@ -24,7 +24,7 @@ export default {
     benefit1Title: 'حجز موعد رقمي',
     benefit1Desc: 'اختر فترة زمنية محددة لتقييمك في الحرم الجامعي. لا مزيد من الانتظار في طوابير طويلة.',
     benefit2Title: 'قسائم قبول فورية',
-    benefit2Desc: 'احصل على رمز تسجيل وقسيمة رقمية فور حجز تقييمك.',
+    benefit2Desc: 'احصل على رمز حجز وقسيمة رقمية فور حجز موعدك.',
     benefit3Title: 'تسجيل وصول سريع',
     benefit3Desc: 'يستخدم مكتب الاستقبال لدينا مسح رمز الاستجابة السريعة لتسجيل وصولك في 60 ثانية عند الوصول.',
 
@@ -44,7 +44,7 @@ export default {
     operatingHours: 'ساعات العمل',
     campusAddress: 'بلوك 12، شارع 18، مدينة نصر، القاهرة، مصر',
     campusHours: 'الأحد - الخميس، 9:00 صباحًا - 2:00 ظهرًا',
-    readyToBook: 'هل أنت جاهز لحجز التقييم؟',
+    readyToBook: 'هل أنت جاهز لحجز موعد؟',
 
     // Footer
     copyright: 'معهد الإبانة. جميع الحقوق محفوظة.',
@@ -91,7 +91,7 @@ export default {
 
     // --- Enrollment Flow ---
     // Form
-    step1Title: 'الخطوة 1: التسجيل الرقمي ({gender})',
+    step1Title: 'الخطوة 1: ملء استمارة حجز الموعد ({gender})',
     surnameLabel: 'اللقب',
     firstnameLabel: 'الاسم الأول',
     othernameLabel: 'اسم آخر (اختياري)',
@@ -104,13 +104,14 @@ export default {
     streetNameLabel: 'اسم الشارع',
     districtLabel: 'الحي',
     stateLabel: 'المحافظة',
-    levelLabel: 'المستوى المسجل له',
+    levelLabel: 'المستوى الذي تحجز له',
     buildingNumberPlaceholder: 'رقم المبنى',
     flatNumberPlaceholder: 'رقم الشقة',
     streetNamePlaceholder: 'اسم الشارع',
     districtPlaceholder: 'اسم الحي',
     statePlaceholder: 'المحافظة',
     nextButton: 'التالي: التحقق من البريد',
+    disclaimer: 'تنبيه: هذه ليست استمارة تسجيل. إنها استمارة حجز موعد (فحص ما قبل التسجيل).',
     errorFirstnameRequired: 'الاسم الأول مطلوب',
     errorSurnameRequired: 'اللقب مطلوب',
     errorWhatsappRequired: 'رقم الواتساب مطلوب',
@@ -145,11 +146,11 @@ export default {
     confirmButton: 'تأكيد والمتابعة',
 
     // Confirmation Page
-    confirmingRegistrationTitle: 'جارٍ تأكيد تسجيلك...',
+    confirmingRegistrationTitle: 'جارٍ تأكيد حجز موعدك...',
     bookingFailedTitle: 'فشل الحجز',
     bookingFailedMessage: 'فشل حجز الموعد. قد يكون الموعد قد امتلأ. يرجى الرجوع وتجربة موعد آخر.',
     goBackButton: 'العودة',
-    registrationSuccessTitle: 'تم التسجيل بنجاح!',
+    registrationSuccessTitle: 'تم حجز الموعد بنجاح!',
     registrationSuccessMessage: 'تم تأكيد موعدك. يرجى الاطلاع على قسيمة القبول أدناه.',
     downloadButton: 'تحميل كصورة',
     printButton: 'طباعة / حفظ PDF',
@@ -158,7 +159,7 @@ export default {
 
     // Admission Slip
     admissionSlipTitle: 'قسيمة القبول',
-    registrationIdLabel: 'رقم التسجيل',
+    registrationIdLabel: 'رقم الحجز',
     studentInfoLabel: 'بيانات الطالب',
     targetLevelLabel: 'المستوى المستهدف',
     internalGroupLabel: 'المجموعة الداخلية',

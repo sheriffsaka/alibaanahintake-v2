@@ -15,8 +15,9 @@ const getInitialState = (gender: Gender, levelId: string = ''): EnrollmentState 
     try {
       const parsed = JSON.parse(savedState);
       // Only resume if it's not a confirmed registration and not too old (e.g. 2 hours)
+      // AND the gender matches the preselected one (if any)
       const isRecent = Date.now() - (parsed.timestamp || 0) < 2 * 60 * 60 * 1000;
-      if (isRecent && !parsed.confirmedRegistration) {
+      if (isRecent && !parsed.confirmedRegistration && parsed.formData.gender === gender) {
         return { ...parsed, step: parsed.step || 1 };
       }
     } catch (e) {
@@ -66,7 +67,7 @@ const enrollmentReducer = (state: EnrollmentState, action: EnrollmentAction): En
     case 'CONFIRM_REGISTRATION':
         return { ...state, confirmedRegistration: action.payload };
     case 'RESET':
-        return getInitialState(state.formData.gender, state.formData.levelId);
+        return getInitialState(action.payload?.gender || state.formData.gender, action.payload?.levelId || state.formData.levelId);
     default:
       return state;
   }
@@ -78,6 +79,14 @@ const EnrollmentPage: React.FC = () => {
   const preselectedLevelId = location.state?.levelId || '';
   
   const [state, dispatch] = useReducer(enrollmentReducer, getInitialState(preselectedGender, preselectedLevelId));
+
+  // Reset if preselected gender changes (e.g. user goes back and picks different intake)
+  React.useEffect(() => {
+    if (state.formData.gender !== preselectedGender) {
+      dispatch({ type: 'RESET', payload: { gender: preselectedGender, levelId: preselectedLevelId } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedGender]);
 
   // Persist state to localStorage
   React.useEffect(() => {

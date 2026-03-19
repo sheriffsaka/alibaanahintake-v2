@@ -148,4 +148,4 @@ export type EnrollmentAction =
     | { type: 'SET_EMAIL_VERIFIED'; payload: boolean }
     | { type: 'SELECT_SLOT'; payload: { id: string, date: string } }
     | { type: 'CONFIRM_REGISTRATION'; payload: Student }
-    | { type: 'RESET' };
+    | { type: 'RESET'; payload?: { gender?: Gender, levelId?: string } };

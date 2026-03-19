@@ -3,7 +3,7 @@ export default {
     // Header
     officialSite: 'OFFICIAL SITE',
     staffLogin: 'STAFF LOGIN',
-    bookAssessment: 'BOOK ASSESSMENT',
+    bookAssessment: 'BOOK A SLOT',
     programsNav: 'Our Programs',
 
     // Hero
@@ -14,17 +14,17 @@ export default {
     maleIntake: 'Male Section Intake',
     femaleIntake: 'Female Section Intake',
     officialWebsite: 'Official Website',
-    step1: 'Register at ibaanah.com',
-    step2: 'Book Slot on this Portal',
-    step3: 'Arrive for Evaluation',
+    step1: 'Fill the slot booking form',
+    step2: 'Verify your email',
+    step3: 'Pick a slot',
 
     // Benefits
     digitalIntakeBenefits: 'Digital Intake Benefits',
     benefitsDescription: "We've modernized our arrival process to ensure your first day at Al-Ibaanah is smooth and efficient.",
-    benefit1Title: 'Digital Appointment Booking',
+    benefit1Title: 'Digital Slot Booking',
     benefit1Desc: 'Select a specific time slot for your on-campus evaluation. No more waiting in long queues.',
     benefit2Title: 'Instant Admission Slips',
-    benefit2Desc: 'Receive a digital registration code and slip immediately after booking your assessment.',
+    benefit2Desc: 'Receive a digital booking code and slip immediately after booking your slot.',
     benefit3Title: 'Fast-Track Check-In',
     benefit3Desc: 'Our front desk uses QR/Code scanning for a 60-second check-in experience upon arrival.',
 
@@ -44,7 +44,7 @@ export default {
     operatingHours: 'Operating Hours',
     campusAddress: 'Block 12, Rd 18, Nasr City, Cairo, Egypt',
     campusHours: 'Sunday - Thursday, 9:00 AM - 2:00 PM',
-    readyToBook: 'Ready to Book Assessment?',
+    readyToBook: 'Ready to Book a Slot?',
 
     // Footer
     copyright: 'Al-Ibaanah Institute. All Rights Reserved.',
@@ -91,7 +91,7 @@ export default {
 
     // --- Enrollment Flow ---
     // Form
-    step1Title: 'Step 1: Digital Registration ({gender})',
+    step1Title: 'Step 1: Fill the Slot Booking Form ({gender})',
     surnameLabel: 'Surname',
     firstnameLabel: 'First Name',
     othernameLabel: 'Other Name (Optional)',
@@ -104,13 +104,14 @@ export default {
     streetNameLabel: 'Street Name',
     districtLabel: 'District',
     stateLabel: 'State',
-    levelLabel: 'Level Registering For',
+    levelLabel: 'Level Booking For',
     buildingNumberPlaceholder: 'Building Number',
     flatNumberPlaceholder: 'Flat Number',
     streetNamePlaceholder: 'Street Name',
     districtPlaceholder: 'District Name',
     statePlaceholder: 'State',
     nextButton: 'Next: Verify Email',
+    disclaimer: 'Disclaimer: This is not a Registration Form. It is a Slot Booking (Pre-Registration Screening Form).',
     errorFirstnameRequired: 'First name is required',
     errorSurnameRequired: 'Surname is required',
     errorWhatsappRequired: 'WhatsApp number is required',
@@ -134,7 +135,7 @@ export default {
     otpPlaceholder: '000000',
 
     // Slot Picker
-    slotPickerTitle: 'Step 3: Select an Appointment Slot',
+    slotPickerTitle: 'Step 3: Pick a Slot',
     levelLabelSlot: 'Level',
     dateSelectPrompt: 'Select an available date:',
     noDatesAvailable: 'No available dates for this level.',
@@ -146,11 +147,11 @@ export default {
     confirmButton: 'Confirm and Proceed',
 
     // Confirmation Page
-    confirmingRegistrationTitle: 'Confirming your registration...',
+    confirmingRegistrationTitle: 'Confirming your slot booking...',
     bookingFailedTitle: 'Booking Failed',
     bookingFailedMessage: 'Failed to book appointment. The slot may have been filled. Please go back and try another slot.',
     goBackButton: 'Go Back',
-    registrationSuccessTitle: 'Registration Successful!',
+    registrationSuccessTitle: 'Slot Booking Successful!',
     registrationSuccessMessage: 'Your appointment is confirmed. Please see your admission slip below.',
     downloadButton: 'Download as Image',
     printButton: 'Print / Save PDF',
@@ -159,7 +160,7 @@ export default {
 
     // Admission Slip
     admissionSlipTitle: 'ADMISSION SLIP',
-    registrationIdLabel: 'REGISTRATION ID',
+    registrationIdLabel: 'BOOKING ID',
     studentInfoLabel: 'STUDENT INFORMATION',
     targetLevelLabel: 'TARGET LEVEL',
     internalGroupLabel: 'INTERNAL GROUP',

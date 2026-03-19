@@ -74,14 +74,17 @@ const Hero: React.FC = () => {
                         {t('heroDescription')}
                     </p>
                     <div className="mt-8 flex flex-wrap gap-4">
-                        {hasSavedEnrollment ? (
-                            <Link to="/enroll" className="w-full sm:w-auto">
-                                <button className="w-full bg-brand-yellow text-brand-green-dark font-bold px-8 py-4 rounded-md shadow-xl hover:bg-yellow-400 transition-all transform hover:scale-105 flex items-center justify-center gap-2">
-                                    <RefreshCw className="h-5 w-5" />
-                                    <span>Resume Your Enrollment</span>
-                                </button>
-                            </Link>
-                        ) : appSettings?.isRegistrationOpen ? (
+                        {hasSavedEnrollment && (
+                            <div className="w-full mb-2">
+                                <Link to="/enroll">
+                                    <button className="bg-brand-yellow text-brand-green-dark font-bold px-8 py-3 rounded-md shadow-xl hover:bg-yellow-400 transition-all transform hover:scale-105 flex items-center justify-center gap-2">
+                                        <RefreshCw className="h-5 w-5" />
+                                        <span>Resume Your Enrollment</span>
+                                    </button>
+                                </Link>
+                            </div>
+                        )}
+                        {appSettings?.isRegistrationOpen ? (
                             <>
                                 <Link to="/enroll" state={{ gender: Gender.Male }}>
                                     <button className="bg-white text-brand-green-dark font-semibold px-8 py-3 rounded-md shadow-lg hover:bg-gray-200 transition-colors">
@@ -94,7 +97,7 @@ const Hero: React.FC = () => {
                                     </button>
                                 </Link>
                             </>
-                        ) : (
+                        ) : !hasSavedEnrollment && (
                             <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
                                 <p className="font-bold">Registration Closed</p>
                                 <p>No Session or Slot Booking Going On. Please contact the school for further notice.</p>

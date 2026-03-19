@@ -273,7 +273,10 @@ const RegistrationForm: React.FC = () => {
       ) : (
         <Select label={t('levelLabel')} name="levelId" value={state.formData.levelId} onChange={handleChange} options={levels.map(l => ({ value: l.id, label: l.name }))} />
       )}
-      <div className="pt-4">
+      <div className="pt-4 space-y-4">
+        <p className="text-sm text-red-600 font-medium bg-red-50 p-3 rounded-lg border border-red-100 italic">
+          {t('disclaimer')}
+        </p>
         <Button type="submit" fullWidth>{t('nextButton')}</Button>
       </div>
     </form>
