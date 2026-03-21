@@ -76,12 +76,12 @@ export const sendOTP = async (email: string): Promise<void> => {
     
     if (!response.ok) {
         let errorMessage = 'Failed to send verification code';
+        const text = await response.text();
         try {
-            const errorData = await response.json();
+            const errorData = JSON.parse(text);
             errorMessage = errorData.error || errorMessage;
         } catch (e) {
-            const text = await response.text();
-            errorMessage = `Server error (${response.status}): ${response.statusText}. Content: ${text.substring(0, 50)}...`;
+            errorMessage = `Server error (${response.status}): ${response.statusText}. Content: ${text.substring(0, 100)}...`;
             console.error('>>> Non-JSON error response in sendOTP:', e, text);
         }
         throw new Error(errorMessage);
@@ -98,12 +98,12 @@ export const verifyOTP = async (email: string, token: string): Promise<void> => 
 
     if (!response.ok) {
         let errorMessage = 'Invalid or expired verification code';
+        const text = await response.text();
         try {
-            const errorData = await response.json();
+            const errorData = JSON.parse(text);
             errorMessage = errorData.error || errorMessage;
         } catch (e) {
-            const text = await response.text();
-            errorMessage = `Server error (${response.status}): ${response.statusText}. Content: ${text.substring(0, 50)}...`;
+            errorMessage = `Server error (${response.status}): ${response.statusText}. Content: ${text.substring(0, 100)}...`;
             console.error('>>> Non-JSON error response in verifyOTP:', e, text);
         }
         throw new Error(errorMessage);
