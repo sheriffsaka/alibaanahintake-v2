@@ -14,7 +14,7 @@ async function startServer() {
 
   // Request logging middleware
   app.use((req, res, next) => {
-    console.log(`>>> ${req.method} ${req.url}`);
+    console.log(`>>> ${new Date().toISOString()} - ${req.method} ${req.url} (Original: ${req.originalUrl})`);
     next();
   });
 
@@ -424,6 +424,17 @@ async function startServer() {
     }
   });
 
+  // JSON 404 for unmatched API routes - MUST be after all API routes
+  app.all('/api/*', (req, res) => {
+    console.warn(`>>> 404 API Route Not Found: ${req.method} ${req.url}`);
+    res.status(404).json({ 
+      error: 'API route not found', 
+      method: req.method, 
+      path: req.url,
+      originalUrl: req.originalUrl
+    });
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     console.log('>>> Starting Vite in middleware mode...');
     const vite = await createViteServer({
@@ -435,10 +446,14 @@ async function startServer() {
   } else {
     const distPath = path.resolve(__dirname, 'dist');
     app.use(express.static(distPath));
-    app.get('*all', (req, res, next) => {
-      if (req.originalUrl.startsWith('/api')) {
+    
+    // SPA fallback - match everything that isn't an API route
+    app.get('*', (req, res, next) => {
+      // Skip if it looks like an API route (should have been caught by the API 404 handler above if not matched)
+      if (req.url.startsWith('/api')) {
         return next();
       }
+      
       const indexPath = path.resolve(distPath, 'index.html');
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);

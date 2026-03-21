@@ -75,8 +75,15 @@ export const sendOTP = async (email: string): Promise<void> => {
     });
     
     if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send verification code');
+        let errorMessage = 'Failed to send verification code';
+        try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+            errorMessage = `Server error (${response.status}): ${response.statusText}`;
+            console.error('>>> Non-JSON error response in sendOTP:', e);
+        }
+        throw new Error(errorMessage);
     }
 };
 
@@ -89,8 +96,15 @@ export const verifyOTP = async (email: string, token: string): Promise<void> => 
     });
 
     if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Invalid or expired verification code');
+        let errorMessage = 'Invalid or expired verification code';
+        try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+            errorMessage = `Server error (${response.status}): ${response.statusText}`;
+            console.error('>>> Non-JSON error response in verifyOTP:', e);
+        }
+        throw new Error(errorMessage);
     }
 };
 
