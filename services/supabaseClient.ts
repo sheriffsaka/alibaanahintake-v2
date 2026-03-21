@@ -39,6 +39,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+    // Disable Navigator LockManager to prevent timeout errors in iframe/sandboxed environments
+    lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<unknown>) => {
+      return await fn();
+    }
   },
   global: {
     fetch: fetchWithTimeout,

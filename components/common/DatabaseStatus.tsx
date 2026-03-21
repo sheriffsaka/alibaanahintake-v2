@@ -19,7 +19,8 @@ const DatabaseStatus: React.FC = () => {
         setStatus('error');
         const err = result.error;
         if (err && typeof err === 'object') {
-          setErrorDetails((err as any).message || (err as any).error_description || JSON.stringify(err));
+          const e = err as Record<string, unknown>;
+          setErrorDetails(String(e.message || e.error_description || JSON.stringify(err)));
         } else {
           setErrorDetails(String(err));
         }
@@ -41,7 +42,8 @@ const DatabaseStatus: React.FC = () => {
         setStatus('error');
         const err = result.error;
         if (err && typeof err === 'object') {
-          setErrorDetails((err as any).message || (err as any).error_description || JSON.stringify(err));
+          const e = err as Record<string, unknown>;
+          setErrorDetails(String(e.message || e.error_description || JSON.stringify(err)));
         } else {
           setErrorDetails(String(err));
         }
