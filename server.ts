@@ -60,6 +60,7 @@ async function startServer() {
       const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       const resendKey = process.env.VITE_RESEND_API_KEY;
       const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
+      console.log(`>>> [API] Using fromEmail: ${fromEmail}`);
 
       if (!supabaseUrl || !supabaseServiceKey || !resendKey) {
         console.error('>>> [API] Missing config for OTP:', { supabaseUrl: !!supabaseUrl, supabaseServiceKey: !!supabaseServiceKey, resendKey: !!resendKey });
@@ -264,6 +265,7 @@ async function startServer() {
       const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       const resendKey = process.env.VITE_RESEND_API_KEY;
       const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
+      console.log(`>>> [CRON] Using fromEmail: ${fromEmail}`);
 
       if (!supabaseUrl || !supabaseServiceKey || !resendKey) {
         return res.status(500).json({ error: 'Missing configuration' });
@@ -384,6 +386,7 @@ async function startServer() {
       const resend = new Resend(resendKey);
       const { to, subject, html } = req.body;
       const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
+      console.log(`>>> [EMAIL] Using fromEmail: ${fromEmail}`);
       
       await resend.emails.send({
         from: fromEmail,
