@@ -23,10 +23,15 @@ const EmailVerification: React.FC = () => {
     try {
       // Diagnostic check: Verify API reachability
       console.log('>>> [Diagnostic] Checking API health...');
-      const healthCheck = await fetch('/api/health').catch(() => null);
+      const healthCheck = await fetch(`${window.location.origin}/api/health`).catch((err) => {
+        console.error('>>> [Diagnostic] Health check fetch error:', err);
+        return null;
+      });
+      
       if (!healthCheck || !healthCheck.ok) {
         console.error('>>> [Diagnostic] API Health Check Failed:', healthCheck?.status);
-        throw new Error(`API is unreachable (Status: ${healthCheck?.status || 'Network Error'}). Please refresh the page.`);
+        const text = healthCheck ? await healthCheck.text().catch(() => 'No body') : 'Network Error';
+        throw new Error(`API is unreachable (Status: ${healthCheck?.status || 'Network Error'}). Content: ${text.substring(0, 50)}...`);
       }
       console.log('>>> [Diagnostic] API Health Check Passed');
 

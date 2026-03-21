@@ -4,19 +4,22 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 
+console.log('>>> server.ts LOADED');
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
   console.log('>>> Initializing Express app...');
   const app = express();
-  app.use(express.json());
-
-  // Request logging middleware
+  
+  // VERY TOP LEVEL LOGGER - Log every single request before anything else
   app.use((req, res, next) => {
-    console.log(`>>> ${new Date().toISOString()} - ${req.method} ${req.url} (Original: ${req.originalUrl})`);
+    console.log(`>>> [REQUEST] ${new Date().toISOString()} - ${req.method} ${req.url} (Host: ${req.headers.host})`);
     next();
   });
+
+  app.use(express.json());
 
   // Health check route
   app.get('/api/health', (req, res) => {
