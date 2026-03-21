@@ -32,6 +32,211 @@ async function startServer() {
     });
   });
 
+  // --- AUTH ROUTES (Moved to top level for robustness) ---
+  
+  app.post(['/api/auth/send-otp', '/api/auth/send-otp/'], async (req, res) => {
+    const { email } = req.body;
+    console.log(`>>> [API] Generating custom OTP for: ${email}`);
+    
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const { Resend } = await import('resend');
+
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const resendKey = process.env.VITE_RESEND_API_KEY;
+      const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
+
+      if (!supabaseUrl || !supabaseServiceKey || !resendKey) {
+        console.error('>>> [API] Missing config for OTP:', { supabaseUrl: !!supabaseUrl, supabaseServiceKey: !!supabaseServiceKey, resendKey: !!resendKey });
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      const resend = new Resend(resendKey);
+
+      // 1. Check if the student is already FULLY registered
+      const { data: existingStudent, error: studentCheckError } = await supabase
+        .from('students')
+        .select('id, registration_code')
+        .eq('email', email.toLowerCase())
+        .maybeSingle();
+
+      if (studentCheckError) {
+        console.error('>>> [API] Error checking existing student:', studentCheckError);
+      }
+
+      if (existingStudent) {
+        return res.status(400).json({ 
+          error: 'This email is already registered. Please check your inbox for your admission slip or contact administration if you need to reschedule.' 
+        });
+      }
+
+      // Cleanup previous OTPs
+      await supabase.from('otp_codes').delete().eq('email', email.toLowerCase());
+
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+      const { error: dbError } = await supabase
+        .from('otp_codes')
+        .insert({ 
+          email: email.toLowerCase(), 
+          code: otp, 
+          expires_at: expiresAt.toISOString() 
+        });
+
+      if (dbError) throw dbError;
+
+      await resend.emails.send({
+        from: fromEmail,
+        to: email,
+        subject: 'Verification Code - Al-Ibaanah Registration',
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #2563eb; text-align: center;">Email Verification</h2>
+            <p>As-salamu 'alaykum,</p>
+            <p>Your verification code for the Al-Ibaanah slot booking is:</p>
+            <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px; margin: 20px 0;">
+              ${otp}
+            </div>
+            <p>This code will expire in 15 minutes.</p>
+            <p>If you did not request this code, please ignore this email.</p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+            <p style="font-size: 12px; color: #6b7280; text-align: center;">
+              Al-Ibaanah Arabic Center, Cairo, Egypt
+            </p>
+          </div>
+        `
+      });
+
+      console.log(`>>> [API] OTP sent to ${email}`);
+      res.json({ message: 'OTP sent successfully' });
+    } catch (error) {
+      console.error('>>> [API] Send OTP error:', error);
+      res.status(500).json({ error: 'Failed to send verification code' });
+    }
+  });
+
+  app.post(['/api/auth/verify-otp', '/api/auth/verify-otp/'], async (req, res) => {
+    const { email, code } = req.body;
+    console.log(`>>> [API] Verifying OTP for: ${email}`);
+
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email and code are required' });
+    }
+
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!supabaseUrl || !supabaseServiceKey) {
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+      const { data, error } = await supabase
+        .from('otp_codes')
+        .select('*')
+        .eq('email', email.toLowerCase())
+        .eq('code', code)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        return res.status(400).json({ error: 'Invalid or expired verification code' });
+      }
+
+      await supabase.from('otp_codes').delete().eq('id', data[0].id);
+      res.json({ message: 'Verification successful' });
+    } catch (error) {
+      console.error('>>> [API] Verify OTP error:', error);
+      res.status(500).json({ error: 'Verification failed' });
+    }
+  });
+
+  app.get(['/api/auth/is-confirmed', '/api/auth/is-confirmed/'], async (req, res) => {
+    const { email } = req.query;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!supabaseUrl || !supabaseServiceKey) {
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: { autoRefreshToken: false, persistSession: false }
+      });
+
+      let page = 1;
+      let found = false;
+      let confirmed = false;
+
+      while (page <= 5) {
+        const { data: { users }, error } = await supabase.auth.admin.listUsers({ page, perPage: 50 });
+        if (error) throw error;
+        if (!users || users.length === 0) break;
+
+        const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+        if (user) {
+          found = true;
+          confirmed = !!user.email_confirmed_at || !!user.last_sign_in_at || !!user.confirmed_at;
+          break;
+        }
+        page++;
+      }
+      res.json({ confirmed, found });
+    } catch (error) {
+      console.error('>>> [API] Check confirmation error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.get(['/api/auth/is-verified', '/api/auth/is-verified/'], async (req, res) => {
+    const { email } = req.query;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!supabaseUrl || !supabaseServiceKey) {
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      const { data, error } = await supabase
+        .from('pre_registrations')
+        .select('email')
+        .eq('email', email.toLowerCase())
+        .maybeSingle();
+
+      if (error) throw error;
+      res.json({ verified: !!data });
+    } catch (error) {
+      console.error('>>> [API] Check verification error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // Cron route for reminders
   app.post('/api/cron/reminders', async (req, res) => {
     const authHeader = req.headers.authorization;
@@ -183,266 +388,6 @@ async function startServer() {
       res.status(500).json({ error: 'Failed to send email' });
     }
   });
-
-  // Auth Router
-  const authRouter = express.Router();
-
-  // Test route for auth
-  authRouter.get('/test', (req, res) => {
-    res.json({ message: 'Auth API is working', time: new Date().toISOString() });
-  });
-
-  // Custom OTP endpoints to bypass Supabase Auth rate limits
-  authRouter.post('/send-otp', async (req, res) => {
-    const { email } = req.body;
-    console.log(`>>> [AuthRouter] Generating custom OTP for: ${email}`);
-    
-    if (!email || typeof email !== 'string') {
-      return res.status(400).json({ error: 'Email is required' });
-    }
-
-    try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const { Resend } = await import('resend');
-
-      const supabaseUrl = process.env.VITE_SUPABASE_URL;
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      const resendKey = process.env.VITE_RESEND_API_KEY;
-      const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
-
-      if (!supabaseUrl || !supabaseServiceKey || !resendKey) {
-        console.error('>>> [AuthRouter] Missing config for OTP:', { supabaseUrl: !!supabaseUrl, supabaseServiceKey: !!supabaseServiceKey, resendKey: !!resendKey });
-        return res.status(500).json({ error: 'Server configuration error' });
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      const resend = new Resend(resendKey);
-
-      // 1. Check if the student is already FULLY registered (in the students table)
-      const { data: existingStudent, error: studentCheckError } = await supabase
-        .from('students')
-        .select('id, registration_code')
-        .eq('email', email.toLowerCase())
-        .maybeSingle();
-
-      if (studentCheckError) {
-        console.error('>>> [AuthRouter] Error checking existing student:', studentCheckError);
-      }
-
-      if (existingStudent) {
-        console.log(`>>> [AuthRouter] Email ${email} is already registered with code ${existingStudent.registration_code}`);
-        return res.status(400).json({ 
-          error: 'This email is already registered. Please check your inbox for your admission slip or contact administration if you need to reschedule.' 
-        });
-      }
-
-      // Cleanup ALL previous OTPs for this email to avoid confusion and keep the table clean
-      await supabase
-        .from('otp_codes')
-        .delete()
-        .eq('email', email.toLowerCase());
-
-      // Generate 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes expiry
-
-      // Save to database
-      const { error: dbError } = await supabase
-        .from('otp_codes')
-        .insert({ 
-          email: email.toLowerCase(), 
-          code: otp, 
-          expires_at: expiresAt.toISOString() 
-        });
-
-      if (dbError) {
-        console.error('>>> [AuthRouter] DB error saving OTP:', dbError);
-        throw dbError;
-      }
-
-      // Send email
-      await resend.emails.send({
-        from: fromEmail,
-        to: email,
-        subject: 'Verification Code - Al-Ibaanah Registration',
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-            <h2 style="color: #2563eb; text-align: center;">Email Verification</h2>
-            <p>As-salamu 'alaykum,</p>
-            <p>Your verification code for the Al-Ibaanah slot booking is:</p>
-            <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px; margin: 20px 0;">
-              ${otp}
-            </div>
-            <p>This code will expire in 15 minutes.</p>
-            <p>If you did not request this code, please ignore this email.</p>
-            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-            <p style="font-size: 12px; color: #6b7280; text-align: center;">
-              Al-Ibaanah Arabic Center, Cairo, Egypt
-            </p>
-          </div>
-        `
-      });
-
-      console.log(`>>> [AuthRouter] OTP sent to ${email}`);
-      res.json({ message: 'OTP sent successfully' });
-    } catch (error) {
-      console.error('>>> [AuthRouter] Send OTP error:', error);
-      res.status(500).json({ error: 'Failed to send verification code' });
-    }
-  });
-
-  authRouter.post('/verify-otp', async (req, res) => {
-    const { email, code } = req.body;
-    console.log(`>>> [AuthRouter] Verifying OTP for: ${email}`);
-
-    if (!email || !code) {
-      return res.status(400).json({ error: 'Email and code are required' });
-    }
-
-    try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabaseUrl = process.env.VITE_SUPABASE_URL;
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-      if (!supabaseUrl || !supabaseServiceKey) {
-        return res.status(500).json({ error: 'Server configuration error' });
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-      // Check for valid OTP
-      const { data, error } = await supabase
-        .from('otp_codes')
-        .select('*')
-        .eq('email', email.toLowerCase())
-        .eq('code', code)
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (error) {
-        console.error('>>> [AuthRouter] DB error verifying OTP:', error);
-        throw error;
-      }
-
-      if (!data || data.length === 0) {
-        console.log(`>>> [AuthRouter] Invalid or expired OTP for ${email}`);
-        return res.status(400).json({ error: 'Invalid or expired verification code' });
-      }
-
-      // Delete the used OTP
-      await supabase.from('otp_codes').delete().eq('id', data[0].id);
-
-      console.log(`>>> [AuthRouter] Verification successful for ${email}`);
-      res.json({ message: 'Verification successful' });
-    } catch (error) {
-      console.error('>>> [AuthRouter] Verify OTP error:', error);
-      res.status(500).json({ error: 'Verification failed' });
-    }
-  });
-
-  // Check if a user is confirmed in Supabase Auth (using service role)
-  authRouter.get('/is-confirmed', async (req, res) => {
-    const { email } = req.query;
-    console.log(`>>> [AuthRouter] Checking confirmation for: ${email}`);
-    
-    if (!email || typeof email !== 'string') {
-      return res.status(400).json({ error: 'Email is required' });
-    }
-
-    try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabaseUrl = process.env.VITE_SUPABASE_URL;
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-      if (!supabaseUrl) {
-        console.error('>>> [AuthRouter] VITE_SUPABASE_URL is missing');
-        return res.status(500).json({ error: 'Missing Supabase URL' });
-      }
-      
-      if (!supabaseServiceKey) {
-        console.error('>>> [AuthRouter] SUPABASE_SERVICE_ROLE_KEY is missing. Server-side verification check will not work.');
-        return res.status(500).json({ error: 'Server not configured for admin verification. Please set SUPABASE_SERVICE_ROLE_KEY.' });
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      });
-
-      // We might need to loop if there are many users, but for now we check the first few pages
-      let page = 1;
-      let found = false;
-      let confirmed = false;
-
-      while (page <= 5) { // Check up to 5 pages (250 users)
-        const { data: { users }, error } = await supabase.auth.admin.listUsers({
-          page: page,
-          perPage: 50
-        });
-        
-        if (error) {
-          console.error(`>>> [AuthRouter] Error listing users on page ${page}:`, error);
-          throw error;
-        }
-
-        if (!users || users.length === 0) break;
-
-        const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
-        if (user) {
-          found = true;
-          // Check multiple fields for confirmation. Magic links might set last_sign_in_at but not email_confirmed_at
-          confirmed = !!user.email_confirmed_at || !!user.last_sign_in_at || !!user.confirmed_at;
-          console.log(`>>> [AuthRouter] User found: ${email}, confirmed: ${confirmed}, last_sign_in: ${user.last_sign_in_at}, email_confirmed: ${user.email_confirmed_at}, confirmed_at: ${user.confirmed_at}`);
-          break;
-        }
-        page++;
-      }
-      
-      res.json({ confirmed, found });
-    } catch (error) {
-      console.error('>>> [AuthRouter] Check confirmation error:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-
-  // Check if a student email is verified in pre_registrations
-  authRouter.get('/is-verified', async (req, res) => {
-    const { email } = req.query;
-    if (!email || typeof email !== 'string') {
-      return res.status(400).json({ error: 'Email is required' });
-    }
-
-    try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabaseUrl = process.env.VITE_SUPABASE_URL;
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-      if (!supabaseUrl || !supabaseServiceKey) {
-        return res.status(500).json({ error: 'Server configuration error' });
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-      const { data, error } = await supabase
-        .from('pre_registrations')
-        .select('email')
-        .eq('email', email.toLowerCase())
-        .maybeSingle();
-
-      if (error) throw error;
-
-      res.json({ verified: !!data });
-    } catch (error) {
-      console.error('>>> [AuthRouter] Check verification error:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-
-  // Mount Auth Router
-  app.use('/api/auth', authRouter);
 
   // JSON 404 for unmatched API routes - MUST be after all API routes
   app.all('/api/*', (req, res) => {

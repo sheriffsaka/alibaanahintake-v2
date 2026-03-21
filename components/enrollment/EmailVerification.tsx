@@ -21,6 +21,15 @@ const EmailVerification: React.FC = () => {
     setResending(true);
     setError(null);
     try {
+      // Diagnostic check: Verify API reachability
+      console.log('>>> [Diagnostic] Checking API health...');
+      const healthCheck = await fetch('/api/health').catch(() => null);
+      if (!healthCheck || !healthCheck.ok) {
+        console.error('>>> [Diagnostic] API Health Check Failed:', healthCheck?.status);
+        throw new Error(`API is unreachable (Status: ${healthCheck?.status || 'Network Error'}). Please refresh the page.`);
+      }
+      console.log('>>> [Diagnostic] API Health Check Passed');
+
       await sendOTP(state.formData.email);
       setCountdown(60); // 60 seconds cooldown
     } catch (err: unknown) {

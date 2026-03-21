@@ -68,7 +68,7 @@ export const logout = async (): Promise<void> => {
 
 export const sendOTP = async (email: string): Promise<void> => {
     console.log('>>> Sending custom 6-digit OTP to:', email);
-    const response = await fetch('/api/auth/send-otp', {
+    const response = await fetch(`${window.location.origin}/api/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -90,7 +90,7 @@ export const sendOTP = async (email: string): Promise<void> => {
 
 export const verifyOTP = async (email: string, token: string): Promise<void> => {
     console.log('>>> Verifying custom OTP for:', email);
-    const response = await fetch('/api/auth/verify-otp', {
+    const response = await fetch(`${window.location.origin}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: token }),
@@ -145,8 +145,8 @@ export const checkSession = async (email?: string): Promise<boolean> => {
         try {
             // Check both admin confirmation and student verification
             const [confirmedRes, verifiedRes] = await Promise.all([
-                fetch(`/api/auth/is-confirmed?email=${encodeURIComponent(email)}`),
-                fetch(`/api/auth/is-verified?email=${encodeURIComponent(email)}`)
+                fetch(`${window.location.origin}/api/auth/is-confirmed?email=${encodeURIComponent(email)}`),
+                fetch(`${window.location.origin}/api/auth/is-verified?email=${encodeURIComponent(email)}`)
             ]);
 
             if (confirmedRes.ok) {
@@ -266,7 +266,7 @@ export const submitRegistration = async (
                 body = body.replace('{{appointmentTime}}', `${slot.startTime} - ${slot.endTime}`);
                 body = body.replace('{{registrationCode}}', newStudent.registrationCode);
 
-                await fetchWithTimeout('/api/send-email', {
+                await fetchWithTimeout(`${window.location.origin}/api/send-email`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -790,7 +790,7 @@ export const updateAppSetting = async (key: keyof AppSettings, value: boolean): 
 };
 
 export const sendTestEmail = async (to: string, subject: string, html: string): Promise<void> => {
-    const response = await fetchWithTimeout('/api/send-email', {
+    const response = await fetchWithTimeout(`${window.location.origin}/api/send-email`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
