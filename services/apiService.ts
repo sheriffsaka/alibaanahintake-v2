@@ -67,26 +67,30 @@ export const logout = async (): Promise<void> => {
 };
 
 export const sendOTP = async (email: string): Promise<void> => {
-    console.log('>>> Sending 6-digit OTP to:', email);
-    const { error } = await supabase.auth.signInWithOtp({ 
-        email,
+    console.log('>>> Sending custom 6-digit OTP to:', email);
+    const response = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
     });
-    if (error) {
-        console.error('>>> signInWithOtp error:', error);
-        throw error;
+    
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send verification code');
     }
 };
 
 export const verifyOTP = async (email: string, token: string): Promise<void> => {
-    console.log('>>> Verifying OTP for:', email);
-    const { error } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'email'
+    console.log('>>> Verifying custom OTP for:', email);
+    const response = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: token }),
     });
-    if (error) {
-        console.error('>>> verifyOtp error:', error);
-        throw error;
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Invalid or expired verification code');
     }
 };
 
@@ -123,20 +127,22 @@ export const checkSession = async (email?: string): Promise<boolean> => {
     // This handles the case where the user verified in a different tab/context
     if (email) {
         try {
-            const response = await fetch(`/api/auth/is-confirmed?email=${encodeURIComponent(email)}`);
-            if (response.ok) {
-                const data = await response.json();
-                return !!data.confirmed;
-            } else if (response.status === 500) {
-                const data = await response.json();
-                if (data.error && data.error.includes('SUPABASE_SERVICE_ROLE_KEY')) {
-                    throw new Error('SUPABASE_SERVICE_ROLE_KEY_MISSING');
-                }
+            // Check both admin confirmation and student verification
+            const [confirmedRes, verifiedRes] = await Promise.all([
+                fetch(`/api/auth/is-confirmed?email=${encodeURIComponent(email)}`),
+                fetch(`/api/auth/is-verified?email=${encodeURIComponent(email)}`)
+            ]);
+
+            if (confirmedRes.ok) {
+                const data = await confirmedRes.json();
+                if (data.confirmed) return true;
+            }
+
+            if (verifiedRes.ok) {
+                const data = await verifiedRes.json();
+                if (data.verified) return true;
             }
         } catch (err) {
-            if (err instanceof Error && err.message === 'SUPABASE_SERVICE_ROLE_KEY_MISSING') {
-                throw err;
-            }
             console.error('Error checking confirmation status:', err);
         }
     }

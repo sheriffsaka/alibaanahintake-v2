@@ -272,6 +272,21 @@ CREATE VIEW public.available_appointment_slots AS
   WHERE date >= CURRENT_DATE AND booked < capacity;
 COMMENT ON VIEW public.available_appointment_slots IS 'Filters appointment slots to only show those that are in the future and have capacity.';
 
+-- 11b. Create otp_codes table for custom OTP verification to bypass Supabase Auth rate limits.
+CREATE TABLE IF NOT EXISTS public.otp_codes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT NOT NULL,
+    code TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_otp_codes_email ON public.otp_codes(email);
+COMMENT ON TABLE public.otp_codes IS 'Stores custom 6-digit OTP codes for email verification.';
+ALTER TABLE public.otp_codes ENABLE ROW LEVEL SECURITY;
+-- No public access to this table, only server-side via service role.
+DROP POLICY IF EXISTS "No public access to otp_codes" ON public.otp_codes;
+CREATE POLICY "No public access to otp_codes" ON public.otp_codes FOR ALL USING (false);
+
 
 -- 12. Set up Storage Bucket for Program Resources
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)

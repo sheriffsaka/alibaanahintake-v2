@@ -159,7 +159,7 @@ async function startServer() {
 
       const resend = new Resend(resendKey);
       const { to, subject, html } = req.body;
-      const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@yourdomain.com';
+      const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
       
       await resend.emails.send({
         from: fromEmail,
@@ -172,6 +172,138 @@ async function startServer() {
     } catch (error) {
       console.error('Email error:', error);
       res.status(500).json({ error: 'Failed to send email' });
+    }
+  });
+
+  // Custom OTP endpoints to bypass Supabase Auth rate limits
+  app.post('/api/auth/send-otp', async (req, res) => {
+    const { email } = req.body;
+    console.log(`>>> Generating custom OTP for: ${email}`);
+    
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const { Resend } = await import('resend');
+
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const resendKey = process.env.VITE_RESEND_API_KEY;
+      const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
+
+      if (!supabaseUrl || !supabaseServiceKey || !resendKey) {
+        console.error('>>> Missing config for OTP:', { supabaseUrl: !!supabaseUrl, supabaseServiceKey: !!supabaseServiceKey, resendKey: !!resendKey });
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      const resend = new Resend(resendKey);
+
+      // Cleanup expired OTPs for this email to keep the table clean
+      await supabase
+        .from('otp_codes')
+        .delete()
+        .eq('email', email.toLowerCase())
+        .lt('expires_at', new Date().toISOString());
+
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes expiry
+
+      // Save to database
+      const { error: dbError } = await supabase
+        .from('otp_codes')
+        .insert({ 
+          email: email.toLowerCase(), 
+          code: otp, 
+          expires_at: expiresAt.toISOString() 
+        });
+
+      if (dbError) {
+        console.error('>>> DB error saving OTP:', dbError);
+        throw dbError;
+      }
+
+      // Send email
+      await resend.emails.send({
+        from: fromEmail,
+        to: email,
+        subject: 'Verification Code - Al-Ibaanah Registration',
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #2563eb; text-align: center;">Email Verification</h2>
+            <p>As-salamu 'alaykum,</p>
+            <p>Your verification code for the Al-Ibaanah slot booking is:</p>
+            <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px; margin: 20px 0;">
+              ${otp}
+            </div>
+            <p>This code will expire in 15 minutes.</p>
+            <p>If you did not request this code, please ignore this email.</p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+            <p style="font-size: 12px; color: #6b7280; text-align: center;">
+              Al-Ibaanah Arabic Center, Cairo, Egypt
+            </p>
+          </div>
+        `
+      });
+
+      console.log(`>>> OTP sent to ${email}`);
+      res.json({ message: 'OTP sent successfully' });
+    } catch (error) {
+      console.error('>>> Send OTP error:', error);
+      res.status(500).json({ error: 'Failed to send verification code' });
+    }
+  });
+
+  app.post('/api/auth/verify-otp', async (req, res) => {
+    const { email, code } = req.body;
+    console.log(`>>> Verifying OTP for: ${email}`);
+
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email and code are required' });
+    }
+
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!supabaseUrl || !supabaseServiceKey) {
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+      // Check for valid OTP
+      const { data, error } = await supabase
+        .from('otp_codes')
+        .select('*')
+        .eq('email', email.toLowerCase())
+        .eq('code', code)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('>>> DB error verifying OTP:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.log(`>>> Invalid or expired OTP for ${email}`);
+        return res.status(400).json({ error: 'Invalid or expired verification code' });
+      }
+
+      // Delete the used OTP
+      await supabase.from('otp_codes').delete().eq('id', data[0].id);
+
+      console.log(`>>> Verification successful for ${email}`);
+      res.json({ message: 'Verification successful' });
+    } catch (error) {
+      console.error('>>> Verify OTP error:', error);
+      res.status(500).json({ error: 'Verification failed' });
     }
   });
 
@@ -238,6 +370,39 @@ async function startServer() {
       res.json({ confirmed, found });
     } catch (error) {
       console.error('>>> Check confirmation error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Check if a student email is verified in pre_registrations
+  app.get('/api/auth/is-verified', async (req, res) => {
+    const { email } = req.query;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!supabaseUrl || !supabaseServiceKey) {
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+      const { data, error } = await supabase
+        .from('pre_registrations')
+        .select('email')
+        .eq('email', email.toLowerCase())
+        .maybeSingle();
+
+      if (error) throw error;
+
+      res.json({ verified: !!data });
+    } catch (error) {
+      console.error('>>> Check verification error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
