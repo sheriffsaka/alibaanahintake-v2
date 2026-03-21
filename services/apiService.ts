@@ -80,8 +80,9 @@ export const sendOTP = async (email: string): Promise<void> => {
             const errorData = await response.json();
             errorMessage = errorData.error || errorMessage;
         } catch (e) {
-            errorMessage = `Server error (${response.status}): ${response.statusText}`;
-            console.error('>>> Non-JSON error response in sendOTP:', e);
+            const text = await response.text();
+            errorMessage = `Server error (${response.status}): ${response.statusText}. Content: ${text.substring(0, 50)}...`;
+            console.error('>>> Non-JSON error response in sendOTP:', e, text);
         }
         throw new Error(errorMessage);
     }
@@ -101,8 +102,9 @@ export const verifyOTP = async (email: string, token: string): Promise<void> => 
             const errorData = await response.json();
             errorMessage = errorData.error || errorMessage;
         } catch (e) {
-            errorMessage = `Server error (${response.status}): ${response.statusText}`;
-            console.error('>>> Non-JSON error response in verifyOTP:', e);
+            const text = await response.text();
+            errorMessage = `Server error (${response.status}): ${response.statusText}. Content: ${text.substring(0, 50)}...`;
+            console.error('>>> Non-JSON error response in verifyOTP:', e, text);
         }
         throw new Error(errorMessage);
     }

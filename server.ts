@@ -20,7 +20,16 @@ async function startServer() {
 
   // Health check route
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok' });
+    res.json({ status: 'ok', time: new Date().toISOString() });
+  });
+
+  // Test route for debugging
+  app.get('/api/test', (req, res) => {
+    res.json({ 
+      message: 'API is working', 
+      env: process.env.NODE_ENV,
+      time: new Date().toISOString() 
+    });
   });
 
   // Cron route for reminders
@@ -175,10 +184,18 @@ async function startServer() {
     }
   });
 
+  // Auth Router
+  const authRouter = express.Router();
+
+  // Test route for auth
+  authRouter.get('/test', (req, res) => {
+    res.json({ message: 'Auth API is working', time: new Date().toISOString() });
+  });
+
   // Custom OTP endpoints to bypass Supabase Auth rate limits
-  app.post('/api/auth/send-otp', async (req, res) => {
+  authRouter.post('/send-otp', async (req, res) => {
     const { email } = req.body;
-    console.log(`>>> Generating custom OTP for: ${email}`);
+    console.log(`>>> [AuthRouter] Generating custom OTP for: ${email}`);
     
     if (!email || typeof email !== 'string') {
       return res.status(400).json({ error: 'Email is required' });
@@ -194,7 +211,7 @@ async function startServer() {
       const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
 
       if (!supabaseUrl || !supabaseServiceKey || !resendKey) {
-        console.error('>>> Missing config for OTP:', { supabaseUrl: !!supabaseUrl, supabaseServiceKey: !!supabaseServiceKey, resendKey: !!resendKey });
+        console.error('>>> [AuthRouter] Missing config for OTP:', { supabaseUrl: !!supabaseUrl, supabaseServiceKey: !!supabaseServiceKey, resendKey: !!resendKey });
         return res.status(500).json({ error: 'Server configuration error' });
       }
 
@@ -209,11 +226,11 @@ async function startServer() {
         .maybeSingle();
 
       if (studentCheckError) {
-        console.error('>>> Error checking existing student:', studentCheckError);
+        console.error('>>> [AuthRouter] Error checking existing student:', studentCheckError);
       }
 
       if (existingStudent) {
-        console.log(`>>> Email ${email} is already registered with code ${existingStudent.registration_code}`);
+        console.log(`>>> [AuthRouter] Email ${email} is already registered with code ${existingStudent.registration_code}`);
         return res.status(400).json({ 
           error: 'This email is already registered. Please check your inbox for your admission slip or contact administration if you need to reschedule.' 
         });
@@ -239,7 +256,7 @@ async function startServer() {
         });
 
       if (dbError) {
-        console.error('>>> DB error saving OTP:', dbError);
+        console.error('>>> [AuthRouter] DB error saving OTP:', dbError);
         throw dbError;
       }
 
@@ -266,17 +283,17 @@ async function startServer() {
         `
       });
 
-      console.log(`>>> OTP sent to ${email}`);
+      console.log(`>>> [AuthRouter] OTP sent to ${email}`);
       res.json({ message: 'OTP sent successfully' });
     } catch (error) {
-      console.error('>>> Send OTP error:', error);
+      console.error('>>> [AuthRouter] Send OTP error:', error);
       res.status(500).json({ error: 'Failed to send verification code' });
     }
   });
 
-  app.post('/api/auth/verify-otp', async (req, res) => {
+  authRouter.post('/verify-otp', async (req, res) => {
     const { email, code } = req.body;
-    console.log(`>>> Verifying OTP for: ${email}`);
+    console.log(`>>> [AuthRouter] Verifying OTP for: ${email}`);
 
     if (!email || !code) {
       return res.status(400).json({ error: 'Email and code are required' });
@@ -304,30 +321,30 @@ async function startServer() {
         .limit(1);
 
       if (error) {
-        console.error('>>> DB error verifying OTP:', error);
+        console.error('>>> [AuthRouter] DB error verifying OTP:', error);
         throw error;
       }
 
       if (!data || data.length === 0) {
-        console.log(`>>> Invalid or expired OTP for ${email}`);
+        console.log(`>>> [AuthRouter] Invalid or expired OTP for ${email}`);
         return res.status(400).json({ error: 'Invalid or expired verification code' });
       }
 
       // Delete the used OTP
       await supabase.from('otp_codes').delete().eq('id', data[0].id);
 
-      console.log(`>>> Verification successful for ${email}`);
+      console.log(`>>> [AuthRouter] Verification successful for ${email}`);
       res.json({ message: 'Verification successful' });
     } catch (error) {
-      console.error('>>> Verify OTP error:', error);
+      console.error('>>> [AuthRouter] Verify OTP error:', error);
       res.status(500).json({ error: 'Verification failed' });
     }
   });
 
   // Check if a user is confirmed in Supabase Auth (using service role)
-  app.get('/api/auth/is-confirmed', async (req, res) => {
+  authRouter.get('/is-confirmed', async (req, res) => {
     const { email } = req.query;
-    console.log(`>>> Checking confirmation for: ${email}`);
+    console.log(`>>> [AuthRouter] Checking confirmation for: ${email}`);
     
     if (!email || typeof email !== 'string') {
       return res.status(400).json({ error: 'Email is required' });
@@ -339,12 +356,12 @@ async function startServer() {
       const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
       if (!supabaseUrl) {
-        console.error('>>> VITE_SUPABASE_URL is missing');
+        console.error('>>> [AuthRouter] VITE_SUPABASE_URL is missing');
         return res.status(500).json({ error: 'Missing Supabase URL' });
       }
       
       if (!supabaseServiceKey) {
-        console.error('>>> SUPABASE_SERVICE_ROLE_KEY is missing. Server-side verification check will not work.');
+        console.error('>>> [AuthRouter] SUPABASE_SERVICE_ROLE_KEY is missing. Server-side verification check will not work.');
         return res.status(500).json({ error: 'Server not configured for admin verification. Please set SUPABASE_SERVICE_ROLE_KEY.' });
       }
 
@@ -367,7 +384,7 @@ async function startServer() {
         });
         
         if (error) {
-          console.error(`>>> Error listing users on page ${page}:`, error);
+          console.error(`>>> [AuthRouter] Error listing users on page ${page}:`, error);
           throw error;
         }
 
@@ -378,7 +395,7 @@ async function startServer() {
           found = true;
           // Check multiple fields for confirmation. Magic links might set last_sign_in_at but not email_confirmed_at
           confirmed = !!user.email_confirmed_at || !!user.last_sign_in_at || !!user.confirmed_at;
-          console.log(`>>> User found: ${email}, confirmed: ${confirmed}, last_sign_in: ${user.last_sign_in_at}, email_confirmed: ${user.email_confirmed_at}, confirmed_at: ${user.confirmed_at}`);
+          console.log(`>>> [AuthRouter] User found: ${email}, confirmed: ${confirmed}, last_sign_in: ${user.last_sign_in_at}, email_confirmed: ${user.email_confirmed_at}, confirmed_at: ${user.confirmed_at}`);
           break;
         }
         page++;
@@ -386,13 +403,13 @@ async function startServer() {
       
       res.json({ confirmed, found });
     } catch (error) {
-      console.error('>>> Check confirmation error:', error);
+      console.error('>>> [AuthRouter] Check confirmation error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   // Check if a student email is verified in pre_registrations
-  app.get('/api/auth/is-verified', async (req, res) => {
+  authRouter.get('/is-verified', async (req, res) => {
     const { email } = req.query;
     if (!email || typeof email !== 'string') {
       return res.status(400).json({ error: 'Email is required' });
@@ -419,10 +436,13 @@ async function startServer() {
 
       res.json({ verified: !!data });
     } catch (error) {
-      console.error('>>> Check verification error:', error);
+      console.error('>>> [AuthRouter] Check verification error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
+
+  // Mount Auth Router
+  app.use('/api/auth', authRouter);
 
   // JSON 404 for unmatched API routes - MUST be after all API routes
   app.all('/api/*', (req, res) => {
