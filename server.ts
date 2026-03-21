@@ -201,12 +201,29 @@ async function startServer() {
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
       const resend = new Resend(resendKey);
 
-      // Cleanup expired OTPs for this email to keep the table clean
+      // 1. Check if the student is already FULLY registered (in the students table)
+      const { data: existingStudent, error: studentCheckError } = await supabase
+        .from('students')
+        .select('id, registration_code')
+        .eq('email', email.toLowerCase())
+        .maybeSingle();
+
+      if (studentCheckError) {
+        console.error('>>> Error checking existing student:', studentCheckError);
+      }
+
+      if (existingStudent) {
+        console.log(`>>> Email ${email} is already registered with code ${existingStudent.registration_code}`);
+        return res.status(400).json({ 
+          error: 'This email is already registered. Please check your inbox for your admission slip or contact administration if you need to reschedule.' 
+        });
+      }
+
+      // Cleanup ALL previous OTPs for this email to avoid confusion and keep the table clean
       await supabase
         .from('otp_codes')
         .delete()
-        .eq('email', email.toLowerCase())
-        .lt('expires_at', new Date().toISOString());
+        .eq('email', email.toLowerCase());
 
       // Generate 6-digit OTP
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
