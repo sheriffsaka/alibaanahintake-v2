@@ -12,7 +12,8 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   console.log('>>> Initializing Express app...');
   const app = express();
-  
+  const PORT = 3000;
+
   // VERY TOP LEVEL LOGGER - Log every single request before anything else
   app.use((req, res, next) => {
     console.log(`>>> [REQUEST] ${new Date().toISOString()} - ${req.method} ${req.url} (Host: ${req.headers.host})`);
@@ -23,7 +24,13 @@ async function startServer() {
 
   // Health check route
   app.get('/api/health', (req, res) => {
+    console.log('>>> Health check hit');
     res.json({ status: 'ok', time: new Date().toISOString() });
+  });
+
+  // Start listening immediately
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`>>> Server running at http://0.0.0.0:${PORT}`);
   });
 
   // Test route for debugging
@@ -405,12 +412,16 @@ async function startServer() {
 
   if (process.env.NODE_ENV !== 'production') {
     console.log('>>> Starting Vite in middleware mode...');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    
-    app.use(vite.middlewares);
+    try {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+      console.log('>>> Vite middleware added');
+    } catch (err) {
+      console.error('>>> Failed to start Vite:', err);
+    }
   } else {
     const distPath = path.resolve(__dirname, 'dist');
     app.use(express.static(distPath));
@@ -436,11 +447,6 @@ async function startServer() {
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error('>>> Global Server Error:', err);
     res.status(500).send('Internal Server Error');
-  });
-
-  const PORT = 3000;
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`>>> Server running at http://0.0.0.0:${PORT}`);
   });
 }
 
