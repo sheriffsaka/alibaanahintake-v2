@@ -1,8 +1,8 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import cors from 'cors';
 
 console.log('>>> server.ts LOADED');
 
@@ -11,6 +11,9 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3000;
+
+// Enable CORS for all requests
+app.use(cors());
 
 // VERY TOP LEVEL LOGGER - Log every single request before anything else
 app.use((req, res, next) => {
@@ -37,7 +40,7 @@ app.get('/api/test', (req, res) => {
 
 // --- AUTH ROUTES ---
 
-app.post(['/api/auth/send-otp', '/api/auth/send-otp/'], async (req, res) => {
+app.post('/api/auth/send-otp', async (req, res) => {
   const { email } = req.body;
   console.log(`>>> [API] Generating custom OTP for: ${email}`);
   
@@ -134,7 +137,7 @@ app.post(['/api/auth/send-otp', '/api/auth/send-otp/'], async (req, res) => {
   }
 });
 
-app.post(['/api/auth/verify-otp', '/api/auth/verify-otp/'], async (req, res) => {
+app.post('/api/auth/verify-otp', async (req, res) => {
   const { email, code } = req.body;
   console.log(`>>> [API] Verifying OTP for: ${email}`);
 
@@ -176,7 +179,7 @@ app.post(['/api/auth/verify-otp', '/api/auth/verify-otp/'], async (req, res) => 
   }
 });
 
-app.get(['/api/auth/is-confirmed', '/api/auth/is-confirmed/'], async (req, res) => {
+app.get('/api/auth/is-confirmed', async (req, res) => {
   const { email } = req.query;
   if (!email || typeof email !== 'string') {
     return res.status(400).json({ error: 'Email is required' });
@@ -219,7 +222,7 @@ app.get(['/api/auth/is-confirmed', '/api/auth/is-confirmed/'], async (req, res) 
   }
 });
 
-app.get(['/api/auth/is-verified', '/api/auth/is-verified/'], async (req, res) => {
+app.get('/api/auth/is-verified', async (req, res) => {
   const { email } = req.query;
   if (!email || typeof email !== 'string') {
     return res.status(400).json({ error: 'Email is required' });
@@ -416,9 +419,10 @@ app.all('/api/*', (req, res) => {
 
 // --- Vite / Static Setup ---
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   console.log('>>> Starting Vite in middleware mode...');
   try {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
