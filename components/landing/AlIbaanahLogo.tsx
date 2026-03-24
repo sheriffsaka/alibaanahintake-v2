@@ -16,7 +16,13 @@ const AlIbaanahLogo: React.FC<LogoProps> = ({ logoUrl, ...props }) => {
   }
 
   return (
-    <img src={logoUrl} alt="Al-Ibaanah Logo" {...props} />
+    <img 
+      src={logoUrl} 
+      alt="Al-Ibaanah Logo" 
+      crossOrigin="anonymous"
+      referrerPolicy="no-referrer"
+      {...props} 
+    />
   );
 };
 

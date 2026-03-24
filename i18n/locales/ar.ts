@@ -153,6 +153,7 @@ export default {
     registrationSuccessTitle: 'تم حجز الموعد بنجاح!',
     registrationSuccessMessage: 'تم تأكيد موعدك. يرجى الاطلاع على قسيمة القبول أدناه.',
     downloadButton: 'تحميل كصورة',
+    downloading: 'جاري التحميل...',
     printButton: 'طباعة / حفظ PDF',
     backToPortalButton: 'العودة إلى البوابة',
     somethingWentWrong: 'حدث خطأ ما. يرجى البدء من جديد.',

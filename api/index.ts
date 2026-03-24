@@ -109,12 +109,14 @@ router.post('/auth/send-otp', async (req, res) => {
       message: 'OTP sent successfully', 
       id: data?.id
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
     console.error('Send OTP error:', error);
     res.status(500).json({ 
       error: 'Failed to send verification code', 
-      details: error.message || String(error),
-      type: error.name || 'UnknownError'
+      details: errorMessage,
+      type: errorName
     });
   }
 });
@@ -136,11 +138,12 @@ router.post('/auth/verify-otp', async (req, res) => {
 
     await supabase.from('otp_codes').delete().eq('id', data[0].id);
     res.json({ message: 'Verification successful' });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Verify OTP error:', error);
     res.status(500).json({ 
       error: 'Verification failed',
-      details: error.message || String(error)
+      details: errorMessage
     });
   }
 });

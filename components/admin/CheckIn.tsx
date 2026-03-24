@@ -8,13 +8,19 @@ import Button from '../common/Button';
 import Spinner from '../common/Spinner';
 import { Search, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 
+import * as htmlToImage from 'html-to-image';
+import { saveAs } from 'file-saver';
+import AdmissionSlip from '../enrollment/AdmissionSlip';
+
 const CheckIn: React.FC = () => {
   const [query, setQuery] = useState('');
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [appointmentTime, setAppointmentTime] = useState('');
   const [appointmentDate, setAppointmentDate] = useState<Date | null>(null);
+  const slipRef = React.useRef<HTMLDivElement>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +53,27 @@ const CheckIn: React.FC = () => {
       setMessage({ type: 'error', text: 'An error occurred during search.' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadSlip = async () => {
+    if (slipRef.current && student) {
+        try {
+            setDownloading(true);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            const dataUrl = await htmlToImage.toPng(slipRef.current, {
+                quality: 1,
+                pixelRatio: 2,
+                backgroundColor: '#ffffff',
+                cacheBust: true
+            });
+            saveAs(dataUrl, `Admission-Slip-${student.registrationCode}.png`);
+        } catch (err) {
+            console.error('Failed to download slip', err);
+            alert('Failed to generate image.');
+        } finally {
+            setDownloading(false);
+        }
     }
   };
   
@@ -111,16 +138,31 @@ const CheckIn: React.FC = () => {
           </div>
           <div className="mt-6 flex flex-col items-center">
             <img src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(student.registrationCode)}&size=128x128`} alt="Registration QR Code" className="mb-4" />
-          <div className="mt-6 text-center">
-            <Button 
-                onClick={handleCheckIn} 
-                disabled={student.status === 'checked-in' || loading}
-                className="w-full sm:w-auto"
-            >
-                {loading ? 'Processing...' : 'Mark as Checked-In'}
-            </Button>
+            <div className="flex flex-wrap justify-center gap-2 w-full">
+                <Button 
+                    onClick={handleCheckIn} 
+                    disabled={student.status === 'checked-in' || loading}
+                    className="flex-grow sm:flex-grow-0"
+                >
+                    {loading ? 'Processing...' : 'Mark as Checked-In'}
+                </Button>
+                <Button 
+                    onClick={handleDownloadSlip} 
+                    variant="secondary"
+                    disabled={downloading}
+                    className="flex-grow sm:flex-grow-0"
+                >
+                    {downloading ? 'Downloading...' : 'Download Slip'}
+                </Button>
+            </div>
           </div>
-        </div>
+          
+          {/* Hidden slip for image generation */}
+          <div className="hidden">
+              <div ref={slipRef} className="bg-white p-4">
+                  <AdmissionSlip student={student} />
+              </div>
+          </div>
         </Card>
       )}
     </Card>

@@ -154,6 +154,7 @@ export default {
     registrationSuccessTitle: 'Slot Booking Successful!',
     registrationSuccessMessage: 'Your appointment is confirmed. Please see your admission slip below.',
     downloadButton: 'Download as Image',
+    downloading: 'Downloading...',
     printButton: 'Print / Save PDF',
     backToPortalButton: 'Back to Portal',
     somethingWentWrong: 'Something went wrong. Please start over.',

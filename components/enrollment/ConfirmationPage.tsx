@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import html2canvas from 'html2canvas';
+import * as htmlToImage from 'html-to-image';
+import { saveAs } from 'file-saver';
 import { EnrollmentContext } from '../../contexts/EnrollmentContext';
 import { submitRegistration } from '../../services/apiService';
 import Button from '../common/Button';
@@ -17,6 +18,7 @@ const ConfirmationPage: React.FC = () => {
   const { state, dispatch } = context;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const navigate = useNavigate();
   const slipRef = useRef<HTMLDivElement>(null);
 
@@ -55,19 +57,31 @@ const ConfirmationPage: React.FC = () => {
       navigate('/');
   }
 
-  const handleDownloadImage = () => {
+  const handleDownloadImage = async () => {
     if (slipRef.current) {
-        html2canvas(slipRef.current, { 
-            scale: 2,
-            useCORS: true,
-            backgroundColor: '#ffffff',
-            logging: false
-        }).then(canvas => { 
-            const link = document.createElement('a');
-            link.download = `Al-Ibaanah-Admission-Slip-${state.confirmedRegistration?.registrationCode}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        });
+        try {
+            setDownloading(true);
+            // Wait a bit for all images and styles to be ready
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            const dataUrl = await htmlToImage.toPng(slipRef.current, {
+                quality: 1,
+                pixelRatio: 2,
+                backgroundColor: '#ffffff',
+                cacheBust: true,
+                style: {
+                    margin: '0',
+                    padding: '0'
+                }
+            });
+            
+            saveAs(dataUrl, `Al-Ibaanah-Admission-Slip-${state.confirmedRegistration?.registrationCode}.png`);
+        } catch (err) {
+            console.error('Failed to download image', err);
+            alert('Failed to generate image. Please try printing to PDF instead.');
+        } finally {
+            setDownloading(false);
+        }
     }
   };
 
@@ -113,7 +127,10 @@ const ConfirmationPage: React.FC = () => {
         </div>
         
         <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <Button onClick={handleDownloadImage} variant="secondary" className="flex items-center"><Download className="h-4 w-4 mr-2"/>{t('downloadButton')}</Button>
+            <Button onClick={handleDownloadImage} variant="secondary" className="flex items-center" disabled={downloading}>
+                {downloading ? <Spinner className="h-4 w-4 mr-2" /> : <Download className="h-4 w-4 mr-2"/>}
+                {downloading ? t('downloading') : t('downloadButton')}
+            </Button>
             <Button onClick={handlePrint} variant="secondary" className="flex items-center"><Printer className="h-4 w-4 mr-2"/>{t('printButton')}</Button>
             <Button onClick={handleBackToPortal} className="flex items-center"><Home className="h-4 w-4 mr-2"/>{t('backToPortalButton')}</Button>
         </div>
