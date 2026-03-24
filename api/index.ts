@@ -7,6 +7,12 @@ const router = express.Router();
 app.use(cors());
 app.use(express.json());
 
+// --- LOGGING MIDDLEWARE ---
+app.use((req, res, next) => {
+  console.log(`>>> [API REQUEST] ${req.method} ${req.url} (Original: ${req.originalUrl})`);
+  next();
+});
+
 // --- API ROUTES ---
 
 router.get('/health', (req, res) => {
@@ -15,11 +21,17 @@ router.get('/health', (req, res) => {
 
 router.get('/debug', (req, res) => {
   res.json({
-    message: 'Express debug route in api/index.ts works (v3)',
+    message: 'Express debug route in api/index.ts works (v5)',
     env: process.env.NODE_ENV,
     isVercel: !!process.env.VERCEL,
+    method: req.method,
     url: req.url,
     originalUrl: req.originalUrl,
+    headers: {
+      host: req.headers.host,
+      'content-type': req.headers['content-type'],
+      'user-agent': req.headers['user-agent']
+    },
     time: new Date().toISOString()
   });
 });
@@ -215,21 +227,26 @@ router.post('/send-email', async (req, res) => {
   }
 });
 
-// Mount the router at /api
-app.use('/api', router);
-
-// Also mount at root for Vercel if the rewrite strips /api
-app.use('/', router);
-
-app.all('/api/*', (req, res) => {
-  console.warn(`>>> 404 API Route Not Found: ${req.method} ${req.url}`);
+// Catch-all 404 handler for the router
+// This only catches requests that start with the mount point (e.g., /api)
+router.all('*', (req, res) => {
+  console.warn(`>>> 404 API Route Not Found: ${req.method} ${req.url} (Original: ${req.originalUrl})`);
   res.status(404).json({ 
     error: 'API route not found', 
     method: req.method, 
     path: req.url,
     originalUrl: req.originalUrl,
-    message: 'Check if the route is defined with or without the /api prefix'
+    message: 'The request reached the API router but did not match any defined routes.'
   });
 });
+
+// Mount the router at /api
+app.use('/api', router);
+
+// ONLY mount at root for Vercel if the rewrite strips /api
+// In local/preview environments, we mount at /api only to avoid catching static traffic
+if (process.env.VERCEL) {
+  app.use('/', router);
+}
 
 export default app;
