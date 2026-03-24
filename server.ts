@@ -3,6 +3,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import cors from 'cors';
+import { createClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('>>> Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 console.log('>>> server.ts LOADED');
 
@@ -69,9 +75,6 @@ app.post('/api/auth/send-otp', async (req, res) => {
   }
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const { Resend } = await import('resend');
-
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const resendKey = process.env.VITE_RESEND_API_KEY;
@@ -166,7 +169,6 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   }
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -206,7 +208,6 @@ app.get('/api/auth/is-confirmed', async (req, res) => {
   }
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -249,7 +250,6 @@ app.get('/api/auth/is-verified', async (req, res) => {
   }
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -282,9 +282,6 @@ app.post('/api/cron/reminders', async (req, res) => {
   }
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const { Resend } = await import('resend');
-
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const resendKey = process.env.VITE_RESEND_API_KEY;
@@ -399,7 +396,6 @@ app.post('/api/cron/reminders', async (req, res) => {
 // Email route (Lazy load Resend to prevent startup crashes)
 app.post('/api/send-email', async (req, res) => {
   try {
-    const { Resend } = await import('resend');
     const resendKey = process.env.VITE_RESEND_API_KEY;
     
     if (!resendKey) {
@@ -452,13 +448,14 @@ if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   } catch (err) {
     console.error('>>> Failed to start Vite:', err);
   }
-} else {
+} else if (!process.env.VERCEL) {
+  // Only serve static files if NOT on Vercel (Vercel handles this via rewrites)
   const distPath = path.resolve(__dirname, 'dist');
   app.use(express.static(distPath));
   
   // SPA fallback - match everything that isn't an API route
   app.get('*', (req, res, next) => {
-    // Skip if it looks like an API route (should have been caught by the API 404 handler above if not matched)
+    // Skip if it looks like an API route
     if (req.url.startsWith('/api')) {
       return next();
     }
