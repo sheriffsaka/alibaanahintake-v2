@@ -21,17 +21,12 @@ router.get('/health', (req, res) => {
 
 router.get('/debug', (req, res) => {
   res.json({
-    message: 'Express debug route in api/index.ts works (v6)',
+    message: 'Express debug route in api/index.ts works (v7)',
     env: process.env.NODE_ENV,
     isVercel: !!process.env.VERCEL,
     method: req.method,
     url: req.url,
     originalUrl: req.originalUrl,
-    headers: {
-      host: req.headers.host,
-      'content-type': req.headers['content-type'],
-      'user-agent': req.headers['user-agent']
-    },
     time: new Date().toISOString()
   });
 });
@@ -107,7 +102,11 @@ router.post('/auth/send-otp', async (req, res) => {
     }
 
     console.log('>>> Resend Success:', data);
-    res.json({ message: 'OTP sent successfully' });
+    res.json({ 
+      message: 'OTP sent successfully', 
+      id: data?.id,
+      debug: process.env.NODE_ENV === 'development' ? { otp_prefix: otp.substring(0, 2) } : undefined
+    });
   } catch (error) {
     console.error('Send OTP error:', error);
     res.status(500).json({ error: 'Failed to send verification code' });
@@ -229,15 +228,32 @@ router.post('/cron/reminders', async (req, res) => {
 router.post('/send-email', async (req, res) => {
   try {
     const { Resend } = await import('resend');
-    const resendKey = process.env.VITE_RESEND_API_KEY;
-    if (!resendKey) return res.status(200).json({ message: 'Email skipped (no API key)' });
+    const resendKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
+    const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
+
+    if (!resendKey) {
+      console.warn('>>> Email skipped: No Resend API key found');
+      return res.status(200).json({ message: 'Email skipped (no API key)' });
+    }
 
     const resend = new Resend(resendKey);
     const { to, subject, html } = req.body;
-    const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
     
-    await resend.emails.send({ from: fromEmail, to, subject, html });
-    res.json({ message: 'Email sent' });
+    console.log(`>>> Sending email to ${to}...`);
+    const { data, error: resendError } = await resend.emails.send({ 
+      from: fromEmail, 
+      to, 
+      subject, 
+      html 
+    });
+
+    if (resendError) {
+      console.error('>>> Resend Email Error:', resendError);
+      return res.status(500).json({ error: resendError.message });
+    }
+
+    console.log('>>> Email sent successfully:', data?.id);
+    res.json({ message: 'Email sent', id: data?.id });
   } catch (error) {
     console.error('Email error:', error);
     res.status(500).json({ error: 'Failed to send email' });
