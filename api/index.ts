@@ -21,7 +21,7 @@ router.get('/health', (req, res) => {
 
 router.get('/debug', (req, res) => {
   res.json({
-    message: 'Express debug route in api/index.ts works (v7)',
+    message: 'Express debug route in api/index.ts works (v8)',
     env: process.env.NODE_ENV,
     isVercel: !!process.env.VERCEL,
     method: req.method,
@@ -104,12 +104,15 @@ router.post('/auth/send-otp', async (req, res) => {
     console.log('>>> Resend Success:', data);
     res.json({ 
       message: 'OTP sent successfully', 
-      id: data?.id,
-      debug: process.env.NODE_ENV === 'development' ? { otp_prefix: otp.substring(0, 2) } : undefined
+      id: data?.id
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Send OTP error:', error);
-    res.status(500).json({ error: 'Failed to send verification code' });
+    res.status(500).json({ 
+      error: 'Failed to send verification code', 
+      details: error.message || String(error),
+      type: error.name || 'UnknownError'
+    });
   }
 });
 
@@ -130,9 +133,12 @@ router.post('/auth/verify-otp', async (req, res) => {
 
     await supabase.from('otp_codes').delete().eq('id', data[0].id);
     res.json({ message: 'Verification successful' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Verify OTP error:', error);
-    res.status(500).json({ error: 'Verification failed' });
+    res.status(500).json({ 
+      error: 'Verification failed',
+      details: error.message || String(error)
+    });
   }
 });
 

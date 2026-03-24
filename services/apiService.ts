@@ -80,7 +80,8 @@ export const sendOTP = async (email: string): Promise<void> => {
         console.error(`>>> sendOTP failed with status ${response.status}:`, text);
         try {
             const errorData = JSON.parse(text);
-            errorMessage = errorData.error || errorData.message || errorMessage;
+            // Prefer details for debugging, then error, then message
+            errorMessage = errorData.details || errorData.error || errorData.message || errorMessage;
         } catch (e) {
             // If it's not JSON, it might be a raw string or HTML from Vercel
             const cleanText = text.length > 100 ? text.substring(0, 100) + '...' : text;
@@ -105,7 +106,8 @@ export const verifyOTP = async (email: string, token: string): Promise<void> => 
         console.error(`>>> verifyOTP failed with status ${response.status}:`, text);
         try {
             const errorData = JSON.parse(text);
-            errorMessage = errorData.error || errorData.message || errorMessage;
+            // Prefer details for debugging, then error, then message
+            errorMessage = errorData.details || errorData.error || errorData.message || errorMessage;
         } catch (e) {
             const cleanText = text.length > 100 ? text.substring(0, 100) + '...' : text;
             errorMessage = `Server error (${response.status}): ${cleanText || response.statusText || 'Unknown error'}. Please ensure the backend is running and configured correctly.`;
