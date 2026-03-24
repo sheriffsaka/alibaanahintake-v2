@@ -74,15 +74,17 @@ export const sendOTP = async (email: string): Promise<void> => {
         body: JSON.stringify({ email }),
     });
     
-    if (!response.ok) {
+        if (!response.ok) {
         let errorMessage = 'Failed to send verification code';
         const text = await response.text();
         console.error(`>>> sendOTP failed with status ${response.status}:`, text);
         try {
             const errorData = JSON.parse(text);
-            errorMessage = errorData.error || errorMessage;
+            errorMessage = errorData.error || errorData.message || errorMessage;
         } catch (e) {
-            errorMessage = `Server error (${response.status}): ${response.statusText}. Please ensure the backend is running and configured correctly.`;
+            // If it's not JSON, it might be a raw string or HTML from Vercel
+            const cleanText = text.length > 100 ? text.substring(0, 100) + '...' : text;
+            errorMessage = `Server error (${response.status}): ${cleanText || response.statusText || 'Unknown error'}. Please ensure the backend is running and configured correctly.`;
             console.error('>>> Non-JSON error response in sendOTP:', e, text);
         }
         throw new Error(errorMessage);
@@ -103,9 +105,10 @@ export const verifyOTP = async (email: string, token: string): Promise<void> => 
         console.error(`>>> verifyOTP failed with status ${response.status}:`, text);
         try {
             const errorData = JSON.parse(text);
-            errorMessage = errorData.error || errorMessage;
+            errorMessage = errorData.error || errorData.message || errorMessage;
         } catch (e) {
-            errorMessage = `Server error (${response.status}): ${response.statusText}. Please ensure the backend is running and configured correctly.`;
+            const cleanText = text.length > 100 ? text.substring(0, 100) + '...' : text;
+            errorMessage = `Server error (${response.status}): ${cleanText || response.statusText || 'Unknown error'}. Please ensure the backend is running and configured correctly.`;
             console.error('>>> Non-JSON error response in verifyOTP:', e, text);
         }
         throw new Error(errorMessage);

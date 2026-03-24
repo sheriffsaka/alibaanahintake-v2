@@ -6,6 +6,18 @@ import cors from 'cors';
 
 console.log('>>> server.ts LOADED');
 
+// Log environment variable presence (NOT values) for debugging on Vercel
+const requiredEnvVars = [
+  'VITE_SUPABASE_URL',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'VITE_RESEND_API_KEY',
+  'VITE_RESEND_FROM_EMAIL'
+];
+console.log('>>> [ENV CHECK] Checking required environment variables:');
+requiredEnvVars.forEach(key => {
+  console.log(`>>> [ENV CHECK] ${key}: ${process.env[key] ? 'PRESENT' : 'MISSING'}`);
+});
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -34,7 +46,15 @@ app.get('/api/test', (req, res) => {
   res.json({ 
     message: 'API is working', 
     env: process.env.NODE_ENV,
-    time: new Date().toISOString() 
+    isVercel: !!process.env.VERCEL,
+    time: new Date().toISOString(),
+    config: {
+      supabaseUrl: !!process.env.VITE_SUPABASE_URL,
+      supabaseServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      resendKey: !!process.env.VITE_RESEND_API_KEY,
+      fromEmail: !!process.env.VITE_RESEND_FROM_EMAIL,
+      cronSecret: !!process.env.CRON_SECRET
+    }
   });
 });
 
@@ -457,7 +477,11 @@ if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('>>> Global Server Error:', err);
-  res.status(500).send('Internal Server Error');
+  res.status(500).json({ 
+    error: 'Internal Server Error', 
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
 // Export for Vercel
