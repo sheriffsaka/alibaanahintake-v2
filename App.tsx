@@ -49,7 +49,9 @@ function App() {
                 path="/admin" 
                 element={
                   <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk]}>
-                    <AdminPage />
+                    <SiteContentProvider>
+                      <AdminPage />
+                    </SiteContentProvider>
                   </ProtectedRoute>
                 }
               >
