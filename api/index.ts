@@ -21,7 +21,7 @@ router.get('/health', (req, res) => {
 
 router.get('/debug', (req, res) => {
   res.json({
-    message: 'Express debug route in api/index.ts works (v8)',
+    message: 'Express debug route in api/index.ts works (v9)',
     env: process.env.NODE_ENV,
     isVercel: !!process.env.VERCEL,
     method: req.method,
@@ -32,6 +32,7 @@ router.get('/debug', (req, res) => {
 });
 
 router.get('/test', (req, res) => {
+  const resendKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
   res.json({ 
     message: 'API Configuration Test', 
     env: process.env.NODE_ENV,
@@ -40,7 +41,8 @@ router.get('/test', (req, res) => {
     config: {
       supabaseUrl: !!(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL),
       supabaseServiceKey: !!(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY),
-      resendKey: !!(process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY),
+      resendKey: !!resendKey,
+      resendKeyPrefix: resendKey ? resendKey.substring(0, 7) : 'none',
       fromEmail: !!process.env.VITE_RESEND_FROM_EMAIL,
       fromEmailValue: process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com'
     }
@@ -83,8 +85,9 @@ router.post('/auth/send-otp', async (req, res) => {
     if (dbError) throw dbError;
 
     console.log(`>>> Attempting to send email to ${email} via Resend...`);
+    const formattedFrom = `Al-Ibaanah Registration <${fromEmail}>`;
     const { data, error: resendError } = await resend.emails.send({
-      from: fromEmail,
+      from: formattedFrom,
       to: email,
       subject: 'Verification Code - Al-Ibaanah Registration',
       html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
@@ -244,10 +247,11 @@ router.post('/send-email', async (req, res) => {
 
     const resend = new Resend(resendKey);
     const { to, subject, html } = req.body;
+    const formattedFrom = `Al-Ibaanah Registration <${fromEmail}>`;
     
     console.log(`>>> Sending email to ${to}...`);
     const { data, error: resendError } = await resend.emails.send({ 
-      from: fromEmail, 
+      from: formattedFrom, 
       to, 
       subject, 
       html 
