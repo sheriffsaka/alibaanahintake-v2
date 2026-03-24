@@ -21,7 +21,7 @@ router.get('/health', (req, res) => {
 
 router.get('/debug', (req, res) => {
   res.json({
-    message: 'Express debug route in api/index.ts works (v5)',
+    message: 'Express debug route in api/index.ts works (v6)',
     env: process.env.NODE_ENV,
     isVercel: !!process.env.VERCEL,
     method: req.method,
@@ -38,15 +38,16 @@ router.get('/debug', (req, res) => {
 
 router.get('/test', (req, res) => {
   res.json({ 
-    message: 'API is working', 
+    message: 'API Configuration Test', 
     env: process.env.NODE_ENV,
     isVercel: !!process.env.VERCEL,
     time: new Date().toISOString(),
     config: {
-      supabaseUrl: !!process.env.VITE_SUPABASE_URL,
-      supabaseServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-      resendKey: !!process.env.VITE_RESEND_API_KEY,
-      fromEmail: !!process.env.VITE_RESEND_FROM_EMAIL
+      supabaseUrl: !!(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL),
+      supabaseServiceKey: !!(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY),
+      resendKey: !!(process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY),
+      fromEmail: !!process.env.VITE_RESEND_FROM_EMAIL,
+      fromEmailValue: process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com'
     }
   });
 });
@@ -58,12 +59,20 @@ router.post('/auth/send-otp', async (req, res) => {
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const { Resend } = await import('resend');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const resendKey = process.env.VITE_RESEND_API_KEY;
+    
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+    const resendKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
     const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
 
-    if (!supabaseUrl || !supabaseServiceKey || !resendKey) return res.status(500).json({ error: 'Server configuration error' });
+    if (!supabaseUrl || !supabaseServiceKey || !resendKey) {
+      console.error('>>> Missing Config:', { 
+        hasUrl: !!supabaseUrl, 
+        hasKey: !!supabaseServiceKey, 
+        hasResend: !!resendKey 
+      });
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const resend = new Resend(resendKey);
@@ -78,7 +87,8 @@ router.post('/auth/send-otp', async (req, res) => {
     const { error: dbError } = await supabase.from('otp_codes').insert({ email: email.toLowerCase(), code: otp, expires_at: expiresAt.toISOString() });
     if (dbError) throw dbError;
 
-    await resend.emails.send({
+    console.log(`>>> Attempting to send email to ${email} via Resend...`);
+    const { data, error: resendError } = await resend.emails.send({
       from: fromEmail,
       to: email,
       subject: 'Verification Code - Al-Ibaanah Registration',
@@ -90,6 +100,13 @@ router.post('/auth/send-otp', async (req, res) => {
           <p>This code will expire in 15 minutes.</p>
         </div>`
     });
+
+    if (resendError) {
+      console.error('>>> Resend API Error:', resendError);
+      throw new Error(resendError.message || 'Resend failed to send email');
+    }
+
+    console.log('>>> Resend Success:', data);
     res.json({ message: 'OTP sent successfully' });
   } catch (error) {
     console.error('Send OTP error:', error);
