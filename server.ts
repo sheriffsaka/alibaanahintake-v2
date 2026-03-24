@@ -1,32 +1,26 @@
 import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
 import cors from 'cors';
-
-// Derive __dirname for ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3000;
 
 // Enable CORS for all requests
 app.use(cors());
-
-// Logger
-app.use((req, res, next) => {
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`>>> [REQUEST] ${new Date().toISOString()} - ${req.method} ${req.url}`);
-  }
-  next();
-});
-
 app.use(express.json());
 
 // Health check route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
+// Debug route for Vercel
+app.get('/api/debug', (req, res) => {
+  res.json({
+    message: 'Express debug route in server.ts works',
+    env: process.env.NODE_ENV,
+    isVercel: !!process.env.VERCEL,
+    time: new Date().toISOString()
+  });
 });
 
 // Test route for debugging
@@ -175,7 +169,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 });
 
 app.get('/api/auth/is-confirmed', async (req, res) => {
-  const { email } = req.query;
+  const email = req.query.email as string;
   if (!email || typeof email !== 'string') {
     return res.status(400).json({ error: 'Email is required' });
   }
@@ -198,11 +192,15 @@ app.get('/api/auth/is-confirmed', async (req, res) => {
     let confirmed = false;
 
     while (page <= 5) {
-      const { data: { users }, error } = await supabase.auth.admin.listUsers({ page, perPage: 50 });
+      const response = await supabase.auth.admin.listUsers({ page, perPage: 50 });
+      const users = response.data?.users || [];
+      const error = response.error;
+      
       if (error) throw error;
-      if (!users || users.length === 0) break;
+      if (users.length === 0) break;
 
-      const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const user = users.find((u: any) => u.email?.toLowerCase() === (email as string).toLowerCase());
       if (user) {
         found = true;
         confirmed = !!user.email_confirmed_at || !!user.last_sign_in_at || !!user.confirmed_at;
@@ -218,7 +216,7 @@ app.get('/api/auth/is-confirmed', async (req, res) => {
 });
 
 app.get('/api/auth/is-verified', async (req, res) => {
-  const { email } = req.query;
+  const email = req.query.email as string;
   if (!email || typeof email !== 'string') {
     return res.status(400).json({ error: 'Email is required' });
   }
@@ -411,40 +409,48 @@ app.all('/api/*', (req, res) => {
 
 // --- Vite / Static Setup ---
 
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-  console.log('>>> Starting Vite in middleware mode...');
-  try {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-    console.log('>>> Vite middleware added');
-  } catch (err) {
-    console.error('>>> Failed to start Vite:', err);
-  }
-} else if (!process.env.VERCEL) {
-  // Only serve static files if NOT on Vercel (Vercel handles this via rewrites)
-  const distPath = path.resolve(__dirname, 'dist');
-  app.use(express.static(distPath));
-  
-  // SPA fallback - match everything that isn't an API route
-  app.get('*', (req, res, next) => {
-    // Skip if it looks like an API route
-    if (req.url.startsWith('/api')) {
-      return next();
+async function setupStatic() {
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+    console.log('>>> Starting Vite in middleware mode...');
+    try {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+      console.log('>>> Vite middleware added');
+    } catch (err) {
+      console.error('>>> Failed to start Vite:', err);
     }
+  } else if (!process.env.VERCEL) {
+    // Only serve static files if NOT on Vercel (Vercel handles this via rewrites)
+    const path = await import('path');
+    const fs = await import('fs');
+    const { fileURLToPath } = await import('url');
     
-    const indexPath = path.resolve(distPath, 'index.html');
-    if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
-      console.error('>>> index.html NOT FOUND in dist at:', indexPath);
-      res.status(404).send('Application not found. Please try again later.');
-    }
-  });
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const distPath = path.resolve(__dirname, 'dist');
+    
+    app.use(express.static(distPath));
+    
+    // SPA fallback - match everything that isn't an API route
+    app.get('*', (req, res, next) => {
+      if (req.url.startsWith('/api')) return next();
+      
+      const indexPath = path.resolve(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).send('Application not found.');
+      }
+    });
+  }
 }
+
+// Initialize static setup
+setupStatic();
 
 // Global Error Handler
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
