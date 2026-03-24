@@ -3,27 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import cors from 'cors';
-import { createClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('>>> Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-console.log('>>> server.ts LOADED');
-
-// Log environment variable presence (NOT values) for debugging on Vercel
-const requiredEnvVars = [
-  'VITE_SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
-  'VITE_RESEND_API_KEY',
-  'VITE_RESEND_FROM_EMAIL'
-];
-console.log('>>> [ENV CHECK] Checking required environment variables:');
-requiredEnvVars.forEach(key => {
-  console.log(`>>> [ENV CHECK] ${key}: ${process.env[key] ? 'PRESENT' : 'MISSING'}`);
-});
-
+// Derive __dirname for ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -33,9 +14,11 @@ const PORT = 3000;
 // Enable CORS for all requests
 app.use(cors());
 
-// VERY TOP LEVEL LOGGER - Log every single request before anything else
+// Logger
 app.use((req, res, next) => {
-  console.log(`>>> [REQUEST] ${new Date().toISOString()} - ${req.method} ${req.url} (Host: ${req.headers.host})`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`>>> [REQUEST] ${new Date().toISOString()} - ${req.method} ${req.url}`);
+  }
   next();
 });
 
@@ -43,7 +26,6 @@ app.use(express.json());
 
 // Health check route
 app.get('/api/health', (req, res) => {
-  console.log('>>> Health check hit');
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
@@ -58,8 +40,7 @@ app.get('/api/test', (req, res) => {
       supabaseUrl: !!process.env.VITE_SUPABASE_URL,
       supabaseServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
       resendKey: !!process.env.VITE_RESEND_API_KEY,
-      fromEmail: !!process.env.VITE_RESEND_FROM_EMAIL,
-      cronSecret: !!process.env.CRON_SECRET
+      fromEmail: !!process.env.VITE_RESEND_FROM_EMAIL
     }
   });
 });
@@ -68,30 +49,22 @@ app.get('/api/test', (req, res) => {
 
 app.post('/api/auth/send-otp', async (req, res) => {
   const { email } = req.body;
-  console.log(`>>> [API] Generating custom OTP for: ${email}`);
   
   if (!email || typeof email !== 'string') {
     return res.status(400).json({ error: 'Email is required' });
   }
 
   try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const { Resend } = await import('resend');
+
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const resendKey = process.env.VITE_RESEND_API_KEY;
     const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
-    console.log(`>>> [API] Using fromEmail: ${fromEmail}`);
 
     if (!supabaseUrl || !supabaseServiceKey || !resendKey) {
-      const missing = [];
-      if (!supabaseUrl) missing.push('VITE_SUPABASE_URL');
-      if (!supabaseServiceKey) missing.push('SUPABASE_SERVICE_ROLE_KEY');
-      if (!resendKey) missing.push('VITE_RESEND_API_KEY');
-      
-      console.error('>>> [API] Missing config for OTP:', missing.join(', '));
-      return res.status(500).json({ 
-        error: 'Server configuration error', 
-        details: `Missing environment variables: ${missing.join(', ')}. Please check your deployment settings.` 
-      });
+      return res.status(500).json({ error: 'Server configuration error' });
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -162,13 +135,13 @@ app.post('/api/auth/send-otp', async (req, res) => {
 
 app.post('/api/auth/verify-otp', async (req, res) => {
   const { email, code } = req.body;
-  console.log(`>>> [API] Verifying OTP for: ${email}`);
 
   if (!email || !code) {
     return res.status(400).json({ error: 'Email and code are required' });
   }
 
   try {
+    const { createClient } = await import('@supabase/supabase-js');
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -208,6 +181,7 @@ app.get('/api/auth/is-confirmed', async (req, res) => {
   }
 
   try {
+    const { createClient } = await import('@supabase/supabase-js');
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -250,6 +224,7 @@ app.get('/api/auth/is-verified', async (req, res) => {
   }
 
   try {
+    const { createClient } = await import('@supabase/supabase-js');
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -282,11 +257,13 @@ app.post('/api/cron/reminders', async (req, res) => {
   }
 
   try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const { Resend } = await import('resend');
+
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const resendKey = process.env.VITE_RESEND_API_KEY;
     const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
-    console.log(`>>> [CRON] Using fromEmail: ${fromEmail}`);
 
     if (!supabaseUrl || !supabaseServiceKey || !resendKey) {
       return res.status(500).json({ error: 'Missing configuration' });
@@ -396,17 +373,16 @@ app.post('/api/cron/reminders', async (req, res) => {
 // Email route (Lazy load Resend to prevent startup crashes)
 app.post('/api/send-email', async (req, res) => {
   try {
+    const { Resend } = await import('resend');
     const resendKey = process.env.VITE_RESEND_API_KEY;
     
     if (!resendKey) {
-      console.warn('VITE_RESEND_API_KEY is missing');
       return res.status(200).json({ message: 'Email skipped (no API key)' });
     }
 
     const resend = new Resend(resendKey);
     const { to, subject, html } = req.body;
     const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
-    console.log(`>>> [EMAIL] Using fromEmail: ${fromEmail}`);
     
     await resend.emails.send({
       from: fromEmail,
