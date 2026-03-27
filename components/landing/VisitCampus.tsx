@@ -40,7 +40,7 @@ const VisitCampus: React.FC = () => {
           {/* Right Image */}
           <div className="rtl:order-1">
             <img
-              src="https://res.cloudinary.com/di7okmjsx/image/upload/v1774598458/ibaanahcampus_bluo3f.jpg"
+              src="https://res.cloudinary.com/di7okmjsx/image/upload/v1774615290/ibaanahcampus1new_ofzbtx.png"
               alt="Students in a classroom at Al-Ibaanah"
               className="rounded-xl shadow-lg w-full h-auto object-cover"
             />
