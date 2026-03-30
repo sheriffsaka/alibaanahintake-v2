@@ -35,9 +35,6 @@ const Header: React.FC = () => {
             </span>
           </div>
           <nav className="hidden md:flex items-center space-x-6">
-            <Link to="/programs" className="text-sm font-medium text-gray-600 hover:text-brand-green">
-              {t('programsNav')}
-            </Link>
             <div className="relative">
               <button 
                 onClick={() => setLangDropdownOpen(!langDropdownOpen)}
@@ -110,9 +107,6 @@ const Header: React.FC = () => {
         {isMenuOpen && (
           <div className="md:hidden bg-white py-4">
             <nav className="flex flex-col items-center space-y-4">
-            <Link to="/programs" className="text-sm font-medium text-gray-600 hover:text-brand-green" onClick={() => setIsMenuOpen(false)}>
-              {t('programsNav')}
-            </Link>
             <div className="relative">
               <button 
                 onClick={() => setLangDropdownOpen(!langDropdownOpen)}

@@ -10,6 +10,19 @@ import { langs } from '../../i18n/locales';
 
 type LangKey = keyof typeof langs;
 
+const defaultBenefits = {
+    en: [
+        { title: 'Digital Slot Booking', description: 'Select a specific time slot for your on-campus evaluation. No more waiting in long queues.' },
+        { title: 'Instant Admission Slips', description: 'Receive a digital booking code and slip immediately after booking your slot.' },
+        { title: 'Fast-Track Check-In', description: 'Our streamlined 60-second check-in experience ensures a smooth and efficient start from the moment you arrive.' }
+    ],
+    ar: [
+        { title: 'حجز المواعيد الرقمي', description: 'اختر موعدًا محددًا لتقييمك داخل الحرم الجامعي. لا مزيد من الانتظار في طوابير طويلة.' },
+        { title: 'قسائم قبول فورية', description: 'احصل على رمز حجز رقمي وقسيمة فورًا بعد حجز موعدك.' },
+        { title: 'تسجيل وصول سريع', description: 'تضمن تجربة تسجيل الوصول المبسطة التي تستغرق 60 ثانية بداية سلسة وفعالة من لحظة وصولك.' }
+    ]
+};
+
 const SiteContentManager: React.FC = () => {
     const [content, setContent] = useState<SiteContent | null>(null);
     const [loading, setLoading] = useState(true);
@@ -30,8 +43,8 @@ const SiteContentManager: React.FC = () => {
                     if (!faqItemsWithAllLangs[langKey]) {
                         faqItemsWithAllLangs[langKey] = [];
                     }
-                    if (!benefitItemsWithAllLangs[langKey]) {
-                        benefitItemsWithAllLangs[langKey] = [];
+                    if (!benefitItemsWithAllLangs[langKey] || benefitItemsWithAllLangs[langKey].length === 0) {
+                        benefitItemsWithAllLangs[langKey] = defaultBenefits[langKey as keyof typeof defaultBenefits] || [];
                     }
                 }
                 setContent({ ...data, faqItems: faqItemsWithAllLangs, benefitItems: benefitItemsWithAllLangs });
@@ -99,6 +112,13 @@ const SiteContentManager: React.FC = () => {
         const newBenefitsByLang = { ...content.benefitItems };
         const currentLangBenefits = (newBenefitsByLang[activeBenefitLang] || []).filter((_, i) => i !== index);
         newBenefitsByLang[activeBenefitLang] = currentLangBenefits;
+        setContent({ ...content, benefitItems: newBenefitsByLang });
+    };
+
+    const resetBenefitsToDefault = () => {
+        if (!content) return;
+        const newBenefitsByLang = { ...content.benefitItems };
+        newBenefitsByLang[activeBenefitLang] = [...(defaultBenefits[activeBenefitLang as keyof typeof defaultBenefits] || [])];
         setContent({ ...content, benefitItems: newBenefitsByLang });
     };
 
@@ -226,7 +246,14 @@ const SiteContentManager: React.FC = () => {
                             </div>
                         ))}
                     </div>
-                    <Button onClick={addBenefitItem} variant="secondary" className="mt-4 flex items-center"><PlusCircle className="h-4 w-4 mr-2"/>Add Benefit Card for {langs[activeBenefitLang].nativeName}</Button>
+                    <div className="mt-4 flex items-center space-x-4">
+                        <Button onClick={addBenefitItem} variant="secondary" className="flex items-center">
+                            <PlusCircle className="h-4 w-4 mr-2"/>Add Benefit Card for {langs[activeBenefitLang].nativeName}
+                        </Button>
+                        <Button onClick={resetBenefitsToDefault} variant="outline" className="text-gray-600">
+                            Reset to Defaults
+                        </Button>
+                    </div>
                 </Card>
                 
                  {/* Campus Info */}

@@ -660,6 +660,7 @@ export const getSiteContent = async (): Promise<SiteContent> => {
             officialSiteUrl: '#',
             heroVideoUrl: {},
             faqItems: {},
+            benefitItems: {},
             campusAddress: '',
             campusHours: ''
         };
@@ -686,6 +687,7 @@ export const getSiteContent = async (): Promise<SiteContent> => {
             officialSiteUrl: '#',
             heroVideoUrl: {},
             faqItems: {},
+            benefitItems: {},
             campusAddress: '',
             campusHours: ''
         };
