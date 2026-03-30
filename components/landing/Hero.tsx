@@ -79,7 +79,7 @@ const Hero: React.FC = () => {
                                 <Link to="/enroll">
                                     <button className="bg-brand-yellow text-brand-green-dark font-bold px-8 py-3 rounded-md shadow-xl hover:bg-yellow-400 transition-all transform hover:scale-105 flex items-center justify-center gap-2">
                                         <RefreshCw className="h-5 w-5" />
-                                        <span>Resume Your Enrollment</span>
+                                        <span>{t('returnToBooking')}</span>
                                     </button>
                                 </Link>
                             </div>

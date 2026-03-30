@@ -15,6 +15,7 @@ const defaultContent: SiteContent = {
     officialSiteUrl: '#',
     heroVideoUrl: {},
     faqItems: {},
+    benefitItems: {},
     campusAddress: '',
     campusHours: ''
 };

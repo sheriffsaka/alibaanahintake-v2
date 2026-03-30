@@ -41,11 +41,17 @@ export interface FaqItem {
   answer: string;
 }
 
+export interface BenefitItem {
+  title: string;
+  description: string;
+}
+
 export interface SiteContent {
   logoUrl: string;
   officialSiteUrl: string;
   heroVideoUrl: Record<string, string>;
   faqItems: Record<string, FaqItem[]>;
+  benefitItems: Record<string, BenefitItem[]>;
   campusAddress: string;
   campusHours: string;
 }

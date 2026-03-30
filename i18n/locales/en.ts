@@ -7,7 +7,7 @@ export default {
     programsNav: 'Our Programs',
 
     // Hero
-    assessmentIntakePortal: 'ASSESSMENT & INTAKE PORTAL',
+    assessmentIntakePortal: 'SLOT BOOKING PORTAL',
     yourJourney: 'Your Journey',
     startsOnCampus: 'Starts On Campus',
     heroDescription: 'Welcome to the Al-Ibaanah IntakeFlow. Secure your mandatory placement assessment slot and streamline your arrival at our Cairo campus.',
@@ -26,7 +26,7 @@ export default {
     benefit2Title: 'Instant Admission Slips',
     benefit2Desc: 'Receive a digital booking code and slip immediately after booking your slot.',
     benefit3Title: 'Fast-Track Check-In',
-    benefit3Desc: 'Our front desk uses QR/Code scanning for a 60-second check-in experience upon arrival.',
+    benefit3Desc: 'Our streamlined 60-second check-in experience ensures a smooth and efficient start from the moment you arrive.',
 
     // FAQ
     faqTitle: 'Assessment Day FAQ',
@@ -94,7 +94,7 @@ export default {
     step1Title: 'Step 1: Fill the Slot Booking Form ({gender})',
     surnameLabel: 'Surname',
     firstnameLabel: 'First Name',
-    othernameLabel: 'Other Name (Optional)',
+    othernameLabel: 'Other Name',
     whatsappLabel: 'WhatsApp Phone Number',
     emailLabel: 'Email Address',
     genderLabel: 'Gender',
@@ -113,6 +113,7 @@ export default {
     nextButton: 'Next: Verify Email',
     disclaimer: 'Disclaimer: This is not a Registration Form. It is a Slot Booking (Pre-Registration Screening Form).',
     errorFirstnameRequired: 'First name is required',
+    errorOthernameRequired: 'Other name is required',
     errorSurnameRequired: 'Surname is required',
     errorWhatsappRequired: 'WhatsApp number is required',
     errorEmailRequired: 'Email is required',
@@ -153,6 +154,7 @@ export default {
     goBackButton: 'Go Back',
     registrationSuccessTitle: 'Slot Booking Successful!',
     registrationSuccessMessage: 'Your appointment is confirmed. Please see your admission slip below.',
+    returnToBooking: 'Return to Booking',
     downloadButton: 'Download as Image',
     downloading: 'Downloading...',
     printButton: 'Print / Save PDF',

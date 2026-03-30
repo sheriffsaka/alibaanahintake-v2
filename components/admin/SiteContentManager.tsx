@@ -16,6 +16,7 @@ const SiteContentManager: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [activeFaqLang, setActiveFaqLang] = useState<LangKey>('en');
+    const [activeBenefitLang, setActiveBenefitLang] = useState<LangKey>('en');
 
     useEffect(() => {
         const fetchContent = async () => {
@@ -24,12 +25,16 @@ const SiteContentManager: React.FC = () => {
                 const data = await getSiteContent();
                 // Ensure all lang keys exist for FAQs
                 const faqItemsWithAllLangs = { ...data.faqItems };
+                const benefitItemsWithAllLangs = { ...data.benefitItems };
                 for (const langKey in langs) {
                     if (!faqItemsWithAllLangs[langKey]) {
                         faqItemsWithAllLangs[langKey] = [];
                     }
+                    if (!benefitItemsWithAllLangs[langKey]) {
+                        benefitItemsWithAllLangs[langKey] = [];
+                    }
                 }
-                setContent({ ...data, faqItems: faqItemsWithAllLangs });
+                setContent({ ...data, faqItems: faqItemsWithAllLangs, benefitItems: benefitItemsWithAllLangs });
             } catch (error) {
                 console.error("Failed to fetch site content", error);
             } finally {
@@ -69,6 +74,32 @@ const SiteContentManager: React.FC = () => {
         const currentLangFaqs = (newFaqsByLang[activeFaqLang] || []).filter((_, i) => i !== index);
         newFaqsByLang[activeFaqLang] = currentLangFaqs;
         setContent({ ...content, faqItems: newFaqsByLang });
+    };
+
+    const handleBenefitChange = (index: number, field: 'title' | 'description', value: string) => {
+        if (!content) return;
+        const newBenefitsByLang = { ...content.benefitItems };
+        const currentLangBenefits = [...(newBenefitsByLang[activeBenefitLang] || [])];
+        currentLangBenefits[index][field] = value;
+        newBenefitsByLang[activeBenefitLang] = currentLangBenefits;
+        setContent({ ...content, benefitItems: newBenefitsByLang });
+    };
+
+    const addBenefitItem = () => {
+        if (!content) return;
+        const newBenefitsByLang = { ...content.benefitItems };
+        const currentLangBenefits = [...(newBenefitsByLang[activeBenefitLang] || [])];
+        currentLangBenefits.push({ title: '', description: '' });
+        newBenefitsByLang[activeBenefitLang] = currentLangBenefits;
+        setContent({ ...content, benefitItems: newBenefitsByLang });
+    };
+
+    const removeBenefitItem = (index: number) => {
+        if (!content) return;
+        const newBenefitsByLang = { ...content.benefitItems };
+        const currentLangBenefits = (newBenefitsByLang[activeBenefitLang] || []).filter((_, i) => i !== index);
+        newBenefitsByLang[activeBenefitLang] = currentLangBenefits;
+        setContent({ ...content, benefitItems: newBenefitsByLang });
     };
 
     const handleSave = async () => {
@@ -161,6 +192,41 @@ const SiteContentManager: React.FC = () => {
                         ))}
                     </div>
                     <Button onClick={addFaqItem} variant="secondary" className="mt-4 flex items-center"><PlusCircle className="h-4 w-4 mr-2"/>Add FAQ Item for {langs[activeFaqLang].nativeName}</Button>
+                </Card>
+
+                {/* Digital Intake Benefits */}
+                <Card title="Digital Intake Benefits" className="bg-gray-50">
+                    <div className="border-b border-gray-200 mb-4">
+                        <nav className="-mb-px flex space-x-4" aria-label="Tabs">
+                            {(Object.keys(langs) as LangKey[]).map(langKey => (
+                                <button
+                                    key={langKey}
+                                    onClick={() => setActiveBenefitLang(langKey)}
+                                    className={`${
+                                        activeBenefitLang === langKey
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm`}
+                                >
+                                    {langs[langKey].nativeName}
+                                </button>
+                            ))}
+                        </nav>
+                    </div>
+
+                    <div className="space-y-4">
+                        {(content.benefitItems[activeBenefitLang] || []).map((benefit, index) => (
+                            <div key={index} className="p-4 border rounded-lg bg-white relative">
+                                <Button onClick={() => removeBenefitItem(index)} variant="danger" className="absolute top-2 right-2 p-1 h-7 w-7"><Trash2 size={16}/></Button>
+                                <Input label={`Benefit Title ${index + 1}`} value={benefit.title} onChange={(e) => handleBenefitChange(index, 'title', e.target.value)} />
+                                <div className="mt-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Benefit Description {index + 1}</label>
+                                    <textarea value={benefit.description} onChange={(e) => handleBenefitChange(index, 'description', e.target.value)} rows={3} className="block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm border-gray-300" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <Button onClick={addBenefitItem} variant="secondary" className="mt-4 flex items-center"><PlusCircle className="h-4 w-4 mr-2"/>Add Benefit Card for {langs[activeBenefitLang].nativeName}</Button>
                 </Card>
                 
                  {/* Campus Info */}

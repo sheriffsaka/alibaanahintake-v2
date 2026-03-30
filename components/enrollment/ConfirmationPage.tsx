@@ -120,6 +120,9 @@ const ConfirmationPage: React.FC = () => {
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
             <h2 className="text-3xl font-bold text-gray-800">{t('registrationSuccessTitle')}</h2>
             <p className="text-gray-600 mt-2">{t('registrationSuccessMessage')}</p>
+            <p className="text-sm text-red-600 font-medium bg-red-50 p-3 rounded-lg border border-red-100 italic mt-4 max-w-2xl mx-auto">
+                {t('disclaimer')}
+            </p>
         </div>
 
         <div id="admission-slip-printable" ref={slipRef} className="bg-white">

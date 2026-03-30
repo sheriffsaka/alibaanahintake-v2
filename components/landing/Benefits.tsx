@@ -1,24 +1,40 @@
 
 import React from 'react';
-import { Smartphone, FileText, Zap } from 'lucide-react';
+import { Smartphone, FileText, Zap, CheckCircle } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
+import { useSiteContent } from '../../contexts/SiteContentContext';
 
 const Benefits: React.FC = () => {
-    const { t } = useTranslation();
+    const { t, language } = useTranslation();
+    const { content } = useSiteContent();
 
-    const benefitsData = [
+    const icons = [
+        <Smartphone key="icon-1" className="h-8 w-8 text-brand-green" />,
+        <FileText key="icon-2" className="h-8 w-8 text-brand-green" />,
+        <Zap key="icon-3" className="h-8 w-8 text-brand-green" />,
+    ];
+
+    const dynamicBenefits = content?.benefitItems?.[language] || [];
+    
+    const benefitsData = dynamicBenefits.length > 0 
+        ? dynamicBenefits.map((b, i) => ({
+            icon: icons[i] || <CheckCircle className="h-8 w-8 text-brand-green" />,
+            title: b.title,
+            description: b.description
+        }))
+        : [
         {
-          icon: <Smartphone className="h-8 w-8 text-brand-green" />,
+          icon: icons[0],
           title: t('benefit1Title'),
           description: t('benefit1Desc'),
         },
         {
-          icon: <FileText className="h-8 w-8 text-brand-green" />,
+          icon: icons[1],
           title: t('benefit2Title'),
           description: t('benefit2Desc'),
         },
         {
-          icon: <Zap className="h-8 w-8 text-brand-green" />,
+          icon: icons[2],
           title: t('benefit3Title'),
           description: t('benefit3Desc'),
         },

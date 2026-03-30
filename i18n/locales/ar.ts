@@ -7,7 +7,7 @@ export default {
     programsNav: 'برامجنا',
 
     // Hero
-    assessmentIntakePortal: 'بوابة التقييم والتسجيل',
+    assessmentIntakePortal: 'بوابة حجز المواعيد',
     yourJourney: 'رحلتك',
     startsOnCampus: 'تبدأ في الحرم الجامعي',
     heroDescription: 'أهلاً بك في بوابة الإبانة. أمّن موعدك الإلزامي لتقييم تحديد المستوى وسهّل وصولك إلى حرمنا الجامعي في القاهرة.',
@@ -26,7 +26,7 @@ export default {
     benefit2Title: 'قسائم قبول فورية',
     benefit2Desc: 'احصل على رمز حجز وقسيمة رقمية فور حجز موعدك.',
     benefit3Title: 'تسجيل وصول سريع',
-    benefit3Desc: 'يستخدم مكتب الاستقبال لدينا مسح رمز الاستجابة السريعة لتسجيل وصولك في 60 ثانية عند الوصول.',
+    benefit3Desc: 'تضمن تجربة تسجيل الوصول المبسطة التي تستغرق 60 ثانية بداية سلسة وفعالة منذ لحظة وصولك.',
 
     // FAQ
     faqTitle: 'أسئلة شائعة عن يوم التقييم',
@@ -94,7 +94,7 @@ export default {
     step1Title: 'الخطوة 1: ملء استمارة حجز الموعد ({gender})',
     surnameLabel: 'اللقب',
     firstnameLabel: 'الاسم الأول',
-    othernameLabel: 'اسم آخر (اختياري)',
+    othernameLabel: 'اسم آخر',
     whatsappLabel: 'رقم واتساب',
     emailLabel: 'البريد الإلكتروني',
     genderLabel: 'الجنس',
@@ -113,6 +113,7 @@ export default {
     nextButton: 'التالي: التحقق من البريد',
     disclaimer: 'تنبيه: هذه ليست استمارة تسجيل. إنها استمارة حجز موعد (فحص ما قبل التسجيل).',
     errorFirstnameRequired: 'الاسم الأول مطلوب',
+    errorOthernameRequired: 'الاسم الآخر مطلوب',
     errorSurnameRequired: 'اللقب مطلوب',
     errorWhatsappRequired: 'رقم الواتساب مطلوب',
     errorEmailRequired: 'البريد الإلكتروني مطلوب',
@@ -152,6 +153,7 @@ export default {
     goBackButton: 'العودة',
     registrationSuccessTitle: 'تم حجز الموعد بنجاح!',
     registrationSuccessMessage: 'تم تأكيد موعدك. يرجى الاطلاع على قسيمة القبول أدناه.',
+    returnToBooking: 'العودة إلى الحجز',
     downloadButton: 'تحميل كصورة',
     downloading: 'جاري التحميل...',
     printButton: 'طباعة / حفظ PDF',

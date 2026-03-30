@@ -175,6 +175,7 @@ const RegistrationForm: React.FC = () => {
   const validate = () => {
     const newErrors: Partial<typeof state.formData> = {};
     if (!state.formData.firstname) newErrors.firstname = t('errorFirstnameRequired');
+    if (!state.formData.othername) newErrors.othername = t('errorOthernameRequired');
     if (!state.formData.surname) newErrors.surname = t('errorSurnameRequired');
     if (!state.formData.whatsapp) newErrors.whatsapp = t('errorWhatsappRequired');
     if (!state.formData.email) newErrors.email = t('errorEmailRequired');
@@ -208,10 +209,10 @@ const RegistrationForm: React.FC = () => {
     <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">{t('step1Title', { gender: state.formData.gender })}</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-12">
-        <Input label={t('surnameLabel')} name="surname" value={state.formData.surname} onChange={handleChange} error={errors.surname} icon={<User className="h-4 w-4 text-gray-400" />} required />
         <Input label={t('firstnameLabel')} name="firstname" value={state.formData.firstname} onChange={handleChange} error={errors.firstname} icon={<User className="h-4 w-4 text-gray-400" />} required />
+        <Input label={t('othernameLabel')} name="othername" value={state.formData.othername} onChange={handleChange} error={errors.othername} icon={<User className="h-4 w-4 text-gray-400" />} required />
       </div>
-      <Input label={t('othernameLabel')} name="othername" value={state.formData.othername} onChange={handleChange} icon={<User className="h-4 w-4 text-gray-400" />} />
+      <Input label={t('surnameLabel')} name="surname" value={state.formData.surname} onChange={handleChange} error={errors.surname} icon={<User className="h-4 w-4 text-gray-400" />} required />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-12">
         <div className="flex flex-col">
           <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
