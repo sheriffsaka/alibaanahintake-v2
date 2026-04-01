@@ -116,6 +116,32 @@ BEGIN
     IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.students'::regclass AND attname = 'language') THEN
         ALTER TABLE public.students ADD COLUMN language TEXT NOT NULL DEFAULT 'en';
     END IF;
+    
+    -- Add indexes for dashboard performance
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'students' AND indexname = 'idx_students_intake_date') THEN
+        CREATE INDEX idx_students_intake_date ON public.students(intake_date);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'students' AND indexname = 'idx_students_gender') THEN
+        CREATE INDEX idx_students_gender ON public.students(gender);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'students' AND indexname = 'idx_students_status') THEN
+        CREATE INDEX idx_students_status ON public.students(status);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'students' AND indexname = 'idx_students_level_id') THEN
+        CREATE INDEX idx_students_level_id ON public.students(level_id);
+    END IF;
+END;
+$$;
+
+-- Add indexes for appointment_slots performance
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'appointment_slots' AND indexname = 'idx_appointment_slots_date') THEN
+        CREATE INDEX idx_appointment_slots_date ON public.appointment_slots(date);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'appointment_slots' AND indexname = 'idx_appointment_slots_gender') THEN
+        CREATE INDEX idx_appointment_slots_gender ON public.appointment_slots(gender);
+    END IF;
 END;
 $$;
 

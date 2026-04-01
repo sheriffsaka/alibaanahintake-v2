@@ -24,10 +24,23 @@ const Dashboard: React.FC = () => {
 
   const fetchDashboardData = useCallback(async () => {
     setError(null);
+    
+    const isPending = { current: true };
+    const timeoutId = setTimeout(() => {
+        if (isPending.current) {
+            setError("Request timed out. Retrying in background...");
+            setLoading(false);
+        }
+    }, 15000); // 15 second timeout
+
     try {
       const dashboardData = await getDashboardData();
+      isPending.current = false;
+      clearTimeout(timeoutId);
       setData(dashboardData);
     } catch (err) {
+      isPending.current = false;
+      clearTimeout(timeoutId);
       console.error("Failed to fetch dashboard data", err);
       setError("Could not load dashboard data. Retrying in background...");
     } finally {
