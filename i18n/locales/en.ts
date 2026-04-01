@@ -20,7 +20,7 @@ export default {
 
     // Benefits
     digitalIntakeBenefits: 'Digital Intake Benefits',
-    benefitsDescription: "We've modernized our arrival process to ensure your first day at Al-Ibaanah is smooth and efficient.",
+    benefitsDescription: "At Al-Ibaanah, we have thoughtfully modernized our arrival process to provide you with a smooth, organized, efficient, and stress-free slot booking experience.",
     benefit1Title: 'Digital Slot Booking',
     benefit1Desc: 'Select a specific time slot for your on-campus evaluation. No more waiting in long queues.',
     benefit2Title: 'Instant Admission Slips',

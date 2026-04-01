@@ -71,7 +71,7 @@ const StudentRecords: React.FC = () => {
     if(currentPage !== 1) {
         setCurrentPage(1);
     }
-  }, [debouncedSearchTerm, sortKey, sortDirection, currentPage]);
+  }, [debouncedSearchTerm, sortKey, sortDirection]);
 
 
   const handleSort = (key: SortKey) => {
