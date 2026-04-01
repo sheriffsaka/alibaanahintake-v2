@@ -24,7 +24,7 @@ let adminUsers: AdminUser[] = [
     { id: 'user-5', name: 'Aisha Omar', email: 'female.desk@al-ibaanah.com', role: Role.FemaleFrontDesk, isActive: false },
 ];
 const siteContent: SiteContent = {
-    logoUrl: "https://res.cloudinary.com/di7okmjsx/image/upload/v1772398555/Al-Ibaanah_Vertical_Logo_pf389m.svg",
+    logoUrl: "https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png",
     officialSiteUrl: "https://ibaanah.com/",
     heroVideoUrl: { 
         en: "https://www.youtube.com/embed/dQw4w9WgXcQ",

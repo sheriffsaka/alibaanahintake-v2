@@ -315,7 +315,7 @@ COMMENT ON TABLE public.asset_settings IS 'Stores dynamic site content like logo
 
 -- Insert default site content
 INSERT INTO public.asset_settings (key, value) VALUES
-('logoUrl', '"https://res.cloudinary.com/di7okmjsx/image/upload/v1772398555/Al-Ibaanah_Vertical_Logo_pf389m.svg"'),
+('logoUrl', '"https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png"'),
 ('officialSiteUrl', '"https://ibaanah.com/"'),
 ('heroVideoUrl', '{"en": "https://www.youtube.com/embed/dQw4w9WgXcQ", "ar": "https://www.youtube.com/embed/CenZeeJ3m_4", "fr": "https://www.youtube.com/embed/s2qg2x-NYyE"}'),
 ('faqItems', '{

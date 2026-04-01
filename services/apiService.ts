@@ -661,8 +661,8 @@ export const getSiteContent = async (): Promise<SiteContent> => {
             .select('key, value');
         
         const defaultContent: SiteContent = {
-            logoUrl: '',
-            officialSiteUrl: '#',
+            logoUrl: 'https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png',
+            officialSiteUrl: 'https://ibaanah.com/',
             heroVideoUrl: {},
             faqItems: {},
             benefitItems: {},
@@ -688,8 +688,8 @@ export const getSiteContent = async (): Promise<SiteContent> => {
     } catch (err) {
         console.error("Critical error fetching site content:", err);
         return {
-            logoUrl: '',
-            officialSiteUrl: '#',
+            logoUrl: 'https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png',
+            officialSiteUrl: 'https://ibaanah.com/',
             heroVideoUrl: {},
             faqItems: {},
             benefitItems: {},
