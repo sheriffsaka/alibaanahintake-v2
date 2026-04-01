@@ -40,9 +40,10 @@ const VisitCampus: React.FC = () => {
           {/* Right Image */}
           <div className="rtl:order-1">
             <img
-              src="https://res.cloudinary.com/di7okmjsx/image/upload/v1774615290/ibaanahcampus1new_ofzbtx.png"
+              src="https://res.cloudinary.com/di7okmjsx/image/upload/q_auto/f_auto/v1775062825/campusbuildingnew_pd6pfl.png"
               alt="Students in a classroom at Al-Ibaanah"
               className="rounded-xl shadow-lg w-full h-auto object-cover"
+              referrerPolicy="no-referrer"
             />
           </div>
         </div>
