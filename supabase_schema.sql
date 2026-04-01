@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.levels (
     is_active BOOLEAN NOT NULL DEFAULT true,
     sort_order INT NOT NULL DEFAULT 0
 );
-COMMENT ON TABLE public.levels IS 'Stores dynamic academic levels for student registration.';
+COMMENT ON TABLE public.levels IS 'Stores dynamic academic levels for student booking.';
 
 -- Insert default levels
 INSERT INTO public.levels (name, sort_order) VALUES
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS public.appointment_slots (
     booked INT NOT NULL DEFAULT 0 CHECK (booked >= 0),
     date DATE NOT NULL
 );
-COMMENT ON TABLE public.appointment_slots IS 'Stores available time slots for student assessments.';
+COMMENT ON TABLE public.appointment_slots IS 'Stores available time slots for student bookings.';
 
 -- This block makes the schema migration idempotent. It adds the level_id column
 -- and its foreign key if they're missing, which happens when re-running this script
@@ -320,7 +320,7 @@ INSERT INTO public.asset_settings (key, value) VALUES
 ('heroVideoUrl', '{"en": "https://www.youtube.com/embed/dQw4w9WgXcQ", "ar": "https://www.youtube.com/embed/CenZeeJ3m_4", "fr": "https://www.youtube.com/embed/s2qg2x-NYyE"}'),
 ('faqItems', '{
     "en": [
-        {"question": "Do I need to register on the main site first?", "answer": "Yes, the first step is always to complete the main registration on the official Al-Ibaanah website. This portal is for booking your mandatory on-campus assessment slot after you have registered."}
+        {"question": "Do I need to register on the main site first?", "answer": "Yes, the first step is always to complete the main registration on the official Al-Ibaanah website. This portal is for booking your mandatory on-campus booking slot after you have registered."}
     ],
     "ar": [
         {"question": "هل يجب أن أسجل في الموقع الرئيسي أولاً؟", "answer": "نعم، الخطوة الأولى دائمًا هي إكمال التسجيل الرئيسي على موقع الإبانة الرسمي. هذه البوابة مخصصة لحجز موعد التقييم الإلزامي في الحرم الجامعي بعد التسجيل."}
@@ -506,7 +506,7 @@ USING (
 
 
 -- 14. Create database functions for application logic.
--- Transactional function for submitting registration.
+-- Transactional function for submitting booking.
 CREATE OR REPLACE FUNCTION submit_student_registration(
     slot_id UUID,
     student_data JSONB
@@ -518,13 +518,22 @@ AS $$
 DECLARE
     selected_slot RECORD;
     new_student_record RECORD;
-    registration_is_open BOOLEAN;
+    booking_is_open BOOLEAN;
     level_name_text TEXT;
 BEGIN
-    -- Check if registrations are open
-    SELECT registration_open INTO registration_is_open FROM public.app_settings WHERE id = 1;
-    IF NOT registration_is_open THEN
-        RAISE EXCEPTION 'Registrations are currently closed.';
+    -- Check if bookings are open
+    SELECT registration_open INTO booking_is_open FROM public.app_settings WHERE id = 1;
+    IF NOT booking_is_open THEN
+        RAISE EXCEPTION 'Bookings are currently closed.';
+    END IF;
+
+    -- Check 6-week rule: A student can only book again after 6 weeks
+    IF EXISTS (
+        SELECT 1 FROM public.students 
+        WHERE lower(email) = lower(student_data->>'email') 
+        AND created_at > now() - interval '6 weeks'
+    ) THEN
+        RAISE EXCEPTION 'You have already booked a slot recently. Please wait 6 weeks between bookings.';
     END IF;
 
     -- Lock the slot row to prevent race conditions
