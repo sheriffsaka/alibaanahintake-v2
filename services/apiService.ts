@@ -39,6 +39,7 @@ const studentFromSupabase = (s: Record<string, unknown>): Student => ({ // Using
     registrationCode: s.registration_code,
     appointmentSlotId: s.appointment_slot_id,
     status: s.status,
+    language: s.language || 'en',
     createdAt: s.created_at,
 });
 
@@ -131,6 +132,7 @@ export const savePreRegistration = async (studentData: Record<string, unknown>):
             first_name: studentData.firstname,
             surname: studentData.surname,
             form_data: studentData,
+            language: studentData.language || 'en',
             verified_at: new Date().toISOString()
         }, { onConflict: 'email' });
 
@@ -259,11 +261,14 @@ export const submitRegistration = async (
     // Send confirmation email
     try {
         const notificationSettings = await getNotificationSettings();
-        if (notificationSettings.confirmation.enabled) {
+        const studentLang = newStudent.language || 'en';
+        const langSettings = notificationSettings[studentLang] || notificationSettings['en'];
+        
+        if (langSettings && langSettings.confirmation.enabled) {
             const slot = await getScheduleById(appointmentSlotId);
             if (slot) {
-                let subject = notificationSettings.confirmation.subject;
-                let body = notificationSettings.confirmation.body;
+                let subject = langSettings.confirmation.subject;
+                let body = langSettings.confirmation.body;
 
                 // Replace placeholders
                 subject = subject.replace('{{studentName}}', `${newStudent.firstname} ${newStudent.surname}`);

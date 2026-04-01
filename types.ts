@@ -89,6 +89,7 @@ export interface Student {
   registrationCode: string;
   appointmentSlotId: string;
   status: 'booked' | 'checked-in';
+  language: string;
   createdAt: string; 
 }
 
@@ -113,9 +114,11 @@ export interface AdminUser {
 }
 
 export interface NotificationSettings {
-  confirmation: { enabled: boolean; subject: string; body: string; };
-  reminder24h: { enabled: boolean; subject: string; body: string; };
-  reminderDayOf: { enabled: boolean; subject: string; body: string; };
+  [lang: string]: {
+    confirmation: { enabled: boolean; subject: string; body: string; };
+    reminder24h: { enabled: boolean; subject: string; body: string; };
+    reminderDayOf: { enabled: boolean; subject: string; body: string; };
+  };
 }
 
 export interface AppSettings {
@@ -140,6 +143,7 @@ export interface EnrollmentState {
         state: string;
         address: string;
         levelId: string;
+        language: string;
     };
     isEmailVerified: boolean;
     selectedSlotId?: string;

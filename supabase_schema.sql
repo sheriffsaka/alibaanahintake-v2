@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS public.students (
     registration_code TEXT NOT NULL UNIQUE,
     appointment_slot_id UUID NOT NULL,
     status student_status_enum NOT NULL DEFAULT 'booked',
+    language TEXT NOT NULL DEFAULT 'en',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE public.students IS 'Stores registered student information.';
@@ -112,6 +113,9 @@ BEGIN
     IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.students'::regclass AND attname = 'reminder_day_of_sent') THEN
         ALTER TABLE public.students ADD COLUMN reminder_day_of_sent BOOLEAN DEFAULT false;
     END IF;
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.students'::regclass AND attname = 'language') THEN
+        ALTER TABLE public.students ADD COLUMN language TEXT NOT NULL DEFAULT 'en';
+    END IF;
 END;
 $$;
 
@@ -122,6 +126,7 @@ CREATE TABLE IF NOT EXISTS public.pre_registrations (
     first_name TEXT NOT NULL,
     surname TEXT NOT NULL,
     form_data JSONB NOT NULL,
+    language TEXT NOT NULL DEFAULT 'en',
     verified_at TIMESTAMPTZ DEFAULT now(),
     created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -172,28 +177,115 @@ CREATE TABLE IF NOT EXISTS public.notification_settings (
     settings JSONB NOT NULL,
     CONSTRAINT single_row CHECK (id = 1)
 );
-COMMENT ON TABLE public.notification_settings IS 'Stores email notification templates.';
+COMMENT ON TABLE public.notification_settings IS 'Stores email notification templates per language.';
 
--- Insert the single notification settings row.
+-- Insert the single notification settings row with multilingual support.
 INSERT INTO public.notification_settings (id, settings)
 VALUES (1, '{
-    "confirmation": {
-        "enabled": true,
-        "subject": "Your Al-Ibaanah Assessment is Confirmed!",
-        "body": "As-salamu ''alaykum {{studentName}},\\n\\nYour assessment for {{level}} has been successfully booked for {{appointmentDate}} at {{appointmentTime}}.\\nYour registration code is {{registrationCode}}.\\n\\nPlease find your admission slip attached."
+    "en": {
+        "confirmation": {
+            "enabled": true,
+            "subject": "Your Al-Ibaanah Booking is Confirmed!",
+            "body": "As-salamu ''alaykum {{studentName}},\\n\\nYour booking for {{level}} has been successfully confirmed for {{appointmentDate}} at {{appointmentTime}}.\\nYour booking code is {{registrationCode}}.\\n\\nPlease find your admission slip attached."
+        },
+        "reminder24h": {
+            "enabled": true,
+            "subject": "Reminder: Your Al-Ibaanah Booking is Tomorrow",
+            "body": "As-salamu ''alaykum {{studentName}},\\n\\nThis is a reminder that your booking for {{level}} is scheduled for tomorrow, {{appointmentDate}} at {{appointmentTime}}.\\n\\nWe look forward to seeing you."
+        },
+        "reminderDayOf": {
+            "enabled": false,
+            "subject": "Reminder: Your Al-Ibaanah Booking is Today",
+            "body": "As-salamu ''alaykum {{studentName}},\\n\\nYour booking is today at {{appointmentTime}}. Please arrive on time with the required documents.\\n\\nAl-Ibaanah Administration"
+        }
     },
-    "reminder24h": {
-        "enabled": true,
-        "subject": "Reminder: Your Al-Ibaanah Assessment is Tomorrow",
-        "body": "As-salamu ''alaykum {{studentName}},\\n\\nThis is a reminder that your assessment for {{level}} is scheduled for tomorrow, {{appointmentDate}} at {{appointmentTime}}.\\n\\nWe look forward to seeing you."
+    "ar": {
+        "confirmation": {
+            "enabled": true,
+            "subject": "تم تأكيد حجزك في معهد الإبانة!",
+            "body": "السلام عليكم {{studentName}}،\\n\\nتم حجز موعدك لـ {{level}} بنجاح في {{appointmentDate}} الساعة {{appointmentTime}}.\\nكود الحجز الخاص بك هو {{registrationCode}}.\\n\\nيرجى تجد بطاقة القبول مرفقة."
+        },
+        "reminder24h": {
+            "enabled": true,
+            "subject": "تذكير: موعد حجزك في معهد الإبانة غداً",
+            "body": "السلام عليكم {{studentName}}،\\n\\nهذا تذكير بأن موعد حجزك لـ {{level}} مقرر غداً، {{appointmentDate}} الساعة {{appointmentTime}}.\\n\\nنحن بانتظار رؤيتك."
+        },
+        "reminderDayOf": {
+            "enabled": false,
+            "subject": "تذكير: موعد حجزك في معهد الإبانة اليوم",
+            "body": "السلام عليكم {{studentName}}،\\n\\nموعد حجزك اليوم الساعة {{appointmentTime}}. يرجى الحضور في الموعد المحدد مع المستندات المطلوبة.\\n\\nإدارة معهد الإبانة"
+        }
     },
-    "reminderDayOf": {
-        "enabled": false,
-        "subject": "Reminder: Your Al-Ibaanah Assessment is Today",
-        "body": "As-salamu ''alaykum {{studentName}},\\n\\nYour assessment is today at {{appointmentTime}}. Please arrive on time with the required documents.\\n\\nAl-Ibaanah Administration"
+    "fr": {
+        "confirmation": {
+            "enabled": true,
+            "subject": "Votre réservation Al-Ibaanah est confirmée !",
+            "body": "As-salamu ''alaykum {{studentName}},\\n\\nVotre réservation pour {{level}} a été confirmée avec succès pour le {{appointmentDate}} à {{appointmentTime}}.\\nVotre code de réservation est {{registrationCode}}.\\n\\nVeuillez trouver votre fiche d''admission en pièce jointe."
+        },
+        "reminder24h": {
+            "enabled": true,
+            "subject": "Rappel : Votre réservation Al-Ibaanah est demain",
+            "body": "As-salamu ''alaykum {{studentName}},\\n\\nCeci est un rappel que votre réservation pour {{level}} est prévue pour demain, le {{appointmentDate}} à {{appointmentTime}}.\\n\\nNous avons hâte de vous voir."
+        },
+        "reminderDayOf": {
+            "enabled": false,
+            "subject": "Rappel : Votre réservation Al-Ibaanah est aujourd''hui",
+            "body": "As-salamu ''alaykum {{studentName}},\\n\\nVotre réservation est aujourd''hui à {{appointmentTime}}. Veuillez arriver à l''heure avec les documents requis.\\n\\nAdministration d''Al-Ibaanah"
+        }
+    },
+    "zh": {
+        "confirmation": {
+            "enabled": true,
+            "subject": "您的 Al-Ibaanah 预约已确认！",
+            "body": "As-salamu ''alaykum {{studentName}}，\\n\\n您对 {{level}} 的预约已成功确认，时间为 {{appointmentDate}} {{appointmentTime}}。\\n您的预约代码是 {{registrationCode}}。\\n\\n请查看随附的入学单。"
+        },
+        "reminder24h": {
+            "enabled": true,
+            "subject": "提醒：您的 Al-Ibaanah 预约在明天",
+            "body": "As-salamu ''alaykum {{studentName}}，\\n\\n提醒您，您对 {{level}} 的预约定于明天 {{appointmentDate}} {{appointmentTime}}。\\n\\n我们期待您的到来。"
+        },
+        "reminderDayOf": {
+            "enabled": false,
+            "subject": "提醒：您的 Al-Ibaanah 预约在今天",
+            "body": "As-salamu ''alaykum {{studentName}}，\\n\\n您的预约在今天 {{appointmentTime}}。请准时携带所需文件到达。\\n\\nAl-Ibaanah 管理层"
+        }
+    },
+    "uz": {
+        "confirmation": {
+            "enabled": true,
+            "subject": "Al-Ibaanah band qilinganligingiz tasdiqlandi!",
+            "body": "As-salamu ''alaykum {{studentName}},\\n\\n{{level}} uchun band qilinganligingiz {{appointmentDate}} kuni soat {{appointmentTime}} da muvaffaqiyatli tasdiqlandi.\\nSizning band qilish kodingiz: {{registrationCode}}.\\n\\nIltimos, ilova qilingan qabul varaqasini ko''ring."
+        },
+        "reminder24h": {
+            "enabled": true,
+            "subject": "Eslatma: Al-Ibaanah band qilinganligingiz ertaga",
+            "body": "As-salamu ''alaykum {{studentName}},\\n\\nBu {{level}} uchun band qilinganligingiz ertaga, {{appointmentDate}} kuni soat {{appointmentTime}} da ekanligi haqida eslatma.\\n\\nSizni kutib qolamiz."
+        },
+        "reminderDayOf": {
+            "enabled": false,
+            "subject": "Eslatma: Al-Ibaanah band qilinganligingiz bugun",
+            "body": "As-salamu ''alaykum {{studentName}},\\n\\nSizning band qilinganligingiz bugun soat {{appointmentTime}} da. Iltimos, kerakli hujjatlar bilan o''z vaqtida keling.\\n\\nAl-Ibaanah ma''muriyati"
+        }
+    },
+    "ru": {
+        "confirmation": {
+            "enabled": true,
+            "subject": "Ваше бронирование в Al-Ibaanah подтверждено!",
+            "body": "Ас-саляму алейкум, {{studentName}},\\n\\nВаше бронирование на {{level}} успешно подтверждено на {{appointmentDate}} в {{appointmentTime}}.\\nВаш код бронирования: {{registrationCode}}.\\n\\nПожалуйста, ознакомьтесь с приложенным талоном на зачисление."
+        },
+        "reminder24h": {
+            "enabled": true,
+            "subject": "Напоминание: Ваше бронирование в Al-Ibaanah завтра",
+            "body": "Ас-саляму алейкум, {{studentName}},\\n\\nЭто напоминание о том, что ваше бронирование на {{level}} запланировано на завтра, {{appointmentDate}} в {{appointmentTime}}.\\n\\nМы ждем вас."
+        },
+        "reminderDayOf": {
+            "enabled": false,
+            "subject": "Напоминание: Ваше бронирование в Al-Ibaanah сегодня",
+            "body": "Ас-саляму алейкум, {{studentName}},\\n\\nВаше бронирование сегодня в {{appointmentTime}}. Пожалуйста, приходите вовремя с необходимыми документами.\\n\\nАдминистрация Al-Ibaanah"
+        }
     }
 }')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET settings = EXCLUDED.settings;
 
 -- 8. Create programs table
 CREATE TABLE IF NOT EXISTS public.programs (
@@ -456,7 +548,7 @@ BEGIN
     INSERT INTO public.students (
         surname, firstname, othername, whatsapp, email, gender, address, 
         building_number, flat_number, street_name, district, state,
-        level_id, intake_date, appointment_slot_id, registration_code
+        level_id, intake_date, appointment_slot_id, registration_code, language
     )
     VALUES (
         student_data->>'surname',
@@ -474,7 +566,8 @@ BEGIN
         (student_data->>'levelId')::UUID,
         (student_data->>'intakeDate')::date,
         slot_id,
-        'AI-' || upper(substr(md5(random()::text), 0, 9))
+        'AI-' || upper(substr(md5(random()::text), 0, 9)),
+        COALESCE(student_data->>'language', 'en')
     ) RETURNING * INTO new_student_record;
 
     -- Return the full new student record as JSONB, including the level name
@@ -498,6 +591,7 @@ BEGIN
         'registrationCode', new_student_record.registration_code,
         'appointmentSlotId', new_student_record.appointment_slot_id,
         'status', new_student_record.status,
+        'language', new_student_record.language,
         'createdAt', new_student_record.created_at
     );
 END;

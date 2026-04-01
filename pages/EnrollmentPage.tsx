@@ -42,6 +42,7 @@ const getInitialState = (gender: Gender, levelId: string = ''): EnrollmentState 
       state: '',
       address: '',
       levelId: levelId,
+      language: 'en',
     },
     isEmailVerified: false,
   };

@@ -169,6 +169,8 @@ const RegistrationForm: React.FC = () => {
 
   useEffect(() => {
     fetchLevelsData();
+    // Set current language in form data
+    dispatch({ type: 'UPDATE_FORM', payload: { language: context.language || 'en' } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

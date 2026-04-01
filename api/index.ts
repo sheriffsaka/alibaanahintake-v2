@@ -74,8 +74,26 @@ router.post('/auth/send-otp', async (req, res) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const resend = new Resend(resendKey);
 
-    const { data: existingStudent } = await supabase.from('students').select('id').eq('email', email.toLowerCase()).maybeSingle();
-    if (existingStudent) return res.status(400).json({ error: 'This email is already registered.' });
+    const { data: existingStudent } = await supabase
+      .from('students')
+      .select('id, created_at')
+      .eq('email', email.toLowerCase())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingStudent) {
+      const lastRegistrationDate = new Date(existingStudent.created_at);
+      const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
+      const timeSinceLastRegistration = Date.now() - lastRegistrationDate.getTime();
+
+      if (timeSinceLastRegistration < sixWeeksInMs) {
+        const weeksLeft = Math.ceil((sixWeeksInMs - timeSinceLastRegistration) / (7 * 24 * 60 * 60 * 1000));
+        return res.status(400).json({ 
+          error: `You have already registered recently. You can register again in ${weeksLeft} week(s).` 
+        });
+      }
+    }
 
     await supabase.from('otp_codes').delete().eq('email', email.toLowerCase());
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -215,7 +233,7 @@ router.post('/cron/reminders', async (req, res) => {
     const { Resend } = await import('resend');
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const resendKey = process.env.VITE_RESEND_API_KEY;
+    const resendKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
     const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
 
     if (!supabaseUrl || !supabaseServiceKey || !resendKey) return res.status(500).json({ error: 'Missing configuration' });
@@ -223,14 +241,79 @@ router.post('/cron/reminders', async (req, res) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const resend = new Resend(resendKey);
 
+    // Fetch notification settings
     const { data: settingsData } = await supabase.from('notification_settings').select('settings').single();
     if (!settingsData) return res.status(404).json({ error: 'Settings not found' });
     const settings = settingsData.settings;
 
-    console.log(`>>> [CRON] Running with ${fromEmail}, ${resend}, ${settings}`);
-    
-    // Simplified logic for brevity, assuming original logic is correct
-    res.json({ message: 'Cron job completed (simplified for Vercel)' });
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const todayStr = now.toISOString().split('T')[0];
+
+    // 1. Fetch students for 24h reminders
+    const { data: students24h } = await supabase
+      .from('students')
+      .select('*, appointment_slots(*), levels(name)')
+      .eq('appointment_slots.date', tomorrowStr);
+
+    if (students24h) {
+      for (const student of students24h) {
+        const lang = student.language || 'en';
+        const langSettings = settings[lang] || settings['en'];
+        if (langSettings && langSettings.reminder24h.enabled) {
+          let subject = langSettings.reminder24h.subject;
+          let body = langSettings.reminder24h.body;
+          
+          subject = subject.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
+          body = body.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
+          body = body.replace('{{level}}', student.levels?.name || '');
+          body = body.replace('{{appointmentDate}}', student.appointment_slots.date);
+          body = body.replace('{{appointmentTime}}', `${student.appointment_slots.start_time} - ${student.appointment_slots.end_time}`);
+          body = body.replace('{{registrationCode}}', student.registration_code);
+
+          await resend.emails.send({
+            from: `Al-Ibaanah Booking <${fromEmail}>`,
+            to: student.email,
+            subject,
+            html: body.replace(/\n/g, '<br>')
+          });
+        }
+      }
+    }
+
+    // 2. Fetch students for Day-of reminders
+    const { data: studentsDayOf } = await supabase
+      .from('students')
+      .select('*, appointment_slots(*), levels(name)')
+      .eq('appointment_slots.date', todayStr);
+
+    if (studentsDayOf) {
+      for (const student of studentsDayOf) {
+        const lang = student.language || 'en';
+        const langSettings = settings[lang] || settings['en'];
+        if (langSettings && langSettings.reminderDayOf.enabled) {
+          let subject = langSettings.reminderDayOf.subject;
+          let body = langSettings.reminderDayOf.body;
+          
+          subject = subject.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
+          body = body.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
+          body = body.replace('{{level}}', student.levels?.name || '');
+          body = body.replace('{{appointmentDate}}', student.appointment_slots.date);
+          body = body.replace('{{appointmentTime}}', `${student.appointment_slots.start_time} - ${student.appointment_slots.end_time}`);
+          body = body.replace('{{registrationCode}}', student.registration_code);
+
+          await resend.emails.send({
+            from: `Al-Ibaanah Booking <${fromEmail}>`,
+            to: student.email,
+            subject,
+            html: body.replace(/\n/g, '<br>')
+          });
+        }
+      }
+    }
+
+    res.json({ success: true, message: 'Reminders processed' });
   } catch (error) {
     console.error('Cron error:', error);
     res.status(500).json({ error: 'Internal server error' });

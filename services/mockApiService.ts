@@ -32,36 +32,39 @@ const siteContent: SiteContent = {
     },
     faqItems: {
         en: [
-            { question: "Do I need to register on the main site first?", answer: "Yes, the first step is always to complete the main registration on the official Al-Ibaanah website. This portal is for booking your mandatory on-campus assessment slot after you have registered." },
-            { question: "What happens during the assessment?", answer: "The on-campus assessment is a friendly meeting with one of our instructors to gauge your current Arabic language proficiency. This helps us place you in the perfect level to ensure your success." }
+            { question: "Do I need to register on the main site first?", answer: "Yes, the first step is always to complete the main registration on the official Al-Ibaanah website. This portal is for booking your mandatory on-campus booking slot after you have registered." },
+            { question: "What happens during the booking?", answer: "The on-campus booking is a friendly meeting with one of our instructors to gauge your current Arabic language proficiency. This helps us place you in the perfect level to ensure your success." }
         ],
         ar: [
-            { question: "هل يجب أن أسجل في الموقع الرئيسي أولاً؟", answer: "نعم، الخطوة الأولى دائمًا هي إكمال التسجيل الرئيسي على موقع الإبانة الرسمي. هذه البوابة مخصصة لحجز موعد التقييم الإلزامي في الحرم الجامعي بعد التسجيل." },
+            { question: "هل يجب أن أسجل في الموقع الرئيسي أولاً؟", answer: "نعم، الخطوة الأولى دائمًا هي إكمال التسجيل الرئيسي على موقع الإبانة الرسمي. هذه البوابة مخصصة لحجز موعد الحجز الإلزامي في الحرم الجامعي بعد التسجيل." },
         ],
         fr: [
-            { question: "Dois-je m'inscrire d'abord sur le site principal ?", answer: "Oui, la première étape est toujours de compléter l'inscription principale sur le site officiel d'Al-Ibaanah. Ce portail sert à réserver votre créneau d'évaluation obligatoire sur le campus après votre inscription." }
+            { question: "Dois-je m'inscrire d'abord sur le site principal ?", answer: "Oui, la première étape est toujours de compléter l'inscription principale sur le site officiel d'Al-Ibaanah. Ce portail sert à réserver votre créneau de réservation obligatoire sur le campus après votre inscription." }
         ],
         zh: [
-            { question: "我需要先在主站点注册吗？", answer: "是的，第一步总是在 Al-Ibaanah 官方网站上完成主注册。此门户用于在您注册后预订您的强制性校内评估时段。" }
+            { question: "我需要先在主站点注册吗？", answer: "是的，第一步总是在 Al-Ibaanah 官方网站上完成主注册。此门户用于在您注册后预订您的强制性校内预约时段。" }
         ],
         ru: [
-            { question: "Нужно ли мне сначала регистрироваться на основном сайте?", answer: "Да, первым шагом всегда является завершение основной регистрации на официальном сайте Al-Ibaanah. Этот портал предназначен для бронирования обязательного времени для оценки в кампусе после вашей регистрации." }
+            { question: "Нужно ли мне сначала регистрироваться на основном сайте?", answer: "Да, первым шагом всегда является завершение основной регистрации на официальном сайте Al-Ibaanah. Этот портал предназначен для бронирования обязательного времени для бронирования в кампусе после вашей регистрации." }
         ],
         uz: [
-            { question: "Avval asosiy saytda roʻyxatdan oʻtishim kerakmi?", answer: "Ha, birinchi qadam har doim Al-Ibaanah rasmiy veb-saytida asosiy ro'yxatdan o'tishni yakunlashdir. Ushbu portal ro'yxatdan o'tganingizdan so'ng majburiy kampusda baholash vaqtini bron qilish uchun mo'ljallangan." }
+            { question: "Avval asosiy saytda roʻyxatdan oʻtishim kerakmi?", answer: "Ha, birinchi qadam har doim Al-Ibaanah rasmiy veb-saytida asosiy ro'yxatdan o'tishni yakunlashdir. Ushbu portal ro'yxatdan o'tganingizdan so'ng majburiy kampusda bron qilish vaqtini bron qilish uchun mo'ljallangan." }
         ]
     },
     campusAddress: "Block 12, Rd 18, Nasr City, Cairo, Egypt",
     campusHours: "Sunday - Thursday, 9:00 AM - 2:00 PM"
 };
-let notificationSettings: NotificationSettings = {
-    confirmation: {
-        enabled: true,
-        subject: 'Your Al-Ibaanah Assessment is Confirmed!',
-        body: 'As-salamu \'alaykum {{studentName}},\n\nYour assessment for {{level}} has been successfully booked for {{appointmentDate}} at {{appointmentTime}}.\nYour registration code is {{registrationCode}}.\n\nPlease find your admission slip attached.',
-    },
-    reminder24h: { enabled: true, subject: 'Reminder: Your Al-Ibaanah Assessment is Tomorrow', body: '...' },
-    reminderDayOf: { enabled: false, subject: 'Reminder: Your Al-Ibaanah Assessment is Today', body: '...' },
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let notificationSettings: any = {
+    en: {
+        confirmation: {
+            enabled: true,
+            subject: 'Your Al-Ibaanah Booking is Confirmed!',
+            body: 'As-salamu \'alaykum {{studentName}},\n\nYour booking for {{level}} has been successfully booked for {{appointmentDate}} at {{appointmentTime}}.\nYour registration code is {{registrationCode}}.\n\nPlease find your admission slip attached.',
+        },
+        reminder24h: { enabled: true, subject: 'Reminder: Your Al-Ibaanah Booking is Tomorrow', body: '...' },
+        reminderDayOf: { enabled: false, subject: 'Reminder: Your Al-Ibaanah Booking is Today', body: '...' },
+    }
 };
 let appSettings: AppSettings = { isRegistrationOpen: true, maxDailyCapacity: 100 };
 

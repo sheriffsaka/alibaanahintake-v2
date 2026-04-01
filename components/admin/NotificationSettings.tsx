@@ -10,6 +10,7 @@ import { CheckCircle, Send, Play, ShieldCheck } from 'lucide-react';
 
 const NotificationSettings: React.FC = () => {
     const [settings, setSettings] = useState<TNotificationSettings | null>(null);
+    const [selectedLang, setSelectedLang] = useState<string>('en');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
@@ -20,27 +21,23 @@ const NotificationSettings: React.FC = () => {
     const [runningReminders, setRunningReminders] = useState(false);
     const [cronResult, setCronResult] = useState<unknown>(null);
 
+    const languages = [
+        { code: 'en', name: 'English' },
+        { code: 'ar', name: 'Arabic' },
+        { code: 'fr', name: 'French' },
+        { code: 'zh', name: 'Chinese' },
+        { code: 'uz', name: 'Uzbek' },
+        { code: 'ru', name: 'Russian' },
+    ];
+
     const fetchSettings = async () => {
         setLoading(true);
         setError(null);
         
-        const isPending = { current: true };
-        // Create a timeout to prevent indefinite loading
-        const timeoutId = setTimeout(() => {
-            if (isPending.current) {
-                setError("Request timed out. Please check your connection and try again.");
-                setLoading(false);
-            }
-        }, 15000); // 15 second timeout
-
         try {
             const data = await getNotificationSettings();
-            isPending.current = false;
-            clearTimeout(timeoutId);
             setSettings(data);
         } catch (error) {
-            isPending.current = false;
-            clearTimeout(timeoutId);
             console.error("Failed to fetch notification settings", error);
             setError("Failed to load settings. Please try again.");
         } finally {
@@ -52,13 +49,22 @@ const NotificationSettings: React.FC = () => {
         fetchSettings();
     }, []);
 
-    const handleChange = (type: keyof TNotificationSettings, field: 'subject' | 'body' | 'enabled', value: string | boolean) => {
-        if (!settings) return;
+    const handleChange = (type: 'confirmation' | 'reminder24h' | 'reminderDayOf', field: 'subject' | 'body' | 'enabled', value: string | boolean) => {
+        if (!settings || !selectedLang) return;
+        const langSettings = settings[selectedLang] || {
+            confirmation: { enabled: true, subject: '', body: '' },
+            reminder24h: { enabled: true, subject: '', body: '' },
+            reminderDayOf: { enabled: false, subject: '', body: '' }
+        };
+
         setSettings({
             ...settings,
-            [type]: {
-                ...settings[type],
-                [field]: value,
+            [selectedLang]: {
+                ...langSettings,
+                [type]: {
+                    ...langSettings[type],
+                    [field]: value,
+                }
             }
         });
     };
@@ -67,21 +73,30 @@ const NotificationSettings: React.FC = () => {
         if (!settings) return;
         setSaving(true);
         setSaved(false);
-        await updateNotificationSettings(settings);
-        setSaving(false);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
+        try {
+            await updateNotificationSettings(settings);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err) {
+            console.error("Failed to save settings", err);
+            alert("Failed to save settings.");
+        } finally {
+            setSaving(false);
+        }
     };
 
-    const handleSendTest = async (type: keyof TNotificationSettings) => {
-        if (!settings || !testEmail) {
+    const handleSendTest = async (type: 'confirmation' | 'reminder24h' | 'reminderDayOf') => {
+        if (!settings || !testEmail || !selectedLang) {
             alert("Please enter a test email address.");
             return;
         }
         
+        const langSettings = settings[selectedLang];
+        if (!langSettings) return;
+
         setTesting(type);
         try {
-            let body = settings[type].body;
+            let body = langSettings[type].body;
             // Basic placeholder replacement for test
             body = body.replace(/{{studentName}}/g, 'Test Student');
             body = body.replace(/{{level}}/g, 'Level 1');
@@ -89,7 +104,7 @@ const NotificationSettings: React.FC = () => {
             body = body.replace(/{{appointmentTime}}/g, '10:00 AM - 11:00 AM');
             body = body.replace(/{{registrationCode}}/g, 'AIB-TEST-001');
 
-            await sendTestEmail(testEmail, `[TEST] ${settings[type].subject}`, body.replace(/\n/g, '<br>'));
+            await sendTestEmail(testEmail, `[TEST] [${selectedLang.toUpperCase()}] ${langSettings[type].subject}`, body.replace(/\n/g, '<br>'));
             alert("Test email sent successfully!");
         } catch (error) {
             console.error("Test email failed:", error);
@@ -140,8 +155,14 @@ const NotificationSettings: React.FC = () => {
 
     if (!settings) return <p>Could not load settings.</p>;
 
+    const currentLangSettings = settings[selectedLang] || {
+        confirmation: { enabled: true, subject: '', body: '' },
+        reminder24h: { enabled: true, subject: '', body: '' },
+        reminderDayOf: { enabled: false, subject: '', body: '' }
+    };
+
     const renderNotificationSection = (
-        type: keyof TNotificationSettings, 
+        type: 'confirmation' | 'reminder24h' | 'reminderDayOf', 
         title: string
     ) => (
         <div className="border p-4 rounded-lg bg-gray-50">
@@ -152,42 +173,42 @@ const NotificationSettings: React.FC = () => {
                         variant="secondary" 
                         size="sm" 
                         onClick={() => handleSendTest(type)}
-                        disabled={!!testing || !settings[type].enabled}
+                        disabled={!!testing || !currentLangSettings[type].enabled}
                         className="flex items-center"
                     >
                         <Send className="h-3 w-3 mr-1" />
                         {testing === type ? 'Sending...' : 'Test'}
                     </Button>
                     <label htmlFor={`${type}Toggle`} className="flex items-center cursor-pointer">
-                        <span className="mr-3 text-sm font-medium text-gray-900">{settings[type].enabled ? 'Enabled' : 'Disabled'}</span>
+                        <span className="mr-3 text-sm font-medium text-gray-900">{currentLangSettings[type].enabled ? 'Enabled' : 'Disabled'}</span>
                         <div className="relative">
                             <input 
                                 type="checkbox" 
                                 id={`${type}Toggle`} 
                                 className="sr-only" 
-                                checked={settings[type].enabled}
+                                checked={currentLangSettings[type].enabled}
                                 onChange={(e) => handleChange(type, 'enabled', e.target.checked)}
                             />
                             <div className="block bg-gray-600 w-14 h-8 rounded-full"></div>
-                            <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${settings[type].enabled ? 'transform translate-x-6 bg-green-400' : ''}`}></div>
+                            <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${currentLangSettings[type].enabled ? 'transform translate-x-6 bg-green-400' : ''}`}></div>
                         </div>
                     </label>
                 </div>
             </div>
-            <div className={`space-y-4 transition-opacity ${settings[type].enabled ? 'opacity-100' : 'opacity-50'}`}>
+            <div className={`space-y-4 transition-opacity ${currentLangSettings[type].enabled ? 'opacity-100' : 'opacity-50'}`}>
                 <Input 
                     label="Subject" 
-                    value={settings[type].subject}
+                    value={currentLangSettings[type].subject}
                     onChange={(e) => handleChange(type, 'subject', e.target.value)}
-                    disabled={!settings[type].enabled}
+                    disabled={!currentLangSettings[type].enabled}
                 />
                 <label className="block text-sm font-medium text-gray-700 mb-1">Body</label>
                 <textarea
-                    value={settings[type].body}
+                    value={currentLangSettings[type].body}
                     onChange={(e) => handleChange(type, 'body', e.target.value)}
                     rows={6}
                     className="block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm border-gray-300"
-                    disabled={!settings[type].enabled}
+                    disabled={!currentLangSettings[type].enabled}
                 />
             </div>
         </div>
@@ -199,6 +220,25 @@ const NotificationSettings: React.FC = () => {
                 <p className="mb-6 text-gray-600">
                     Enable, disable, and edit the email templates sent to students. You can use placeholders like {"{{studentName}}"}, {"{{level}}"}, {"{{appointmentDate}}"}, {"{{appointmentTime}}"}, and {"{{registrationCode}}"} which will be replaced with actual data.
                 </p>
+
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Language to Edit</label>
+                    <div className="flex flex-wrap gap-2">
+                        {languages.map(lang => (
+                            <button
+                                key={lang.code}
+                                onClick={() => setSelectedLang(lang.code)}
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                    selectedLang === lang.code 
+                                    ? 'bg-blue-600 text-white' 
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                            >
+                                {lang.name}
+                            </button>
+                        ))}
+                    </div>
+                </div>
                 
                 <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg flex flex-col sm:flex-row items-end gap-4">
                     <div className="flex-1 w-full">
