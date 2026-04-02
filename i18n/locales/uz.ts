@@ -39,7 +39,11 @@ export default {
 
     // Visit Campus
     visitCampusTitle: 'Kampusimizga tashrif buyuring',
-    visitCampusDesc: "Bron qilish va ro'yxatga olish bizning Nasr Sitidagi bosh ofisimizda amalga oshiriladi. Kelganda telefoningizda raqamli qabul varaqangiz tayyor ekanligiga ishonch hosil qiling.",
+    visitCampusDesc: "Ro'yxatga olish bizning Nasr Sitidagi bosh ofisimizda amalga oshiriladi. Kelganda telefoningizda raqamli qabul varaqangiz tayyor ekanligiga ishonch hosil qiling.",
+    maleSectionContact: "Erkaklar / Birodarlar bo'limi bilan bog'lanish",
+    maleSectionNumbers: "+201112335628",
+    femaleSectionContact: "Ayollar / Opa-singillar bo'limi bilan bog'lanish",
+    femaleSectionNumbers: "+201009537909",
     address: 'Manzil',
     operatingHours: 'Ish vaqti',
     campusAddress: 'Blok 12, Rd 18, Nasr Siti, Qohira, Misr',

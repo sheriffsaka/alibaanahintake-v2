@@ -39,7 +39,11 @@ export default {
 
     // Visit Campus
     visitCampusTitle: 'قم بزيارة حرمنا الجامعي',
-    visitCampusDesc: 'يتم الحجز والالتحاق في مقرنا بمدينة نصر. يرجى التأكد من أن قسيمة القبول الرقمية جاهزة على هاتفك عند الوصول.',
+    visitCampusDesc: 'يتم الالتحاق في مقرنا بمدينة نصر. يرجى التأكد من أن قسيمة القبول الرقمية جاهزة على هاتفك عند الوصول.',
+    maleSectionContact: "تواصل قسم الرجال",
+    maleSectionNumbers: "+201112335628",
+    femaleSectionContact: "تواصل قسم النساء",
+    femaleSectionNumbers: "+201009537909",
     address: 'العنوان',
     operatingHours: 'ساعات العمل',
     campusAddress: 'بلوك 12، شارع 18، مدينة نصر، القاهرة، مصر',

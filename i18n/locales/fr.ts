@@ -39,7 +39,11 @@ export default {
 
     // Visit Campus
     visitCampusTitle: 'Visitez notre campus',
-    visitCampusDesc: "La réservation et l'inscription ont lieu sur notre site de Nasr City. Assurez-vous d'avoir votre ticket d'admission numérique prêt sur votre téléphone à votre arrivée.",
+    visitCampusDesc: "L'inscription a lieu sur notre site de Nasr City. Assurez-vous d'avoir votre ticket d'admission numérique prêt sur votre téléphone à votre arrivée.",
+    maleSectionContact: "Contact Section Hommes / Frères",
+    maleSectionNumbers: "+201112335628",
+    femaleSectionContact: "Contact Section Femmes / Sœurs",
+    femaleSectionNumbers: "+201009537909",
     address: 'Adresse',
     operatingHours: 'Heures d\'ouverture',
     campusAddress: 'Bloc 12, Rue 18, Nasr City, Le Caire, Égypte',

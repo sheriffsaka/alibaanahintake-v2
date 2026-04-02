@@ -39,7 +39,11 @@ export default {
 
     // Visit Campus
     visitCampusTitle: 'Visit Our Campus',
-    visitCampusDesc: 'Booking and enrollment happen on-site at our Nasr City headquarters. Please ensure you have your digital intake slip ready on your phone upon arrival.',
+    visitCampusDesc: 'Enrollment happens on-site at our Nasr City headquarters. Please ensure you have your digital intake slip ready on your phone upon arrival.',
+    maleSectionContact: "Male / Brother's Section Contact",
+    maleSectionNumbers: "+201112335628",
+    femaleSectionContact: "Female / Sister's Section Contact",
+    femaleSectionNumbers: "+201009537909",
     address: 'Address',
     operatingHours: 'Operating Hours',
     campusAddress: 'Block 12, Rd 18, Nasr City, Cairo, Egypt',

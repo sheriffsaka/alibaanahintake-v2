@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Clock } from 'lucide-react';
+import { MapPin, Clock, Smartphone } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { useSiteContent } from '../../contexts/SiteContentContext';
 
@@ -28,6 +28,16 @@ const VisitCampus: React.FC = () => {
                 <Clock className="h-7 w-7 text-brand-green mb-2" />
                 <h3 className="font-semibold mb-1">{t('operatingHours')}</h3>
                 <p className="text-sm text-gray-600">{content?.campusHours}</p>
+              </div>
+              <div className="bg-slate-50/70 p-6 rounded-xl">
+                <Smartphone className="h-7 w-7 text-brand-green mb-2" />
+                <h3 className="font-semibold mb-1">{t('maleSectionContact')}</h3>
+                <p className="text-sm text-gray-600 font-mono">{t('maleSectionNumbers')}</p>
+              </div>
+              <div className="bg-slate-50/70 p-6 rounded-xl">
+                <Smartphone className="h-7 w-7 text-brand-green mb-2" />
+                <h3 className="font-semibold mb-1">{t('femaleSectionContact')}</h3>
+                <p className="text-sm text-gray-600 font-mono">{t('femaleSectionNumbers')}</p>
               </div>
             </div>
             <Link to="/enroll">

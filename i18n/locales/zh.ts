@@ -39,7 +39,11 @@ export default {
 
     // Visit Campus
     visitCampusTitle: '参观我们的校园',
-    visitCampusDesc: '预约和注册在我们的纳斯尔市总部现场进行。请确保您在抵达时手机上准备好您的数字入学凭证。',
+    visitCampusDesc: '入学登记在我们的纳斯尔市总部现场进行。抵达时请确保您的手机上已准备好数字入学单。',
+    maleSectionContact: '男部/兄弟部联系方式',
+    maleSectionNumbers: '+201112335628',
+    femaleSectionContact: '女部/姐妹部联系方式',
+    femaleSectionNumbers: '+201009537909',
     address: '地址',
     operatingHours: '营业时间',
     campusAddress: '埃及开罗纳斯尔市18路12座',
