@@ -212,102 +212,102 @@ VALUES (1, '{
         "confirmation": {
             "enabled": true,
             "subject": "Your Al-Ibaanah Booking is Confirmed!",
-            "body": "As-salamu ''alaykum {{studentName}},\\n\\nYour booking for {{level}} has been successfully confirmed for {{appointmentDate}} at {{appointmentTime}}.\\nYour booking code is {{registrationCode}}.\\n\\nPlease find your admission slip attached."
+            "body": "## **Registration Confirmation**\n\n**Dear {{studentName}},**\n\nYour slot booking for **{{level}}** registration on campus has been successfully confirmed.\n\n* **Date:** {{appointmentDate}}\n* **Time:** {{appointmentTime}}\n* **Booking Code:** {{registrationCode}}\n\nPlease find your **Admission Slip** attached. Kindly bring all required documents and fees with you to proceed with your registration. \n\n> **Important Note:** Registration cannot be processed for students who do not provide all required documentation at the time of their appointment.\n\n---\n\n### **Quick Checklist (Based on your slip):**\n* **Identification:** 3 copies of your international passport and 3 copies of a valid visa.\n* **Photos:** 3 passport-size photographs (or 1 if you are a returning student).\n* **Payment:** Tuition fee payment or proof of payment if already paid.\n\n---\n\n### **Contact Information:**\n* **Male / Brothers Section:** +201112335628\n* **Female / Sisters Section:** +201009537909"
         },
         "reminder24h": {
             "enabled": true,
             "subject": "Reminder: Your Al-Ibaanah Booking is Tomorrow",
-            "body": "As-salamu ''alaykum {{studentName}},\\n\\nThis is a reminder that your booking for {{level}} is scheduled for tomorrow, {{appointmentDate}} at {{appointmentTime}}.\\n\\nWe look forward to seeing you."
+            "body": "## **Registration Reminder**\n\n**Dear {{studentName}},**\n\nThis is a reminder that your slot booking for **{{level}}** registration on campus is scheduled for tomorrow.\n\n* **Date:** {{appointmentDate}}\n* **Time:** {{appointmentTime}}\n* **Booking Code:** {{registrationCode}}\n\nPlease find your **Admission Slip** attached. Kindly bring all required documents and fees with you to proceed with your registration. \n\n> **Important Note:** Registration cannot be processed for students who do not provide all required documentation at the time of their appointment.\n\n---\n\n### **Quick Checklist (Based on your slip):**\n* **Identification:** 3 copies of your international passport and 3 copies of a valid visa.\n* **Photos:** 3 passport-size photographs (or 1 if you are a returning student).\n* **Payment:** Tuition fee payment or proof of payment if already paid.\n\n---\n\n### **Contact Information:**\n* **Male / Brothers Section:** +201112335628\n* **Female / Sisters Section:** +201009537909"
         },
         "reminderDayOf": {
             "enabled": false,
             "subject": "Reminder: Your Al-Ibaanah Booking is Today",
-            "body": "As-salamu ''alaykum {{studentName}},\\n\\nYour booking is today at {{appointmentTime}}. Please arrive on time with the required documents.\\n\\nAl-Ibaanah Administration"
+            "body": "## **Registration Reminder**\n\n**Dear {{studentName}},**\n\nThis is a reminder that your slot booking for **{{level}}** registration on campus is scheduled for today.\n\n* **Date:** {{appointmentDate}}\n* **Time:** {{appointmentTime}}\n* **Booking Code:** {{registrationCode}}\n\nPlease find your **Admission Slip** attached. Kindly bring all required documents and fees with you to proceed with your registration. \n\n> **Important Note:** Registration cannot be processed for students who do not provide all required documentation at the time of their appointment.\n\n---\n\n### **Quick Checklist (Based on your slip):**\n* **Identification:** 3 copies of your international passport and 3 copies of a valid visa.\n* **Photos:** 3 passport-size photographs (or 1 if you are a returning student).\n* **Payment:** Tuition fee payment or proof of payment if already paid.\n\n---\n\n### **Contact Information:**\n* **Male / Brothers Section:** +201112335628\n* **Female / Sisters Section:** +201009537909"
         }
     },
     "ar": {
         "confirmation": {
             "enabled": true,
             "subject": "تم تأكيد حجزك في معهد الإبانة!",
-            "body": "السلام عليكم {{studentName}}،\\n\\nتم حجز موعدك لـ {{level}} بنجاح في {{appointmentDate}} الساعة {{appointmentTime}}.\\nكود الحجز الخاص بك هو {{registrationCode}}.\\n\\nيرجى تجد بطاقة القبول مرفقة."
+            "body": "## **تأكيد التسجيل**\n\n**عزيزي {{studentName}}،**\n\nتم تأكيد حجز موعدك لتسجيل **{{level}}** في الحرم الجامعي بنجاح.\n\n* **التاريخ:** {{appointmentDate}}\n* **الوقت:** {{appointmentTime}}\n* **كود الحجز:** {{registrationCode}}\n\nيرجى تجد **بطاقة القبول** مرفقة. يرجى إحضار جميع المستندات والرسوم المطلوبة معك لإتمام عملية التسجيل.\n\n> **ملاحظة هامة:** لا يمكن إتمام عملية التسجيل للطلاب الذين لا يقدمون جميع المستندات المطلوبة في وقت موعدهم.\n\n---\n\n### **قائمة مراجعة سريعة (بناءً على بطاقتك):**\n* **الهوية:** 3 نسخ من جواز سفرك الدولي و3 نسخ من تأشيرة صالحة.\n* **الصور:** 3 صور شخصية بحجم جواز السفر (أو صورة واحدة إذا كنت طالباً عائداً).\n* **الدفع:** دفع الرسوم الدراسية أو إثبات الدفع إذا تم الدفع مسبقاً.\n\n---\n\n### **معلومات التواصل:**\n* **قسم الرجال / الإخوة:** +201112335628\n* **قسم النساء / الأخوات:** +201009537909"
         },
         "reminder24h": {
             "enabled": true,
             "subject": "تذكير: موعد حجزك في معهد الإبانة غداً",
-            "body": "السلام عليكم {{studentName}}،\\n\\nهذا تذكير بأن موعد حجزك لـ {{level}} مقرر غداً، {{appointmentDate}} الساعة {{appointmentTime}}.\\n\\nنحن بانتظار رؤيتك."
+            "body": "## **تذكير بالتسجيل**\n\n**عزيزي {{studentName}}،**\n\nهذا تذكير بأن حجز موعدك لتسجيل **{{level}}** في الحرم الجامعي مقرر غداً.\n\n* **التاريخ:** {{appointmentDate}}\n* **الوقت:** {{appointmentTime}}\n* **كود الحجز:** {{registrationCode}}\n\nيرجى تجد **بطاقة القبول** مرفقة. يرجى إحضار جميع المستندات والرسوم المطلوبة معك لإتمام عملية التسجيل.\n\n> **ملاحظة هامة:** لا يمكن إتمام عملية التسجيل للطلاب الذين لا يقدمون جميع المستندات المطلوبة في وقت موعدهم.\n\n---\n\n### **قائمة مراجعة سريعة (بناءً على بطاقتك):**\n* **الهوية:** 3 نسخ من جواز سفرك الدولي و3 نسخ من تأشيرة صالحة.\n* **الصور:** 3 صور شخصية بحجم جواز السفر (أو صورة واحدة إذا كنت طالباً عائداً).\n* **الدفع:** دفع الرسوم الدراسية أو إثبات الدفع إذا تم الدفع مسبقاً.\n\n---\n\n### **معلومات التواصل:**\n* **قسم الرجال / الإخوة:** +201112335628\n* **قسم النساء / الأخوات:** +201009537909"
         },
         "reminderDayOf": {
             "enabled": false,
             "subject": "تذكير: موعد حجزك في معهد الإبانة اليوم",
-            "body": "السلام عليكم {{studentName}}،\\n\\nموعد حجزك اليوم الساعة {{appointmentTime}}. يرجى الحضور في الموعد المحدد مع المستندات المطلوبة.\\n\\nإدارة معهد الإبانة"
+            "body": "## **تذكير بالتسجيل**\n\n**عزيزي {{studentName}}،**\n\nهذا تذكير بأن حجز موعدك لتسجيل **{{level}}** في الحرم الجامعي مقرر اليوم.\n\n* **التاريخ:** {{appointmentDate}}\n* **الوقت:** {{appointmentTime}}\n* **كود الحجز:** {{registrationCode}}\n\nيرجى تجد **بطاقة القبول** مرفقة. يرجى إحضار جميع المستندات والرسوم المطلوبة معك لإتمام عملية التسجيل.\n\n> **ملاحظة هامة:** لا يمكن إتمام عملية التسجيل للطلاب الذين لا يقدمون جميع المستندات المطلوبة في وقت موعدهم.\n\n---\n\n### **قائمة مراجعة سريعة (بناءً على بطاقتك):**\n* **الهوية:** 3 نسخ من جواز سفرك الدولي و3 نسخ من تأشيرة صالحة.\n* **الصور:** 3 صور شخصية بحجم جواز السفر (أو صورة واحدة إذا كنت طالباً عائداً).\n* **الدفع:** دفع الرسوم الدراسية أو إثبات الدفع إذا تم الدفع مسبقاً.\n\n---\n\n### **معلومات التواصل:**\n* **قسم الرجال / الإخوة:** +201112335628\n* **قسم النساء / الأخوات:** +201009537909"
         }
     },
     "fr": {
         "confirmation": {
             "enabled": true,
             "subject": "Votre réservation Al-Ibaanah est confirmée !",
-            "body": "As-salamu ''alaykum {{studentName}},\\n\\nVotre réservation pour {{level}} a été confirmée avec succès pour le {{appointmentDate}} à {{appointmentTime}}.\\nVotre code de réservation est {{registrationCode}}.\\n\\nVeuillez trouver votre fiche d''admission en pièce jointe."
+            "body": "## **Confirmation d''inscription**\n\n**Cher {{studentName}},**\n\nVotre créneau pour l''inscription au **{{level}}** sur le campus a été confirmé avec succès.\n\n* **Date :** {{appointmentDate}}\n* **Heure :** {{appointmentTime}}\n* **Code de réservation :** {{registrationCode}}\n\nVeuillez trouver votre **fiche d''admission** ci-jointe. Nous vous prions d''apporter tous les documents requis ainsi que les frais de scolarité pour procéder à l''inscription.\n\n> **Note importante :** L''inscription ne pourra pas être effectuée pour les étudiants qui ne présentent pas l''intégralité des documents requis lors de leur rendez-vous.\n\n---\n\n### **Liste de contrôle rapide (Basée sur votre fiche) :**\n* **Identification :** 3 copies de votre passeport international et 3 copies d''un visa valide.\n* **Photos :** 3 photographies de format passeport (ou 1 si vous êtes un étudiant de retour).\n* **Paiement :** Paiement des frais de scolarité ou preuve de paiement si déjà payé.\n\n---\n\n### **Informations de contact :**\n* **Section Hommes / Frères :** +201112335628\n* **Section Femmes / Sœurs :** +201009537909"
         },
         "reminder24h": {
             "enabled": true,
             "subject": "Rappel : Votre réservation Al-Ibaanah est demain",
-            "body": "As-salamu ''alaykum {{studentName}},\\n\\nCeci est un rappel que votre réservation pour {{level}} est prévue pour demain, le {{appointmentDate}} à {{appointmentTime}}.\\n\\nNous avons hâte de vous voir."
+            "body": "## **Rappel d''inscription**\n\n**Cher {{studentName}},**\n\nCeci est un rappel que votre créneau pour l''inscription au **{{level}}** sur le campus est prévu pour demain.\n\n* **Date :** {{appointmentDate}}\n* **Heure :** {{appointmentTime}}\n* **Code de réservation :** {{registrationCode}}\n\nVeuillez trouver votre **fiche d''admission** ci-jointe. Nous vous prions d''apporter tous les documents requis ainsi que les frais de scolarité pour procéder à l''inscription.\n\n> **Note importante :** L''inscription ne pourra pas être effectuée pour les étudiants qui ne présentent pas l''intégralité des documents requis lors de leur rendez-vous.\n\n---\n\n### **Liste de contrôle rapide (Basée sur votre fiche) :**\n* **Identification :** 3 copies de votre passeport international et 3 copies d''un visa valide.\n* **Photos :** 3 photographies de format passeport (ou 1 si vous êtes un étudiant de retour).\n* **Paiement :** Paiement des frais de scolarité ou preuve de paiement si déjà payé.\n\n---\n\n### **Informations de contact :**\n* **Section Hommes / Frères :** +201112335628\n* **Section Femmes / Sœurs :** +201009537909"
         },
         "reminderDayOf": {
             "enabled": false,
             "subject": "Rappel : Votre réservation Al-Ibaanah est aujourd''hui",
-            "body": "As-salamu ''alaykum {{studentName}},\\n\\nVotre réservation est aujourd''hui à {{appointmentTime}}. Veuillez arriver à l''heure avec les documents requis.\\n\\nAdministration d''Al-Ibaanah"
+            "body": "## **Rappel d''inscription**\n\n**Cher {{studentName}},**\n\nCeci est un rappel que votre créneau pour l''inscription au **{{level}}** sur le campus est prévu pour aujourd''hui.\n\n* **Date :** {{appointmentDate}}\n* **Heure :** {{appointmentTime}}\n* **Code de réservation :** {{registrationCode}}\n\nVeuillez trouver votre **fiche d''admission** ci-jointe. Nous vous prions d''apporter tous les documents requis ainsi que les frais de scolarité pour procéder à l''inscription.\n\n> **Note importante :** L''inscription ne pourra pas être effectuée pour les étudiants qui ne présentent pas l''intégralité des documents requis lors de leur rendez-vous.\n\n---\n\n### **Liste de contrôle rapide (Basée sur votre fiche) :**\n* **Identification :** 3 copies de votre passeport international et 3 copies d''un visa valide.\n* **Photos :** 3 photographies de format passeport (ou 1 si vous êtes un étudiant de retour).\n* **Paiement :** Paiement des frais de scolarité ou preuve de paiement si déjà payé.\n\n---\n\n### **Informations de contact :**\n* **Section Hommes / Frères :** +201112335628\n* **Section Femmes / Sœurs :** +201009537909"
         }
     },
     "zh": {
         "confirmation": {
             "enabled": true,
             "subject": "您的 Al-Ibaanah 预约已确认！",
-            "body": "As-salamu ''alaykum {{studentName}}，\\n\\n您对 {{level}} 的预约已成功确认，时间为 {{appointmentDate}} {{appointmentTime}}。\\n您的预约代码是 {{registrationCode}}。\\n\\n请查看随附的入学单。"
+            "body": "## **注册确认**\n\n**亲爱的 {{studentName}}：**\n\n您在校园进行的 **{{level}}** 注册预约已确认成功。\n\n* **日期：** {{appointmentDate}}\n* **时间：** {{appointmentTime}}\n* **预约代码：** {{registrationCode}}\n\n请查收随信附上的**入学通知单**。请务必携带所有必需文件及学费以办理注册手续。\n\n> **重要提示：** 若学生在预约时间内未能提供齐备的所有证明文件，将无法办理注册。\n\n---\n\n### **快速检查清单（根据您的通知单）：**\n* **身份证明：** 3份国际护照复印件和3份有效签证复印件。\n* **照片：** 3张护照尺寸照片（如果是返校学生，则只需1张）。\n* **费用：** 缴纳学费或提供已缴费证明。\n\n---\n\n### **联系信息：**\n* **男部 / 兄弟部：** +201112335628\n* **女部 / 姐妹部：** +201009537909"
         },
         "reminder24h": {
             "enabled": true,
             "subject": "提醒：您的 Al-Ibaanah 预约在明天",
-            "body": "As-salamu ''alaykum {{studentName}}，\\n\\n提醒您，您对 {{level}} 的预约定于明天 {{appointmentDate}} {{appointmentTime}}。\\n\\n我们期待您的到来。"
+            "body": "## **注册提醒**\n\n**亲爱的 {{studentName}}：**\n\n提醒您，您在校园进行的 **{{level}}** 注册预约定于明天。\n\n* **日期：** {{appointmentDate}}\n* **时间：** {{appointmentTime}}\n* **预约代码：** {{registrationCode}}\n\n请查收随信附上的**入学通知单**。请务必携带所有必需文件及学费以办理注册手续。\n\n> **重要提示：** 若学生在预约时间内未能提供齐备的所有证明文件，将无法办理注册。\n\n---\n\n### **快速检查清单（根据您的通知单）：**\n* **身份证明：** 3份国际护照复印件和3份有效签证复印件。\n* **照片：** 3张护照尺寸照片（如果是返校学生，则只需1张）。\n* **费用：** 缴纳学费或提供已缴费证明。\n\n---\n\n### **联系信息：**\n* **男部 / 兄弟部：** +201112335628\n* **女部 / 姐妹部：** +201009537909"
         },
         "reminderDayOf": {
             "enabled": false,
             "subject": "提醒：您的 Al-Ibaanah 预约在今天",
-            "body": "As-salamu ''alaykum {{studentName}}，\\n\\n您的预约在今天 {{appointmentTime}}。请准时携带所需文件到达。\\n\\nAl-Ibaanah 管理层"
+            "body": "## **注册提醒**\n\n**亲爱的 {{studentName}}：**\n\n提醒您，您在校园进行的 **{{level}}** 注册预约定于今天。\n\n* **日期：** {{appointmentDate}}\n* **时间：** {{appointmentTime}}\n* **预约代码：** {{registrationCode}}\n\n请查收随信附上的**入学通知单**。请务必携带所有必需文件及学费以办理注册手续。\n\n> **重要提示：** 若学生在预约时间内未能提供齐备的所有证明文件，将无法办理注册。\n\n---\n\n### **快速检查清单（根据您的通知单）：**\n* **身份证明：** 3份国际护照复印件和3份有效签证复印件。\n* **照片：** 3张护照尺寸照片（如果是返校学生，则只需1张）。\n* **费用：** 缴纳学费或提供已缴费证明。\n\n---\n\n### **联系信息：**\n* **男部 / 兄弟部：** +201112335628\n* **女部 / 姐妹部：** +201009537909"
         }
     },
     "uz": {
         "confirmation": {
             "enabled": true,
             "subject": "Al-Ibaanah band qilinganligingiz tasdiqlandi!",
-            "body": "As-salamu ''alaykum {{studentName}},\\n\\n{{level}} uchun band qilinganligingiz {{appointmentDate}} kuni soat {{appointmentTime}} da muvaffaqiyatli tasdiqlandi.\\nSizning band qilish kodingiz: {{registrationCode}}.\\n\\nIltimos, ilova qilingan qabul varaqasini ko''ring."
+            "body": "## **Ro''yxatdan o''tishni tasdiqlash**\n\n**Hurmatli {{studentName}},**\n\nKampusda **{{level}}** uchun ro''yxatdan o''tish vaqtingiz muvaffaqiyatli tasdiqlandi.\n\n* **Sana:** {{appointmentDate}}\n* **Vaqt:** {{appointmentTime}}\n* **Band qilish kodi:** {{registrationCode}}\n\nIlova qilingan **qabul varaqasini** ko''rib chiqing. Ro''yxatdan o''tishni davom ettirish uchun barcha kerakli hujjatlarni va to''lovlarni o''zingiz bilan olib kelishingizni so''raymiz.\n\n> **Muhim eslatma:** Belgilangan vaqtda barcha kerakli hujjatlarni to''liq taqdim etmagan talabalar ro''yxatdan o''tkazilmaydi.\n\n---\n\n### **Tezkor nazorat ro''yxati (Qabul varaqangiz asosida):**\n* **Shaxsni tasdiqlash:** Xalqaro pasportingizning 3 nusxasi va amaldagi vizaning 3 nusxasi.\n* **Fotosuratlar:** 3 ta pasport o''lchamidagi fotosurat (agar siz qaytib kelgan talaba bo''lsangiz, 1 ta).\n* **To''lov:** O''quv to''lovi yoki allaqachon to''langan bo''lsa, to''lovni tasdiqlovchi hujjat.\n\n---\n\n### **Bog''lanish uchun ma''lumotlar:**\n* **Erkaklar / Birodarlar bo''limi:** +201112335628\n* **Ayollar / Opa-singillar bo''limi:** +201009537909"
         },
         "reminder24h": {
             "enabled": true,
             "subject": "Eslatma: Al-Ibaanah band qilinganligingiz ertaga",
-            "body": "As-salamu ''alaykum {{studentName}},\\n\\nBu {{level}} uchun band qilinganligingiz ertaga, {{appointmentDate}} kuni soat {{appointmentTime}} da ekanligi haqida eslatma.\\n\\nSizni kutib qolamiz."
+            "body": "## **Ro''yxatdan o''tish haqida eslatma**\n\n**Hurmatli {{studentName}},**\n\nBu kampusdagi **{{level}}** uchun ro''yxatdan o''tish vaqtingiz ertaga ekanligi haqida eslatma.\n\n* **Sana:** {{appointmentDate}}\n* **Vaqt:** {{appointmentTime}}\n* **Band qilish kodi:** {{registrationCode}}\n\nIlova qilingan **qabul varaqasini** ko''rib chiqing. Ro''yxatdan o''tishni davom ettirish uchun barcha kerakli hujjatlarni va to''lovlarni o''zingiz bilan olib kelishingizni so''raymiz.\n\n> **Muhim eslatma:** Belgilangan vaqtda barcha kerakli hujjatlarni to''liq taqdim etmagan talabalar ro''yxatdan o''tkazilmaydi.\n\n---\n\n### **Tezkor nazorat ro''yxati (Qabul varaqangiz asosida):**\n* **Shaxsni tasdiqlash:** Xalqaro pasportingizning 3 nusxasi va amaldagi vizaning 3 nusxasi.\n* **Fotosuratlar:** 3 ta pasport o''lchamidagi fotosurat (agar siz qaytib kelgan talaba bo''lsangiz, 1 ta).\n* **To''lov:** O''quv to''lovi yoki allaqachon to''langan bo''lsa, to''lovni tasdiqlovchi hujjat.\n\n---\n\n### **Bog''lanish uchun ma''lumotlar:**\n* **Erkaklar / Birodarlar bo''limi:** +201112335628\n* **Ayollar / Opa-singillar bo''limi:** +201009537909"
         },
         "reminderDayOf": {
             "enabled": false,
             "subject": "Eslatma: Al-Ibaanah band qilinganligingiz bugun",
-            "body": "As-salamu ''alaykum {{studentName}},\\n\\nSizning band qilinganligingiz bugun soat {{appointmentTime}} da. Iltimos, kerakli hujjatlar bilan o''z vaqtida keling.\\n\\nAl-Ibaanah ma''muriyati"
+            "body": "## **Ro''yxatdan o''tish haqida eslatma**\n\n**Hurmatli {{studentName}},**\n\nBu kampusdagi **{{level}}** uchun ro''yxatdan o''tish vaqtingiz bugun ekanligi haqida eslatma.\n\n* **Sana:** {{appointmentDate}}\n* **Vaqt:** {{appointmentTime}}\n* **Band qilish kodi:** {{registrationCode}}\n\nIlova qilingan **qabul varaqasini** ko''rib chiqing. Ro''yxatdan o''tishni davom ettirish uchun barcha kerakli hujjatlarni va to''lovlarni o''zingiz bilan olib kelishingizni so''raymiz.\n\n> **Muhim eslatma:** Belgilangan vaqtda barcha kerakli hujjatlarni to''liq taqdim etmagan talabalar ro''yxatdan o''tkazilmaydi.\n\n---\n\n### **Tezkor nazorat ro''yxati (Qabul varaqangiz asosida):**\n* **Shaxsni tasdiqlash:** Xalqaro pasportingizning 3 nusxasi va amaldagi vizaning 3 nusxasi.\n* **Fotosuratlar:** 3 ta pasport o''lchamidagi fotosurat (agar siz qaytib kelgan talaba bo''lsangiz, 1 ta).\n* **To''lov:** O''quv to''lovi yoki allaqachon to''langan bo''lsa, to''lovni tasdiqlovchi hujjat.\n\n---\n\n### **Bog''lanish uchun ma''lumotlar:**\n* **Erkaklar / Birodarlar bo''limi:** +201112335628\n* **Ayollar / Opa-singillar bo''limi:** +201009537909"
         }
     },
     "ru": {
         "confirmation": {
             "enabled": true,
             "subject": "Ваше бронирование в Al-Ibaanah подтверждено!",
-            "body": "Ас-саляму алейкум, {{studentName}},\\n\\nВаше бронирование на {{level}} успешно подтверждено на {{appointmentDate}} в {{appointmentTime}}.\\nВаш код бронирования: {{registrationCode}}.\\n\\nПожалуйста, ознакомьтесь с приложенным талоном на зачисление."
+            "body": "## **Подтверждение регистрации**\n\n**Уважаемый {{studentName}}!**\n\nВаша запись на регистрацию на **{{level}}** успешно подтверждена.\n\n* **Дата:** {{appointmentDate}}\n* **Время:** {{appointmentTime}}\n* **Код бронирования:** {{registrationCode}}\n\nВаш **бланк допуска** находится во вложении. Пожалуйста, возьмите с собой все необходимые документы и оплату для завершения регистрации.\n\n> **Важное примечание:** Регистрация не будет осуществлена для студентов, которые не предоставят полный пакет документов во время приема.\n\n---\n\n### **Краткий контрольный список (на основании вашего бланка):**\n* **Идентификация:** 3 копии вашего заграничного паспорта и 3 копии действующей визы.\n* **Фотографии:** 3 фотографии паспортного размера (или 1, если вы являетесь восстановившимся студентом).\n* **Оплата:** Оплата за обучение или подтверждение оплаты, если она уже произведена.\n\n---\n\n### **Контактная информация:**\n* **Мужская секция / Братья:** +201112335628\n* **Женская секция / Сестры:** +201009537909"
         },
         "reminder24h": {
             "enabled": true,
             "subject": "Напоминание: Ваше бронирование в Al-Ibaanah завтра",
-            "body": "Ас-саляму алейкум, {{studentName}},\\n\\nЭто напоминание о том, что ваше бронирование на {{level}} запланировано на завтра, {{appointmentDate}} в {{appointmentTime}}.\\n\\nМы ждем вас."
+            "body": "## **Напоминание о регистрации**\n\n**Уважаемый {{studentName}}!**\n\nЭто напоминание о том, что ваша запись на регистрацию на **{{level}}** запланирована на завтра.\n\n* **Дата:** {{appointmentDate}}\n* **Время:** {{appointmentTime}}\n* **Код бронирования:** {{registrationCode}}\n\nВаш **бланк допуска** находится во вложении. Пожалуйста, возьмите с собой все необходимые документы и оплату для завершения регистрации.\n\n> **Важное примечание:** Регистрация не будет осуществлена для студентов, которые не предоставят полный пакет документов во время приема.\n\n---\n\n### **Краткий контрольный список (на основании вашего бланка):**\n* **Идентификация:** 3 копии вашего заграничного паспорта и 3 копии действующей визы.\n* **Фотографии:** 3 фотографии паспортного размера (или 1, если вы являетесь восстановившимся студентом).\n* **Оплата:** Оплата за обучение или подтверждение оплаты, если она уже произведена.\n\n---\n\n### **Контактная информация:**\n* **Мужская секция / Братья:** +201112335628\n* **Женская секция / Сестры:** +201009537909"
         },
         "reminderDayOf": {
             "enabled": false,
             "subject": "Напоминание: Ваше бронирование в Al-Ibaanah сегодня",
-            "body": "Ас-саляму алейкум, {{studentName}},\\n\\nВаше бронирование сегодня в {{appointmentTime}}. Пожалуйста, приходите вовремя с необходимыми документами.\\n\\nАдминистрация Al-Ibaanah"
+            "body": "## **Напоминание о регистрации**\n\n**Уважаемый {{studentName}}!**\n\nЭто напоминание о том, что ваша запись на регистрацию на **{{level}}** запланирована на сегодня.\n\n* **Дата:** {{appointmentDate}}\n* **Время:** {{appointmentTime}}\n* **Код бронирования:** {{registrationCode}}\n\nВаш **бланк допуска** находится во вложении. Пожалуйста, возьмите с собой все необходимые документы и оплату для завершения регистрации.\n\n> **Важное примечание:** Регистрация не будет осуществлена для студентов, которые не предоставят полный пакет документов во время приема.\n\n---\n\n### **Краткий контрольный список (на основании вашего бланка):**\n* **Идентификация:** 3 копии вашего заграничного паспорта и 3 копии действующей визы.\n* **Фотографии:** 3 фотографии паспортного размера (или 1, если вы являетесь восстановившимся студентом).\n* **Оплата:** Оплата за обучение или подтверждение оплаты, если она уже произведена.\n\n---\n\n### **Контактная информация:**\n* **Мужская секция / Братья:** +201112335628\n* **Женская секция / Сестры:** +201009537909"
         }
     }
 }')
