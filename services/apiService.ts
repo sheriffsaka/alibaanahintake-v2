@@ -427,6 +427,22 @@ export const createSchedule = async(slot: Omit<AppointmentSlot, 'id' | 'booked' 
     return slotFromSupabase(data);
 };
 
+export const createSchedulesBulk = async(slots: Omit<AppointmentSlot, 'id' | 'booked' | 'level'>[]): Promise<void> => {
+    const dataToInsert = slots.map(slot => {
+        const { startTime, endTime, levelId, gender, ...rest } = slot;
+        return {
+            ...rest,
+            start_time: startTime,
+            end_time: endTime,
+            level_id: levelId,
+            gender
+        };
+    });
+    
+    const { error } = await supabase.from('appointment_slots').insert(dataToInsert);
+    if (error) throw error;
+};
+
 export const updateSchedule = async(slot: Omit<AppointmentSlot, 'level'>): Promise<AppointmentSlot> => {
     const { startTime, endTime, levelId, gender, ...rest } = slot;
     const { data, error } = await supabase.from('appointment_slots').update({ ...rest, start_time: startTime, end_time: endTime, level_id: levelId, gender }).eq('id', slot.id).select('*, levels(id, name)').single();

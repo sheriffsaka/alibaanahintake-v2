@@ -1,13 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
-import { getSchedules, updateSchedule, createSchedule, deleteSchedule, getLevels } from '../../services/apiService';
+import { getSchedules, updateSchedule, createSchedule, deleteSchedule, getLevels, createSchedulesBulk } from '../../services/apiService';
 import { AppointmentSlot, Level, Gender } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import Select from '../common/Select';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, CheckSquare, Square } from 'lucide-react';
 
 const PAGE_SIZE = 25;
 
@@ -16,6 +16,7 @@ const ScheduleManager: React.FC = () => {
   const [levels, setLevels] = useState<Level[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingSlot, setEditingSlot] = useState<Partial<Omit<AppointmentSlot, 'level'>> | null>(null);
+  const [selectedLevelIds, setSelectedLevelIds] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalSlots, setTotalSlots] = useState(0);
@@ -57,6 +58,7 @@ const ScheduleManager: React.FC = () => {
     if (slot) {
         const { ...slotForEditing } = slot;
         setEditingSlot(slotForEditing);
+        setSelectedLevelIds([slot.levelId]);
     } else {
         const defaultLevelId = (levels && levels.length > 0) ? levels[0].id : '';
         setEditingSlot({
@@ -67,12 +69,14 @@ const ScheduleManager: React.FC = () => {
             capacity: 10,
             gender: Gender.Male,
         });
+        setSelectedLevelIds([defaultLevelId]);
     }
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setEditingSlot(null);
+    setSelectedLevelIds([]);
     setIsModalOpen(false);
   };
 
@@ -83,8 +87,22 @@ const ScheduleManager: React.FC = () => {
         if (editingSlot.id) { // Editing existing
             await updateSchedule(editingSlot as Omit<AppointmentSlot, 'level'>);
         } else { // Creating new
-            const { ...newSlotData } = editingSlot;
-            await createSchedule(newSlotData as Omit<AppointmentSlot, 'id' | 'booked' | 'level'>);
+            if (selectedLevelIds.length === 0) {
+                alert('Please select at least one level.');
+                return;
+            }
+
+            const { ...baseSlotData } = editingSlot;
+            const slotsToCreate = selectedLevelIds.map(levelId => ({
+                ...(baseSlotData as Omit<AppointmentSlot, 'id' | 'booked' | 'level'>),
+                levelId
+            }));
+
+            if (slotsToCreate.length === 1) {
+                await createSchedule(slotsToCreate[0]);
+            } else {
+                await createSchedulesBulk(slotsToCreate);
+            }
         }
         
         handleCloseModal();
@@ -93,6 +111,14 @@ const ScheduleManager: React.FC = () => {
         console.error("Failed to save schedule slot:", error);
         alert(`Failed to save slot. Please check the details and try again.\n\nError: ${error.message}`);
     }
+  };
+
+  const toggleLevelSelection = (levelId: string) => {
+    setSelectedLevelIds(prev => 
+        prev.includes(levelId) 
+            ? prev.filter(id => id !== levelId) 
+            : [...prev, levelId]
+    );
   };
 
   const handleDelete = async (slotId: string) => {
@@ -135,7 +161,31 @@ const ScheduleManager: React.FC = () => {
                             <Input label="Start Time" name="startTime" type="time" value={editingSlot.startTime} onChange={handleInputChange} />
                             <Input label="End Time" name="endTime" type="time" value={editingSlot.endTime} onChange={handleInputChange} />
                         </div>
-                        <Select label="Level" name="levelId" value={editingSlot.levelId} onChange={handleInputChange} options={levels.map(l => ({value: l.id, label: l.name}))} />
+                        
+                        {editingSlot.id ? (
+                            <Select label="Level" name="levelId" value={editingSlot.levelId} onChange={handleInputChange} options={levels.map(l => ({value: l.id, label: l.name}))} />
+                        ) : (
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">Levels (Select multiple to create grouped slots)</label>
+                                <div className="grid grid-cols-2 gap-2 border rounded-md p-3 max-h-40 overflow-y-auto">
+                                    {levels.map(level => (
+                                        <div 
+                                            key={level.id} 
+                                            className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded transition-colors"
+                                            onClick={() => toggleLevelSelection(level.id)}
+                                        >
+                                            {selectedLevelIds.includes(level.id) ? (
+                                                <CheckSquare className="h-4 w-4 text-primary" />
+                                            ) : (
+                                                <Square className="h-4 w-4 text-gray-400" />
+                                            )}
+                                            <span className="text-sm text-gray-700">{level.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <Select label="Gender" name="gender" value={editingSlot.gender} onChange={handleInputChange} options={Object.values(Gender).map(g => ({value: g, label: g}))} />
                         <Input label="Capacity" name="capacity" type="number" value={editingSlot.capacity} onChange={handleInputChange} min="0"/>
                     </div>

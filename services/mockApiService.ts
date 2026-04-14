@@ -275,6 +275,15 @@ export const createSchedule = async(slot: Omit<AppointmentSlot, 'id' | 'booked' 
     appointmentSlots.push(newSlot);
     return simulateDelay(newSlot);
 };
+export const createSchedulesBulk = async(slots: Omit<AppointmentSlot, 'id' | 'booked' | 'level'>[]): Promise<void> => {
+    for (const slot of slots) {
+        const level = levels.find(l => l.id === slot.levelId);
+        if (level) {
+            appointmentSlots.push({ ...slot, id: uuidv4(), booked: 0, level });
+        }
+    }
+    return simulateDelay(undefined);
+};
 export const updateSchedule = async(slot: Omit<AppointmentSlot, 'level'>): Promise<AppointmentSlot> => {
     const existing = appointmentSlots.find(s => s.id === slot.id);
     if (!existing) throw new Error("Slot not found");
