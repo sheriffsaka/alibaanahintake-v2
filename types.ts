@@ -6,36 +6,6 @@ export interface Level {
   sortOrder: number;
 }
 
-export enum ResourceType {
-  Book = 'book',
-  Video = 'video',
-  Image = 'image',
-  Document = 'document',
-}
-
-export interface ProgramResource {
-  id: string;
-  program_id: string;
-  resource_type: ResourceType;
-  title: string;
-  description?: string | null;
-  url: string;
-  sort_order: number;
-  created_at: string;
-}
-
-export interface Program {
-  id: string;
-  name: string;
-  description?: string | null;
-  parentId?: string | null;
-  isActive: boolean;
-  isArchived: boolean;
-  sortOrder: number;
-  children?: Program[];
-  resources?: ProgramResource[];
-}
-
 export interface FaqItem {
   question: string;
   answer: string;

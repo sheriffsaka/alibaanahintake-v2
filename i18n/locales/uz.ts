@@ -4,7 +4,6 @@ export default {
     officialSite: 'RASMIY SAYT',
     staffLogin: 'XODIMLAR UCHUN',
     bookAssessment: 'SLOTNI BRON QILISH',
-    programsNav: 'Dasturlarimiz',
 
     // Hero
     assessmentIntakePortal: 'SLOTLARNI BRON QILISH PORTALI',
@@ -71,27 +70,6 @@ export default {
     levelName: 'Daraja nomi',
     saveLevel: 'Darajani saqlash',
     deleteLevelConfirm: 'Haqiqatan ham bu darajani oʻchirib tashlamoqchimisiz? Agar unga talabalar yoki jadvallar biriktirilgan boʻlsa, bu amal bajarilmasligi mumkin.',
-
-    // Program Manager
-    programManagerTitle: 'Dasturlarni boshqarish',
-    createNewProgram: 'Yangi dastur yaratish',
-    editProgram: 'Dasturni tahrirlash',
-    programName: 'Dastur nomi',
-    description: 'Tavsif',
-    parentProgram: 'Asosiy dastur (ixtiyoriy)',
-    parentProgramNone: 'Yoʻq (yuqori darajali dastur)',
-    archive: 'Arxivlash',
-    unarchive: 'Arxivdan chiqarish',
-    archived: 'ARXIVLANGAN',
-    toggleArchiveConfirm: 'Haqiqatan ham ushbu dasturni {action} qilmoqchimisiz?',
-    saveProgram: 'Dasturni saqlash',
-    manageResources: 'Resurslarni boshqarish',
-
-    // Programs Page (Public)
-    programsPageTitle: 'Bizning Akademik Dasturlarimiz',
-    programsPageDescription: 'Biz taklif etayotgan turli xil dasturlarni o\'rganing, poydevorli o\'qishdan tortib ilg\'or mavzulargacha.',
-    programResourcesTitle: 'O\'quv Resurslari',
-    noProgramsAvailable: 'Dastur haqidagi ma\'lumotlar hozirda yangilanmoqda. Iltimos, tez orada qayta tekshiring.',
 
     // --- Enrollment Flow ---
     step1Title: '1-qadam: Slot bron qilish shaklini toʻldiring ({gender})',
@@ -169,20 +147,4 @@ export default {
     returningStudentsTitle: 'B. DAVOM ETTIRAYOTGAN / QAYTGAN TALABALAR TAQDIM ETISHI KERAK:',
     additionally: 'Qoʻshimcha ravishda:',
     slipFooter: 'Ushbu hujjat Al-Ibaanah IntakeFlow tomonidan yaratilgan. Haqiqiyligini qabulxonada tekshirish mumkin.',
-    
-    // Resource Manager
-    resourceManagerTitle: '"{programName}" uchun resurslar',
-    addResource: 'Resurs qo\'shish',
-    editResource: 'Resursni tahrirlash',
-    resourceTitleLabel: 'Resurs sarlavhasi',
-    resourceTypeLabel: 'Resurs turi',
-    resourceUrlLabel: 'Resurs URL (video uchun)',
-    resourceFileLabel: 'Resurs fayli',
-    resourceBook: 'Kitob',
-    resourceVideo: 'Video',
-    resourceImage: 'Rasm',
-    resourceDocument: 'Hujjat',
-    noResourcesFound: 'Ushbu dastur uchun resurslar topilmadi.',
-    deleteResourceConfirm: 'Haqiqatan ham ushbu resursni oʻchirib tashlamoqchimisiz? Bu amalni qaytarib boʻlmaydi.',
-    saveResource: 'Resursni saqlash',
 };

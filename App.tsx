@@ -18,11 +18,8 @@ import { Role } from './types';
 import { LanguageProvider } from './i18n/LanguageContext';
 import StudentRecords from './components/admin/StudentRecords';
 import LevelManager from './components/admin/LevelManager';
-import ProgramManager from './components/admin/ProgramManager';
 import { SiteContentProvider } from './contexts/SiteContentContext';
 import SiteContentManager from './components/admin/SiteContentManager';
-import AppSettingsManager from './components/admin/AppSettingsManager';
-import ProgramsPage from './pages/ProgramsPage';
 import ErrorBoundary from './components/common/ErrorBoundary.tsx';
 import DatabaseStatus from './components/common/DatabaseStatus';
 
@@ -40,7 +37,6 @@ function App() {
                 </SiteContentProvider>
               }>
                 <Route path="/" element={<LandingPage />} />
-                <Route path="/programs" element={<ProgramsPage />} />
                 <Route path="/enroll" element={<EnrollmentPage />} />
                 <Route path="/login" element={<LoginPage />} />
               </Route>
@@ -67,12 +63,7 @@ function App() {
                     <LevelManager />
                   </ProtectedRoute>
                 } />
-                <Route path="programs" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
-                    <ProgramManager />
-                  </ProtectedRoute>
-                } />
-                 <Route path="content" element={
+                <Route path="content" element={
                   <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
                     <SiteContentManager />
                   </ProtectedRoute>
@@ -100,11 +91,6 @@ function App() {
                 <Route path="settings" element={
                   <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
                     <Settings />
-                  </ProtectedRoute>
-                } />
-                <Route path="app-settings" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin]}>
-                    <AppSettingsManager />
                   </ProtectedRoute>
                 } />
               </Route>

@@ -1,4 +1,4 @@
-import { Student, AppointmentSlot, Level, Gender, AdminUser, Role, NotificationSettings, AppSettings, Program, SiteContent } from '../types';
+import { Student, AppointmentSlot, Level, Gender, AdminUser, Role, NotificationSettings, AppSettings, SiteContent } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Mock Database
@@ -9,12 +9,6 @@ let levels: Level[] = [
     { id: 'level-2', name: 'Elementary', isActive: true, sortOrder: 2 },
     { id: 'level-3', name: 'Intermediate', isActive: true, sortOrder: 3 },
     { id: 'level-4', name: 'Advanced', isActive: false, sortOrder: 4 },
-];
-let programs: Program[] = [
-    { id: 'prog-1', name: 'Calligraphy Classes', isActive: true, isArchived: false, sortOrder: 1, children: [] },
-    { id: 'prog-2', name: 'Mutoon Class', isActive: true, isArchived: false, sortOrder: 2, children: [] },
-    { id: 'prog-3', name: 'Advanced Grammar', parentId: 'prog-2', isActive: true, isArchived: false, sortOrder: 1, children: [] },
-    { id: 'prog-4', name: 'Archived Program', isActive: true, isArchived: true, sortOrder: 3, children: [] },
 ];
 let adminUsers: AdminUser[] = [
     { id: 'user-1', name: 'Super Admin', email: 'super@al-ibaanah.com', role: Role.SuperAdmin, isActive: true },
@@ -311,22 +305,6 @@ export const getLevels = async(includeInactive = false): Promise<Level[]> => sim
 export const createLevel = async(level: Omit<Level, 'id'>): Promise<Level> => { const newLevel = { ...level, id: uuidv4() }; levels.push(newLevel); return simulateDelay(newLevel); };
 export const updateLevel = async(level: Level): Promise<Level> => { levels = levels.map(l => l.id === level.id ? level : l); return simulateDelay(level); };
 export const deleteLevel = async(levelId: string): Promise<{ success: boolean }> => { levels = levels.filter(l => l.id !== levelId); return simulateDelay({ success: true }); };
-
-// --- Programs ---
-export const getPrograms = async(): Promise<Program[]> => {
-    const programsMap = new Map(programs.map(p => [p.id, { ...p, children: [] }]));
-    const nested: Program[] = [];
-    for (const program of programsMap.values()) {
-        if (program.parentId && programsMap.has(program.parentId)) {
-            programsMap.get(program.parentId)?.children?.push(program);
-        } else {
-            nested.push(program);
-        }
-    }
-    return simulateDelay(nested);
-};
-export const createProgram = async(p: Omit<Program, 'id'>): Promise<Program> => { const newProg = { ...p, id: uuidv4() }; programs.push(newProg); return simulateDelay(newProg); };
-export const updateProgram = async(p: Program): Promise<Program> => { programs = programs.map(prog => prog.id === p.id ? p : prog); return simulateDelay(p); };
 
 // --- Site Content ---
 export const getSiteContent = async(): Promise<SiteContent> => simulateDelay(siteContent);

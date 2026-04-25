@@ -4,7 +4,6 @@ export default {
     officialSite: 'الموقع الرسمي',
     staffLogin: 'دخول الموظفين',
     bookAssessment: 'حجز موعد',
-    programsNav: 'برامجنا',
 
     // Hero
     assessmentIntakePortal: 'بوابة حجز المواعيد',
@@ -71,27 +70,6 @@ export default {
     levelName: 'اسم المستوى',
     saveLevel: 'حفظ المستوى',
     deleteLevelConfirm: 'هل أنت متأكد أنك تريد حذف هذا المستوى؟ قد تفشل العملية إذا كان هناك طلاب أو جداول مرتبطة به.',
-
-    // Program Manager
-    programManagerTitle: 'إدارة البرامج',
-    createNewProgram: 'إنشاء برنامج جديد',
-    editProgram: 'تعديل البرنامج',
-    programName: 'اسم البرنامج',
-    description: 'الوصف',
-    parentProgram: 'البرنامج الرئيسي (اختياري)',
-    parentProgramNone: 'لا يوجد (برنامج مستوى أعلى)',
-    archive: 'أرشفة',
-    unarchive: 'إلغاء الأرشفة',
-    archived: 'مؤرشف',
-    toggleArchiveConfirm: 'هل أنت متأكد أنك تريد {action} هذا البرنامج؟',
-    saveProgram: 'حفظ البرنامج',
-    manageResources: 'إدارة الموارد',
-    
-    // Programs Page (Public)
-    programsPageTitle: 'برامجنا الأكاديمية',
-    programsPageDescription: 'استكشف مجموعة متنوعة من البرامج التي نقدمها، من الدراسات التأسيسية إلى الموضوعات المتقدمة.',
-    programResourcesTitle: 'مصادر تعليمية',
-    noProgramsAvailable: 'يتم حاليًا تحديث معلومات البرنامج. يرجى المراجعة مرة أخرى قريبًا.',
 
     // --- Enrollment Flow ---
     // Form
@@ -178,20 +156,4 @@ export default {
     returningStudentsTitle: 'ب. يجب على الطلاب المستمرين/العائدين تقديم:',
     additionally: 'بالإضافة إلى ذلك:',
     slipFooter: 'تم إنشاء هذا المستند بواسطة IntakeFlow الخاص بالإبانة. يمكن التحقق من صحته في مكتب الاستقبال.',
-
-    // Resource Manager
-    resourceManagerTitle: 'موارد لـ "{programName}"',
-    addResource: 'إضافة مورد',
-    editResource: 'تعديل المورد',
-    resourceTitleLabel: 'عنوان المورد',
-    resourceTypeLabel: 'نوع المورد',
-    resourceUrlLabel: 'رابط المورد (للفيديو)',
-    resourceFileLabel: 'ملف المورد',
-    resourceBook: 'كتاب',
-    resourceVideo: 'فيديو',
-    resourceImage: 'صورة',
-    resourceDocument: 'مستند',
-    noResourcesFound: 'لا توجد موارد لهذا البرنامج.',
-    deleteResourceConfirm: 'هل أنت متأكد من حذف هذا المورد؟ لا يمكن التراجع عن هذا الإجراء.',
-    saveResource: 'حفظ المورد',
 };

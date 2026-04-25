@@ -4,7 +4,6 @@ export default {
     officialSite: 'SITE OFFICIEL',
     staffLogin: 'CONNEXION EMPLOYÉS',
     bookAssessment: 'RÉSERVER UN CRÉNEAU',
-    programsNav: 'Nos Programmes',
 
     // Hero
     assessmentIntakePortal: 'PORTAIL DE RÉSERVATION DE CRÉNEAUX',
@@ -71,27 +70,6 @@ export default {
     levelName: 'Nom du niveau',
     saveLevel: 'Enregistrer le niveau',
     deleteLevelConfirm: 'Êtes-vous sûr de vouloir supprimer ce niveau ? Cette action pourrait échouer si des étudiants ou des horaires y sont actuellement assignés.',
-
-    // Program Manager
-    programManagerTitle: 'Gestion des programmes',
-    createNewProgram: 'Créer un nouveau programme',
-    editProgram: 'Modifier le programme',
-    programName: 'Nom du programme',
-    description: 'Description',
-    parentProgram: 'Programme parent (optionnel)',
-    parentProgramNone: 'Aucun (Programme de haut niveau)',
-    archive: 'Archiver',
-    unarchive: 'Désarchiver',
-    archived: 'ARCHIVÉ',
-    toggleArchiveConfirm: 'Êtes-vous sûr de vouloir {action} ce programme ?',
-    saveProgram: 'Enregistrer le programme',
-    manageResources: 'Gérer les ressources',
-    
-    // Programs Page (Public)
-    programsPageTitle: 'Nos Programmes Académiques',
-    programsPageDescription: 'Découvrez la variété des programmes que nous proposons, des études fondamentales aux sujets avancés.',
-    programResourcesTitle: 'Ressources Pédagogiques',
-    noProgramsAvailable: 'Les informations sur les programmes sont en cours de mise à jour. Veuillez revenir bientôt.',
 
     // --- Enrollment Flow ---
     step1Title: 'Étape 1 : Remplir le formulaire de réservation ({gender})',
@@ -174,20 +152,4 @@ export default {
     returningStudentsTitle: 'B. LES ÉTUDIANTS ACTUELS / ANCIENS DOIVENT FOURNIR :',
     additionally: 'De plus :',
     slipFooter: 'Ce document a été généré par Al-Ibaanah IntakeFlow. L\'authenticité peut être vérifiée à la réception.',
-    
-    // Resource Manager
-    resourceManagerTitle: 'Ressources pour "{programName}"',
-    addResource: 'Ajouter une ressource',
-    editResource: 'Modifier la ressource',
-    resourceTitleLabel: 'Titre de la ressource',
-    resourceTypeLabel: 'Type de ressource',
-    resourceUrlLabel: 'URL de la ressource (pour les vidéos)',
-    resourceFileLabel: 'Fichier de ressource',
-    resourceBook: 'Livre',
-    resourceVideo: 'Vidéo',
-    resourceImage: 'Image',
-    resourceDocument: 'Document',
-    noResourcesFound: 'Aucune ressource trouvée pour ce programme.',
-    deleteResourceConfirm: 'Êtes-vous sûr de vouloir supprimer cette ressource ? Cette action est irréversible.',
-    saveResource: 'Enregistrer la ressource',
 };

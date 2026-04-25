@@ -4,7 +4,6 @@ export default {
     officialSite: 'ОФИЦИАЛЬНЫЙ САЙТ',
     staffLogin: 'ВХОД ДЛЯ ПЕРСОНАЛА',
     bookAssessment: 'ЗАБРОНИРОВАТЬ ВРЕМЯ',
-    programsNav: 'Наши Программы',
 
     // Hero
     assessmentIntakePortal: 'ПОРТАЛ БРОНИРОВАНИЯ ВРЕМЕНИ',
@@ -71,27 +70,6 @@ export default {
     levelName: 'Название уровня',
     saveLevel: 'Сохранить уровень',
     deleteLevelConfirm: 'Вы уверены, что хотите удалить этот уровень? Это может не получиться, если за ним закреплены студенты или расписания.',
-
-    // Program Manager
-    programManagerTitle: 'Управление программами',
-    createNewProgram: 'Создать новую программу',
-    editProgram: 'Редактировать программу',
-    programName: 'Название программы',
-    description: 'Описание',
-    parentProgram: 'Родительская программа (необязательно)',
-    parentProgramNone: 'Нет (Программа верхнего уровня)',
-    archive: 'Архивировать',
-    unarchive: 'Разархивировать',
-    archived: 'В АРХИВЕ',
-    toggleArchiveConfirm: 'Вы уверены, что хотите {action} эту программу?',
-    saveProgram: 'Сохранить программу',
-    manageResources: 'Управлять ресурсами',
-
-    // Programs Page (Public)
-    programsPageTitle: 'Наши Учебные Программы',
-    programsPageDescription: 'Ознакомьтесь с разнообразием предлагаемых нами программ, от базовых курсов до продвинутых тем.',
-    programResourcesTitle: 'Учебные Ресурсы',
-    noProgramsAvailable: 'Информация о программах в настоящее время обновляется. Пожалуйста, зайдите позже.',
 
     // --- Enrollment Flow ---
     step1Title: 'Шаг 1: Заполните форму бронирования ({gender})',
@@ -164,20 +142,4 @@ export default {
     returningStudentsTitle: 'B. ПРОДОЛЖАЮЩИЕ / ВЕРНУВШИЕСЯ СТУДЕНТЫ ДОЛЖНЫ ПРЕДОСТАВИТЬ:',
     additionally: 'Дополнительно:',
     slipFooter: 'Этот документ создан Al-Ibaanah IntakeFlow. Подлинность можно проверить на стойке регистрации.',
-
-    // Resource Manager
-    resourceManagerTitle: 'Ресурсы для "{programName}"',
-    addResource: 'Добавить ресурс',
-    editResource: 'Редактировать ресурс',
-    resourceTitleLabel: 'Название ресурса',
-    resourceTypeLabel: 'Тип ресурса',
-    resourceUrlLabel: 'URL ресурса (для видео)',
-    resourceFileLabel: 'Файл ресурса',
-    resourceBook: 'Книга',
-    resourceVideo: 'Видео',
-    resourceImage: 'Изображение',
-    resourceDocument: 'Документ',
-    noResourcesFound: 'Для этой программы ресурсы не найдены.',
-    deleteResourceConfirm: 'Вы уверены, что хотите удалить этот ресурс? Это действие необратимо.',
-    saveResource: 'Сохранить ресурс',
 };

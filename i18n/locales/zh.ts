@@ -4,7 +4,6 @@ export default {
     officialSite: '官方网站',
     staffLogin: '员工登录',
     bookAssessment: '预约时段',
-    programsNav: '我们的课程',
 
     // Hero
     assessmentIntakePortal: '时段预约门户',
@@ -71,27 +70,6 @@ export default {
     levelName: '水平名称',
     saveLevel: '保存水平',
     deleteLevelConfirm: '您确定要删除此级别吗？如果当前有学生或课程表分配给它，此操作可能会失败。',
-
-    // Program Manager
-    programManagerTitle: '项目管理',
-    createNewProgram: '创建新项目',
-    editProgram: '编辑项目',
-    programName: '项目名称',
-    description: '描述',
-    parentProgram: '父项目（可选）',
-    parentProgramNone: '无（顶级项目）',
-    archive: '存档',
-    unarchive: '取消存档',
-    archived: '已存档',
-    toggleArchiveConfirm: '您确定要对此项目执行 {action} 操作吗？',
-    saveProgram: '保存项目',
-    manageResources: '管理资源',
-
-    // Programs Page (Public)
-    programsPageTitle: '我们的学术课程',
-    programsPageDescription: '探索我们提供的各种课程，从基础研究到高级主题。',
-    programResourcesTitle: '学习资源',
-    noProgramsAvailable: '课程信息目前正在更新中。请稍后再回来查看。',
 
     // --- Enrollment Flow ---
     step1Title: '步骤 1: 填写时段预约表 ({gender})',
@@ -169,20 +147,4 @@ export default {
     returningStudentsTitle: 'B. 继续/返校的学生必须提供：',
     additionally: '此外：',
     slipFooter: '此文件由 Al-Ibaanah IntakeFlow 生成。可在前台验证真伪。',
-
-    // Resource Manager
-    resourceManagerTitle: '"{programName}" 的资源',
-    addResource: '添加资源',
-    editResource: '编辑资源',
-    resourceTitleLabel: '资源标题',
-    resourceTypeLabel: '资源类型',
-    resourceUrlLabel: '资源 URL (用于视频)',
-    resourceFileLabel: '资源文件',
-    resourceBook: '书籍',
-    resourceVideo: '视频',
-    resourceImage: '图片',
-    resourceDocument: '文件',
-    noResourcesFound: '未找到此项目的资源。',
-    deleteResourceConfirm: '您确定要删除此资源吗？此操作不可逆。',
-    saveResource: '保存资源',
 };
