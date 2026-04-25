@@ -17,6 +17,9 @@ const Settings: React.FC = () => {
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
+    const [renewConfirmText, setRenewConfirmText] = useState('');
+
     useEffect(() => {
         const fetchSettings = async () => {
             setLoading(true);
@@ -62,12 +65,14 @@ const Settings: React.FC = () => {
     };
 
     const handleRenewSession = async () => {
-        if (!window.confirm("Are you sure you want to renew the session? This will mark ALL current students as archived and reset ALL slot bookings. This cannot be undone.")) {
+        if (renewConfirmText !== 'RENEW') {
+            setError("Please type RENEW to confirm.");
             return;
         }
 
         setRenewing(true);
         setError(null);
+        setIsRenewModalOpen(false);
         try {
             await renewSession();
             setSaved(true);
@@ -78,6 +83,7 @@ const Settings: React.FC = () => {
             setError(err.message || "Failed to renew session.");
         } finally {
             setRenewing(false);
+            setRenewConfirmText('');
         }
     };
 
@@ -100,9 +106,8 @@ const Settings: React.FC = () => {
                 <div className="flex items-center space-x-4">
                     <Button 
                         variant="outline" 
-                        onClick={handleRenewSession} 
+                        onClick={() => setIsRenewModalOpen(true)} 
                         disabled={renewing}
-                        loading={renewing}
                         className="border-amber-200 text-amber-700 hover:bg-amber-50"
                     >
                         <RefreshCw size={18} className="mr-2" />
@@ -230,6 +235,57 @@ const Settings: React.FC = () => {
                     Save Changes
                 </Button>
             </div>
+
+            {/* Renew Session Confirmation Modal */}
+            {isRenewModalOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden animate-in zoom-in duration-200">
+                        <div className="p-1 px-1 bg-amber-500"></div>
+                        <div className="p-8 text-center">
+                            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <RefreshCw className="h-8 w-8 text-amber-600" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Renew Session?</h3>
+                            <p className="text-gray-600 text-sm mb-6 leading-relaxed">
+                                This will mark <strong>ALL</strong> active students as archived and reset all appointment slot bookings. 
+                                <br/><br/>
+                                <span className="text-red-500 font-semibold italic">This action is irreversible.</span>
+                            </p>
+                            
+                            <div className="mb-6 space-y-2">
+                                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Type RENEW to confirm</p>
+                                <Input 
+                                    placeholder="Type 'RENEW' here"
+                                    value={renewConfirmText}
+                                    onChange={(e) => setRenewConfirmText(e.target.value)}
+                                    className="text-center"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <Button 
+                                    variant="outline" 
+                                    onClick={() => {
+                                        setIsRenewModalOpen(false);
+                                        setRenewConfirmText('');
+                                    }}
+                                    className="border-gray-200 text-gray-500"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button 
+                                    variant="primary"
+                                    onClick={handleRenewSession}
+                                    disabled={renewConfirmText !== 'RENEW'}
+                                    className="bg-amber-600 hover:bg-amber-700 border-none"
+                                >
+                                    Confirm Renew
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
