@@ -68,7 +68,7 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
                 <AlIbaanahLogo className="h-64 w-auto text-gray-500 opacity-5" logoUrl={content?.logoUrl} />
             </div>
             <div className="relative z-10">
-                <InfoItem label={t('studentInfoLabel')} value={`${student.firstname} ${student.surname}`} valueClass="text-2xl font-bold" />
+                <InfoItem label={t('studentInfoLabel')} value={`${student.firstname} ${student.othername ? student.othername + ' ' : ''}${student.surname}`} valueClass="text-2xl font-bold" />
                 <p className="text-gray-600 -mt-2">{student.email}</p>
             </div>
             <div className="grid grid-cols-2 gap-6 relative z-10">

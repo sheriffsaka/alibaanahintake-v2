@@ -187,13 +187,27 @@ COMMENT ON TABLE public.profiles IS 'Stores profile information for admin users.
 CREATE TABLE IF NOT EXISTS public.app_settings (
     id INT PRIMARY KEY DEFAULT 1,
     registration_open BOOLEAN NOT NULL DEFAULT true,
-    male_registration_open BOOLEAN NOT NULL DEFAULT true,
-    female_registration_open BOOLEAN NOT NULL DEFAULT true,
-    max_daily_capacity INT NOT NULL DEFAULT 100,
-    closed_reasons JSONB NOT NULL DEFAULT '{}'::jsonb,
     CONSTRAINT single_row CHECK (id = 1)
 );
 COMMENT ON TABLE public.app_settings IS 'Stores global application settings.';
+
+-- This block makes the schema migration idempotent for the app_settings table.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.app_settings'::regclass AND attname = 'male_registration_open') THEN
+        ALTER TABLE public.app_settings ADD COLUMN male_registration_open BOOLEAN NOT NULL DEFAULT true;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.app_settings'::regclass AND attname = 'female_registration_open') THEN
+        ALTER TABLE public.app_settings ADD COLUMN female_registration_open BOOLEAN NOT NULL DEFAULT true;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.app_settings'::regclass AND attname = 'max_daily_capacity') THEN
+        ALTER TABLE public.app_settings ADD COLUMN max_daily_capacity INT NOT NULL DEFAULT 100;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.app_settings'::regclass AND attname = 'closed_reasons') THEN
+        ALTER TABLE public.app_settings ADD COLUMN closed_reasons JSONB NOT NULL DEFAULT '{}'::jsonb;
+    END IF;
+END;
+$$;
 
 -- Insert the single settings row.
 INSERT INTO public.app_settings (id, registration_open, male_registration_open, female_registration_open, max_daily_capacity, closed_reasons)

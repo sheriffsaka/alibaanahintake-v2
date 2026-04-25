@@ -96,7 +96,7 @@ const StudentRecords: React.FC = () => {
             : s.address;
         return [
             serialNumber,
-            `"${s.firstname} ${s.surname}"`,
+            `"${s.firstname} ${s.othername ? s.othername + ' ' : ''}${s.surname}"`,
             s.gender,
             s.email,
             s.whatsapp,
@@ -186,7 +186,7 @@ const StudentRecords: React.FC = () => {
             {students.map((student, index) => (
               <tr key={student.id} className="border-b hover:bg-gray-50">
                 <td className="py-2 px-4 text-gray-500">{(currentPage - 1) * PAGE_SIZE + index + 1}</td>
-                <td className="py-2 px-4">{student.firstname} {student.surname}</td>
+                <td className="py-2 px-4">{student.firstname} {student.othername ? student.othername + ' ' : ''}{student.surname}</td>
                 <td className="py-2 px-4">{student.gender}</td>
                 <td className="py-2 px-4">{student.email}</td>
                 <td className="py-2 px-4">{student.whatsapp}</td>
