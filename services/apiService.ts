@@ -270,8 +270,9 @@ export const submitRegistration = async (
                 let body = langSettings.confirmation.body;
 
                 // Replace placeholders
-                subject = subject.replace('{{studentName}}', `${newStudent.firstname} ${newStudent.surname}`);
-                body = body.replace('{{studentName}}', `${newStudent.firstname} ${newStudent.surname}`);
+                const fullName = `${newStudent.firstname} ${newStudent.othername ? newStudent.othername + ' ' : ''}${newStudent.surname}`;
+                subject = subject.replace(/{{studentName}}/g, fullName);
+                body = body.replace(/{{studentName}}/g, fullName);
                 body = body.replace('{{level}}', newStudent.level?.name || '');
                 body = body.replace('{{appointmentDate}}', slot.date);
                 body = body.replace('{{appointmentTime}}', `${slot.startTime} - ${slot.endTime}`);

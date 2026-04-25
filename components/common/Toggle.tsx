@@ -6,12 +6,13 @@ interface ToggleProps {
 }
 
 const Toggle: React.FC<ToggleProps> = ({ enabled, onChange }) => {
+  const id = React.useId();
   return (
-    <label htmlFor="toggle" className="flex items-center cursor-pointer">
+    <label htmlFor={id} className="flex items-center cursor-pointer">
       <div className="relative">
         <input 
           type="checkbox" 
-          id="toggle" 
+          id={id} 
           className="sr-only" 
           checked={enabled}
           onChange={(e) => onChange(e.target.checked)}
