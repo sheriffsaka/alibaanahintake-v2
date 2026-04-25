@@ -101,6 +101,7 @@ const Settings: React.FC = () => {
                                     <p className="text-xs text-gray-500 max-w-xs">Enable or disable registration across BOTH sections regardless of individual settings.</p>
                                 </div>
                                 <Toggle 
+                                    id="master-registration-toggle"
                                     enabled={settings.isRegistrationOpen}
                                     onChange={(enabled) => handleChange('isRegistrationOpen', enabled)}
                                 />
@@ -121,6 +122,7 @@ const Settings: React.FC = () => {
                                     <p className="text-xs text-gray-500">Enable/Disable male registration.</p>
                                 </div>
                                 <Toggle 
+                                    id="male-registration-toggle"
                                     enabled={settings.isMaleRegistrationOpen}
                                     onChange={(enabled) => handleChange('isMaleRegistrationOpen', enabled)}
                                 />
@@ -132,6 +134,7 @@ const Settings: React.FC = () => {
                                     <p className="text-xs text-gray-500">Enable/Disable female registration.</p>
                                 </div>
                                 <Toggle 
+                                    id="female-registration-toggle"
                                     enabled={settings.isFemaleRegistrationOpen}
                                     onChange={(enabled) => handleChange('isFemaleRegistrationOpen', enabled)}
                                 />

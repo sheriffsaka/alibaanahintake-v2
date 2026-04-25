@@ -166,6 +166,109 @@ router.post('/auth/verify-otp', async (req, res) => {
   }
 });
 
+router.post('/manage/request-otp', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const { Resend } = await import('resend');
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+    const resendKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
+    const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
+
+    if (!supabaseUrl || !supabaseServiceKey || !resendKey) return res.status(500).json({ error: 'Server configuration error' });
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const resend = new Resend(resendKey);
+
+    // 1. Check if student exists
+    const { data: student, error: studentError } = await supabase
+      .from('students')
+      .select('id, firstname')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
+
+    if (studentError) throw studentError;
+    if (!student) return res.status(404).json({ error: 'No student record found with this email' });
+
+    // 2. Generate and store OTP
+    await supabase.from('otp_codes').delete().eq('email', email.toLowerCase());
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    const { error: dbError } = await supabase.from('otp_codes').insert({ 
+      email: email.toLowerCase(), 
+      code: otp, 
+      expires_at: expiresAt.toISOString() 
+    });
+    if (dbError) throw dbError;
+
+    // 3. Send email
+    await resend.emails.send({
+      from: `Al-Ibaanah <${fromEmail}>`,
+      to: email,
+      subject: 'Manage Booking Verification Code',
+      html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2>Manage Your Booking</h2>
+          <p>Hello ${student.firstname},</p>
+          <p>Your verification code to access and update your booking details is:</p>
+          <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; border-radius: 8px; margin: 20px 0;">${otp}</div>
+          <p>This code will expire in 15 minutes.</p>
+        </div>`
+    });
+
+    res.json({ message: 'OTP sent' });
+  } catch (error: unknown) {
+    console.error('Request manage OTP error:', error);
+    res.status(500).json({ error: 'Failed to process request' });
+  }
+});
+
+router.post('/manage/verify-otp', async (req, res) => {
+  const { email, code } = req.body;
+  if (!email || !code) return res.status(400).json({ error: 'Email and code are required' });
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // 1. Verify OTP
+    const { data: otpData, error: otpError } = await supabase
+      .from('otp_codes')
+      .select('*')
+      .eq('email', email.toLowerCase())
+      .eq('code', code)
+      .gt('expires_at', new Date().toISOString())
+      .limit(1);
+
+    if (otpError) throw otpError;
+    if (!otpData || otpData.length === 0) return res.status(400).json({ error: 'Invalid or expired verification code' });
+
+    // 2. Fetch student details
+    const { data: student, error: studentError } = await supabase
+      .from('students')
+      .select('*, levels(name)')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
+
+    if (studentError) throw studentError;
+    
+    // 3. Cleanup OTP
+    await supabase.from('otp_codes').delete().eq('id', otpData[0].id);
+
+    res.json({ student });
+  } catch (error: unknown) {
+    console.error('Verify manage OTP error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.get('/auth/is-confirmed', async (req, res) => {
   const email = req.query.email as string;
   if (!email) return res.status(400).json({ error: 'Email is required' });

@@ -374,6 +374,60 @@ export const findStudent = async (query: string): Promise<Student | null> => {
     return data ? studentFromSupabase(data) : null;
 };
 
+export const requestManageBookingOTP = async (email: string): Promise<void> => {
+    const response = await fetch(`${window.location.origin}/api/manage/request-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to send verification code');
+    }
+};
+
+export const verifyManageBookingOTP = async (email: string, code: string): Promise<Student> => {
+    const response = await fetch(`${window.location.origin}/api/manage/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Invalid or expired verification code');
+    }
+    const data = await response.json();
+    return studentFromSupabase(data.student);
+};
+
+export const updateStudentDetails = async (studentId: string, updates: Partial<Student>): Promise<Student> => {
+    // Map camlCase to snake_case for database
+    const dbUpdates: Record<string, unknown> = {};
+    if (updates.firstname) dbUpdates.firstname = updates.firstname;
+    if (updates.othername) dbUpdates.othername = updates.othername;
+    if (updates.surname) dbUpdates.surname = updates.surname;
+    if (updates.whatsapp) dbUpdates.whatsapp = updates.whatsapp;
+    if (updates.address) dbUpdates.address = updates.address;
+    if (updates.buildingNumber) dbUpdates.building_number = updates.buildingNumber;
+    if (updates.flatNumber) dbUpdates.flat_number = updates.flatNumber;
+    if (updates.streetName) dbUpdates.street_name = updates.streetName;
+    if (updates.district) dbUpdates.district = updates.district;
+    if (updates.state) dbUpdates.state = updates.state;
+    if (updates.levelId) dbUpdates.level_id = updates.levelId;
+
+    const { data, error } = await supabase
+        .from('students')
+        .update(dbUpdates)
+        .eq('id', studentId)
+        .select('*, levels(name)')
+        .single();
+
+    if (error) throw new Error(error.message || "Failed to update details.");
+    return studentFromSupabase(data);
+};
+
 export const checkInStudent = async (studentId: string): Promise<Student> => {
     const { data, error } = await supabase
         .from('students')

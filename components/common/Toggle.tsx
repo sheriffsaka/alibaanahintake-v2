@@ -3,10 +3,12 @@ import React from 'react';
 interface ToggleProps {
   enabled: boolean;
   onChange: (enabled: boolean) => void;
+  id?: string;
 }
 
-const Toggle: React.FC<ToggleProps> = ({ enabled, onChange }) => {
-  const id = React.useId();
+const Toggle: React.FC<ToggleProps> = ({ enabled, onChange, id: providedId }) => {
+  const generatedId = React.useId();
+  const id = providedId || generatedId;
   return (
     <label htmlFor={id} className="flex items-center cursor-pointer">
       <div className="relative">

@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import LandingPage from './pages/LandingPage';
 import EnrollmentPage from './pages/EnrollmentPage';
+import ManageBookingPage from './pages/ManageBookingPage';
 import AdminPage from './pages/AdminPage';
 import LoginPage from './pages/LoginPage';
 import { AuthProvider } from './contexts/AuthContext';
@@ -38,6 +39,7 @@ function App() {
               }>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/enroll" element={<EnrollmentPage />} />
+                <Route path="/manage-booking" element={<ManageBookingPage />} />
                 <Route path="/login" element={<LoginPage />} />
               </Route>
               
