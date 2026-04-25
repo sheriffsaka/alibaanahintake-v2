@@ -276,6 +276,35 @@ router.post('/manage/verify-otp', async (req, res) => {
   }
 });
 
+router.post('/manage/update-student', async (req, res) => {
+  const { studentId, updates } = req.body;
+  if (!studentId || !updates) return res.status(400).json({ error: 'Student ID and updates are required' });
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data, error } = await supabase
+      .from('students')
+      .update(updates)
+      .eq('id', studentId)
+      .select('*, levels(name)')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Student record not found or update returned no data' });
+
+    res.json({ student: data });
+  } catch (error: unknown) {
+    console.error('Update student error:', error);
+    res.status(500).json({ error: 'Failed to update student details' });
+  }
+});
+
 router.get('/auth/is-confirmed', async (req, res) => {
   const email = req.query.email as string;
   if (!email) return res.status(400).json({ error: 'Email is required' });

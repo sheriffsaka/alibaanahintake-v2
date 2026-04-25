@@ -413,15 +413,19 @@ export const getLevelsWithSlots = async(gender: Gender): Promise<Level[]> => {
         
         if (levelsError) throw levelsError;
 
-        // Then get level IDs that have slots for this gender
-        const { data: activeLevelIds, error: slotsError } = await supabase
+        // Then get level IDs that have slots for this gender with remaining capacity
+        const { data: activeSlots, error: slotsError } = await supabase
             .from('appointment_slots')
-            .select('level_id')
+            .select('level_id, capacity, booked')
             .eq('gender', gender);
         
         if (slotsError) throw slotsError;
 
-        const levelIdsWithSlots = new Set(activeLevelIds.map(s => s.level_id));
+        const levelIdsWithSlots = new Set(
+            activeSlots
+                .filter(s => (s.capacity || 0) > (s.booked || 0))
+                .map(s => s.level_id)
+        );
         
         return levels
             .filter(l => levelIdsWithSlots.has(l.id))
@@ -450,7 +454,7 @@ export const renewSession = async (): Promise<void> => {
 };
 
 export const updateStudentDetails = async (studentId: string, updates: Partial<Student>): Promise<Student> => {
-    // Map camlCase to snake_case for database
+    // Map camelCase to snake_case for database
     const dbUpdates: Record<string, unknown> = {};
     if (updates.firstname) dbUpdates.firstname = updates.firstname;
     if (updates.othername !== undefined) dbUpdates.othername = updates.othername;
@@ -468,17 +472,19 @@ export const updateStudentDetails = async (studentId: string, updates: Partial<S
         throw new Error("No changes detected.");
     }
 
-    const { data, error } = await supabase
-        .from('students')
-        .update(dbUpdates)
-        .eq('id', studentId)
-        .select('*, levels(name)')
-        .maybeSingle();
+    const response = await fetch(`${window.location.origin}/api/manage/update-student`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, updates: dbUpdates }),
+    });
 
-    if (error) throw new Error(error.message || "Failed to update details.");
-    if (!data) throw new Error("Student record not found or update returned no data.");
-    
-    return studentFromSupabase(data);
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to update details');
+    }
+
+    const data = await response.json();
+    return studentFromSupabase(data.student);
 };
 
 export const checkInStudent = async (studentId: string): Promise<Student> => {

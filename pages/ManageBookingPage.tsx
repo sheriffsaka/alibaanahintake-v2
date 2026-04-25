@@ -7,20 +7,10 @@ import { requestManageBookingOTP, verifyManageBookingOTP, updateStudentDetails, 
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Select from '../components/common/Select';
-import { Mail, CheckCircle, User, Phone, Home, ShieldCheck, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
-import Card from '../components/common/Card';
-
-const COUNTRY_CODES = [
-  { code: '+20', label: 'Egypt (+20)' },
-  { code: '+966', label: 'Saudi Arabia (+966)' },
-  { code: '+971', label: 'UAE (+971)' },
-  { code: '+234', label: 'Nigeria (+234)' },
-  { code: '+44', label: 'UK (+44)' },
-  { code: '+1', label: 'USA/Canada (+1)' },
-].sort((a, b) => a.label.localeCompare(b.label));
+import { Mail, CheckCircle, User, Phone, ShieldCheck, AlertCircle, ArrowLeft } from 'lucide-react';
 
 const ManageBookingPage: React.FC = () => {
-    const { t, language } = useTranslation();
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [step, setStep] = useState<'email' | 'otp' | 'edit' | 'success'>('email');
     const [email, setEmail] = useState('');
@@ -51,8 +41,8 @@ const ManageBookingPage: React.FC = () => {
         try {
             await requestManageBookingOTP(email);
             setStep('otp');
-        } catch (err: any) {
-            setError(err.message || t('somethingWentWrong'));
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : t('somethingWentWrong'));
         } finally {
             setLoading(false);
         }
@@ -66,8 +56,8 @@ const ManageBookingPage: React.FC = () => {
             const studentData = await verifyManageBookingOTP(email, otp);
             setStudent(studentData);
             setStep('edit');
-        } catch (err: any) {
-            setError(err.message || t('errorInvalidCode'));
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : t('errorInvalidCode'));
         } finally {
             setLoading(false);
         }
@@ -95,8 +85,8 @@ const ManageBookingPage: React.FC = () => {
                 levelId: student.levelId
             });
             setStep('success');
-        } catch (err: any) {
-            setError(err.message || t('errorUpdateFailed'));
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : t('errorUpdateFailed'));
         } finally {
             setLoading(false);
         }

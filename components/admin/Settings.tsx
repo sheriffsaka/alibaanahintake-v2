@@ -78,9 +78,9 @@ const Settings: React.FC = () => {
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
             alert("Session renewed successfully. All existing bookings are now inactive.");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Error renewing session:", err);
-            setError(err.message || "Failed to renew session.");
+            setError(err instanceof Error ? err.message : "Failed to renew session.");
         } finally {
             setRenewing(false);
             setRenewConfirmText('');
