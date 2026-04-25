@@ -12,6 +12,7 @@ const Hero: React.FC = () => {
     const { content } = useSiteContent();
     const [isVideoModalOpen, setVideoModalOpen] = useState(false);
     const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+    const [closedModal, setClosedModal] = useState<{ isOpen: boolean, gender?: Gender } | null>(null);
     const [hasSavedEnrollment] = useState(() => {
         const saved = localStorage.getItem('al_ibaanah_enrollment_state');
         if (saved) {
@@ -45,6 +46,36 @@ const Hero: React.FC = () => {
         };
         fetchSettings();
     }, []);
+
+    const handleRegistrationClick = (e: React.MouseEvent, gender: Gender) => {
+        if (!appSettings) return;
+
+        const isMainOpen = appSettings.isRegistrationOpen;
+        const isSectionOpen = gender === Gender.Male 
+            ? appSettings.isMaleRegistrationOpen 
+            : appSettings.isFemaleRegistrationOpen;
+
+        if (!isMainOpen || !isSectionOpen) {
+            e.preventDefault();
+            setClosedModal({ isOpen: true, gender });
+        }
+    };
+
+    const getClosedMessage = (gender?: Gender) => {
+        if (!appSettings) return '';
+        
+        const lang = language || 'en';
+        const customMessage = appSettings.closedReasons?.[lang] || appSettings.closedReasons?.en;
+        
+        if (customMessage) return customMessage;
+
+        // Default messages if none set
+        if (!gender) return "Registration is currently closed. Please contact the school for further notice.";
+
+        return gender === Gender.Male
+            ? "Registration for the Brothers section is currently closed. Please contact the school for further notice."
+            : "Registration for the Sisters section is currently closed. Please contact the school for further notice.";
+    };
 
   return (
     <>
@@ -84,25 +115,33 @@ const Hero: React.FC = () => {
                                 </Link>
                             </div>
                         )}
-                        {appSettings?.isRegistrationOpen ? (
-                            <>
-                                <Link to="/enroll" state={{ gender: Gender.Male }}>
-                                    <button className="bg-white text-brand-green-dark font-semibold px-8 py-3 rounded-md shadow-lg hover:bg-gray-200 transition-colors">
-                                        {t('maleIntake')}
-                                    </button>
-                                </Link>
-                                <Link to="/enroll" state={{ gender: Gender.Female }}>
-                                    <button className="border border-brand-yellow text-brand-yellow font-semibold px-8 py-3 rounded-md flex items-center hover:bg-brand-yellow/10 transition-colors">
-                                        <span>{t('femaleIntake')}</span>
-                                    </button>
-                                </Link>
-                            </>
-                        ) : !hasSavedEnrollment && (
-                            <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
-                                <p className="font-bold">Slot Booking on hold</p>
-                                <p>No Session or Slot Booking Going On. Please contact the school for further notice.</p>
-                            </div>
-                        )}
+                        
+                        <Link 
+                            to="/enroll" 
+                            state={{ gender: Gender.Male }}
+                            onClick={(e) => handleRegistrationClick(e, Gender.Male)}
+                        >
+                            <button className={`font-semibold px-8 py-3 rounded-md shadow-lg transition-all ${
+                                (appSettings?.isRegistrationOpen && appSettings?.isMaleRegistrationOpen)
+                                ? 'bg-white text-brand-green-dark hover:bg-gray-200' 
+                                : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-70'
+                            }`}>
+                                {t('maleIntake')}
+                            </button>
+                        </Link>
+                        <Link 
+                            to="/enroll" 
+                            state={{ gender: Gender.Female }}
+                            onClick={(e) => handleRegistrationClick(e, Gender.Female)}
+                        >
+                            <button className={`font-semibold px-8 py-3 rounded-md flex items-center transition-all ${
+                                (appSettings?.isRegistrationOpen && appSettings?.isFemaleRegistrationOpen)
+                                ? 'border border-brand-yellow text-brand-yellow hover:bg-brand-yellow/10'
+                                : 'border border-gray-500 text-gray-500 cursor-not-allowed opacity-70'
+                            }`}>
+                                <span>{t('femaleIntake')}</span>
+                            </button>
+                        </Link>
                     </div>
                 </div>
 
@@ -153,6 +192,45 @@ const Hero: React.FC = () => {
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                     allowFullScreen>
                 </iframe>
+            </div>
+        </div>
+    )}
+
+    {/* Registration Closed Modal */}
+    {closedModal?.isOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm" onClick={() => setClosedModal(null)}>
+            <div 
+                className="bg-white rounded-xl max-w-md w-full p-8 shadow-2xl relative animate-in fade-in zoom-in duration-300"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="absolute top-4 right-4">
+                    <button 
+                        onClick={() => setClosedModal(null)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                        <X className="h-6 w-6" />
+                    </button>
+                </div>
+                
+                <div className="text-center">
+                    <div className="bg-yellow-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <X className="h-8 w-8 text-yellow-600" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                        {language === 'ar' ? 'التسجيل مغلق' : 'Registration Closed'}
+                    </h3>
+                    <div className="text-gray-600 leading-relaxed space-y-4 mb-8">
+                        <p className="text-lg font-medium">
+                            {getClosedMessage(closedModal.gender)}
+                        </p>
+                    </div>
+                    <button 
+                        onClick={() => setClosedModal(null)}
+                        className="w-full bg-brand-green text-white font-bold py-3 rounded-lg shadow-lg hover:bg-brand-green-dark transition-all transform active:scale-95"
+                    >
+                        {language === 'ar' ? 'حسناً' : 'Understood'}
+                    </button>
+                </div>
             </div>
         </div>
     )}

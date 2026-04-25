@@ -159,7 +159,16 @@ let notificationSettings: any = {
         },
     },
 };
-let appSettings: AppSettings = { isRegistrationOpen: true, maxDailyCapacity: 100 };
+let appSettings: AppSettings = { 
+    isRegistrationOpen: true, 
+    isMaleRegistrationOpen: true,
+    isFemaleRegistrationOpen: true,
+    maxDailyCapacity: 100,
+    closedReasons: {
+        en: 'Registration is currently closed for this section.',
+        ar: 'التسجيل مغلق حاليًا لهذا القسم.'
+    }
+};
 
 const generateMockData = () => {
   if (appointmentSlots.length > 0) return;

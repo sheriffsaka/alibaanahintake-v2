@@ -187,14 +187,17 @@ COMMENT ON TABLE public.profiles IS 'Stores profile information for admin users.
 CREATE TABLE IF NOT EXISTS public.app_settings (
     id INT PRIMARY KEY DEFAULT 1,
     registration_open BOOLEAN NOT NULL DEFAULT true,
+    male_registration_open BOOLEAN NOT NULL DEFAULT true,
+    female_registration_open BOOLEAN NOT NULL DEFAULT true,
     max_daily_capacity INT NOT NULL DEFAULT 100,
+    closed_reasons JSONB NOT NULL DEFAULT '{}'::jsonb,
     CONSTRAINT single_row CHECK (id = 1)
 );
 COMMENT ON TABLE public.app_settings IS 'Stores global application settings.';
 
 -- Insert the single settings row.
-INSERT INTO public.app_settings (id, registration_open, max_daily_capacity)
-VALUES (1, true, 100)
+INSERT INTO public.app_settings (id, registration_open, male_registration_open, female_registration_open, max_daily_capacity, closed_reasons)
+VALUES (1, true, true, true, 100, '{}')
 ON CONFLICT (id) DO NOTHING;
 
 -- 7. Create singleton table for notification_settings.
@@ -545,12 +548,25 @@ DECLARE
     selected_slot RECORD;
     new_student_record RECORD;
     booking_is_open BOOLEAN;
+    male_open BOOLEAN;
+    female_open BOOLEAN;
     level_name_text TEXT;
 BEGIN
     -- Check if bookings are open
-    SELECT registration_open INTO booking_is_open FROM public.app_settings WHERE id = 1;
+    SELECT registration_open, male_registration_open, female_registration_open 
+    INTO booking_is_open, male_open, female_open 
+    FROM public.app_settings WHERE id = 1;
+    
     IF NOT booking_is_open THEN
         RAISE EXCEPTION 'Bookings are currently closed.';
+    END IF;
+
+    IF (student_data->>'gender')::gender_enum = 'Male' AND NOT male_open THEN
+        RAISE EXCEPTION 'Registration for the Brothers section is currently closed.';
+    END IF;
+
+    IF (student_data->>'gender')::gender_enum = 'Female' AND NOT female_open THEN
+        RAISE EXCEPTION 'Registration for the Sisters section is currently closed.';
     END IF;
 
     -- Check 6-week rule: A student can only book again after 6 weeks

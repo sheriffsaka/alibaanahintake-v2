@@ -797,26 +797,65 @@ export const getAppSettings = async(): Promise<AppSettings> => {
             .single();
         
         if (error) throw error;
-        return { isRegistrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
+        return { 
+            isRegistrationOpen: data.registration_open, 
+            isMaleRegistrationOpen: data.male_registration_open,
+            isFemaleRegistrationOpen: data.female_registration_open,
+            maxDailyCapacity: data.max_daily_capacity,
+            closedReasons: data.closed_reasons || {}
+        };
     } catch (err) {
         console.error("Failed to fetch app settings, using defaults.", err);
-        return { isRegistrationOpen: false, maxDailyCapacity: 50 };
+        return { 
+            isRegistrationOpen: false, 
+            isMaleRegistrationOpen: false,
+            isFemaleRegistrationOpen: false,
+            maxDailyCapacity: 50,
+            closedReasons: {}
+        };
     }
 };
+
 export const updateAppSettings = async(settings: AppSettings): Promise<AppSettings> => {
-    const { isRegistrationOpen, maxDailyCapacity } = settings;
-    const { data, error } = await supabase.from('app_settings').update({ registration_open: isRegistrationOpen, max_daily_capacity: maxDailyCapacity }).eq('id', 1).select().single();
+    const { isRegistrationOpen, isMaleRegistrationOpen, isFemaleRegistrationOpen, maxDailyCapacity, closedReasons } = settings;
+    const { data, error } = await supabase.from('app_settings').update({ 
+        registration_open: isRegistrationOpen, 
+        male_registration_open: isMaleRegistrationOpen,
+        female_registration_open: isFemaleRegistrationOpen,
+        max_daily_capacity: maxDailyCapacity,
+        closed_reasons: closedReasons
+    }).eq('id', 1).select().single();
     if (error) throw error;
-    return { isRegistrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
+    return { 
+        isRegistrationOpen: data.registration_open, 
+        isMaleRegistrationOpen: data.male_registration_open,
+        isFemaleRegistrationOpen: data.female_registration_open,
+        maxDailyCapacity: data.max_daily_capacity,
+        closedReasons: data.closed_reasons || {}
+    };
 };
 
-export const updateAppSetting = async (key: keyof AppSettings, value: boolean): Promise<AppSettings> => {
+export const updateAppSetting = async (key: keyof AppSettings, value: unknown): Promise<AppSettings> => {
+    const dbKeyMap: Record<string, string> = {
+        isRegistrationOpen: 'registration_open',
+        isMaleRegistrationOpen: 'male_registration_open',
+        isFemaleRegistrationOpen: 'female_registration_open',
+        maxDailyCapacity: 'max_daily_capacity',
+        closedReasons: 'closed_reasons'
+    };
+
     const updates = {
-        [key === 'isRegistrationOpen' ? 'registration_open' : 'max_daily_capacity']: value
+        [dbKeyMap[key as string]]: value
     };
     const { data, error } = await supabase.from('app_settings').update(updates).eq('id', 1).select().single();
     if (error) throw error;
-    return { isRegistrationOpen: data.registration_open, maxDailyCapacity: data.max_daily_capacity };
+    return { 
+        isRegistrationOpen: data.registration_open, 
+        isMaleRegistrationOpen: data.male_registration_open,
+        isFemaleRegistrationOpen: data.female_registration_open,
+        maxDailyCapacity: data.max_daily_capacity,
+        closedReasons: data.closed_reasons || {}
+    };
 };
 
 export const sendTestEmail = async (to: string, subject: string, html: string): Promise<void> => {

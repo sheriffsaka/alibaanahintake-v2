@@ -123,7 +123,10 @@ export interface NotificationSettings {
 
 export interface AppSettings {
     isRegistrationOpen: boolean;
+    isMaleRegistrationOpen: boolean;
+    isFemaleRegistrationOpen: boolean;
     maxDailyCapacity: number;
+    closedReasons: Record<string, string>; // Multilingual reasons for closure
 }
 
 export interface EnrollmentState {
