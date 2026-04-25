@@ -146,8 +146,8 @@ router.post('/auth/verify-otp', async (req, res) => {
 
   try {
     const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
     if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -254,17 +254,18 @@ router.post('/manage/verify-otp', async (req, res) => {
     if (otpError) throw otpError;
     if (!otpData || otpData.length === 0) return res.status(400).json({ error: 'Invalid or expired verification code' });
 
-    // 2. Fetch student details (most recent non-archived or just the most recent)
+    // 2. Fetch student details (prefer active/booked vs archived, then most recent)
     const { data: student, error: studentError } = await supabase
       .from('students')
       .select('*, levels(name)')
       .eq('email', email.toLowerCase())
-      .order('status', { ascending: true }) // active/pending vs archived
+      .order('status', { ascending: false }) // 'checked-in' > 'booked' > 'archived'
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (studentError) throw studentError;
+    if (!student) return res.status(404).json({ error: 'No student record found for this account' });
     
     // 3. Cleanup OTP
     await supabase.from('otp_codes').delete().eq('id', otpData[0].id);
@@ -287,18 +288,33 @@ router.post('/manage/update-student', async (req, res) => {
     if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    console.log(`>>> Attempting update for student ID: ${studentId}`, updates);
 
     const { data, error } = await supabase
       .from('students')
       .update(updates)
       .eq('id', studentId)
-      .select('*, levels(name)')
-      .maybeSingle();
+      .select('*, levels(name)');
 
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: 'Student record not found or update returned no data' });
+    if (error) {
+      console.error('>>> Supabase update error:', error);
+      throw error;
+    }
+    
+    if (!data || data.length === 0) {
+      console.error('>>> Update failed: No student record matched ID or no data returned');
+      // Let's try to see if the record even exists
+      const { data: checkData } = await supabase.from('students').select('id, status').eq('id', studentId).maybeSingle();
+      console.log(`>>> Check if student exists: ${!!checkData}`, checkData);
+      return res.status(404).json({ 
+        error: 'Student record not found or update returned no data',
+        studentId,
+        exists: !!checkData,
+        status: checkData?.status
+      });
+    }
 
-    res.json({ student: data });
+    res.json({ student: data[0] });
   } catch (error: unknown) {
     console.error('Update student error:', error);
     res.status(500).json({ error: 'Failed to update student details' });
@@ -311,8 +327,8 @@ router.get('/auth/is-confirmed', async (req, res) => {
 
   try {
     const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
     if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -348,8 +364,8 @@ router.get('/auth/is-verified', async (req, res) => {
 
   try {
     const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
     if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -370,8 +386,8 @@ router.post('/cron/reminders', async (req, res) => {
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const { Resend } = await import('resend');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
     const resendKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
     const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
 
