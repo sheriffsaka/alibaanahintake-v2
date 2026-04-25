@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../i18n/LanguageContext';
 import { Student, Level } from '../types';
-import { requestManageBookingOTP, verifyManageBookingOTP, updateStudentDetails, getLevels } from '../services/apiService';
+import { requestManageBookingOTP, verifyManageBookingOTP, updateStudentDetails, getLevelsWithSlots } from '../services/apiService';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Select from '../components/common/Select';
@@ -29,19 +29,20 @@ const ManageBookingPage: React.FC = () => {
     const [levels, setLevels] = useState<Level[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
-        const fetchLevels = async () => {
-            try {
-                const data = await getLevels();
-                setLevels(data);
-            } catch (err) {
-                console.error("Failed to fetch levels:", err);
-            }
-        };
-        fetchLevels();
-    }, []);
+        if (student) {
+            const fetchLevels = async () => {
+                try {
+                    const data = await getLevelsWithSlots(student.gender);
+                    setLevels(data);
+                } catch (err) {
+                    console.error("Failed to fetch levels:", err);
+                }
+            };
+            fetchLevels();
+        }
+    }, [student]);
 
     const handleSendOTP = async (e: React.FormEvent) => {
         e.preventDefault();

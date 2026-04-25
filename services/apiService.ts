@@ -402,11 +402,58 @@ export const verifyManageBookingOTP = async (email: string, code: string): Promi
     return studentFromSupabase(data.student);
 };
 
+export const getLevelsWithSlots = async(gender: Gender): Promise<Level[]> => {
+    try {
+        // First get levels that are active
+        const { data: levels, error: levelsError } = await supabase
+            .from('levels')
+            .select('*')
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true });
+        
+        if (levelsError) throw levelsError;
+
+        // Then get level IDs that have slots for this gender
+        const { data: activeLevelIds, error: slotsError } = await supabase
+            .from('appointment_slots')
+            .select('level_id')
+            .eq('gender', gender);
+        
+        if (slotsError) throw slotsError;
+
+        const levelIdsWithSlots = new Set(activeLevelIds.map(s => s.level_id));
+        
+        return levels
+            .filter(l => levelIdsWithSlots.has(l.id))
+            .map(l => ({...l, isActive: l.is_active, sortOrder: l.sort_order}));
+    } catch (err) {
+        console.error("Failed to fetch levels with slots:", err);
+        return [];
+    }
+};
+
+export const renewSession = async (): Promise<void> => {
+    // 1. Archive all current students (mark as status 'archived')
+    const { error: archiveError } = await supabase
+        .from('students')
+        .update({ status: 'archived' })
+        .not('status', 'eq', 'archived');
+
+    if (archiveError) throw archiveError;
+
+    // 2. Reset booked counts for all slots
+    const { error: resetError } = await supabase
+        .from('appointment_slots')
+        .update({ booked: 0 });
+
+    if (resetError) throw resetError;
+};
+
 export const updateStudentDetails = async (studentId: string, updates: Partial<Student>): Promise<Student> => {
     // Map camlCase to snake_case for database
     const dbUpdates: Record<string, unknown> = {};
     if (updates.firstname) dbUpdates.firstname = updates.firstname;
-    if (updates.othername) dbUpdates.othername = updates.othername;
+    if (updates.othername !== undefined) dbUpdates.othername = updates.othername;
     if (updates.surname) dbUpdates.surname = updates.surname;
     if (updates.whatsapp) dbUpdates.whatsapp = updates.whatsapp;
     if (updates.address) dbUpdates.address = updates.address;
@@ -417,14 +464,20 @@ export const updateStudentDetails = async (studentId: string, updates: Partial<S
     if (updates.state) dbUpdates.state = updates.state;
     if (updates.levelId) dbUpdates.level_id = updates.levelId;
 
+    if (Object.keys(dbUpdates).length === 0) {
+        throw new Error("No changes detected.");
+    }
+
     const { data, error } = await supabase
         .from('students')
         .update(dbUpdates)
         .eq('id', studentId)
         .select('*, levels(name)')
-        .single();
+        .maybeSingle();
 
     if (error) throw new Error(error.message || "Failed to update details.");
+    if (!data) throw new Error("Student record not found or update returned no data.");
+    
     return studentFromSupabase(data);
 };
 

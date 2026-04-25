@@ -78,6 +78,7 @@ router.post('/auth/send-otp', async (req, res) => {
       .from('students')
       .select('id, created_at')
       .eq('email', email.toLowerCase())
+      .not('status', 'eq', 'archived') // Only block if there's an active (non-archived) registration
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -183,11 +184,14 @@ router.post('/manage/request-otp', async (req, res) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const resend = new Resend(resendKey);
 
-    // 1. Check if student exists
+    // 1. Check if student exists (prefer active ones)
     const { data: student, error: studentError } = await supabase
       .from('students')
       .select('id, firstname')
       .eq('email', email.toLowerCase())
+      .order('status', { ascending: true }) // 'active' sorts before 'archived' alphabetically? Actually let's use a explicit filter or ordering
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (studentError) throw studentError;
@@ -250,11 +254,14 @@ router.post('/manage/verify-otp', async (req, res) => {
     if (otpError) throw otpError;
     if (!otpData || otpData.length === 0) return res.status(400).json({ error: 'Invalid or expired verification code' });
 
-    // 2. Fetch student details
+    // 2. Fetch student details (most recent non-archived or just the most recent)
     const { data: student, error: studentError } = await supabase
       .from('students')
       .select('*, levels(name)')
       .eq('email', email.toLowerCase())
+      .order('status', { ascending: true }) // active/pending vs archived
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (studentError) throw studentError;

@@ -1,18 +1,19 @@
 
 import React, { useEffect, useState } from 'react';
-import { getAppSettings, updateAppSettings } from '../../services/apiService';
+import { getAppSettings, updateAppSettings, renewSession } from '../../services/apiService';
 import { AppSettings as TAppSettings } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import Toggle from '../common/Toggle';
-import { CheckCircle, Info } from 'lucide-react';
+import { CheckCircle, Info, RefreshCw } from 'lucide-react';
 
 const Settings: React.FC = () => {
     const [settings, setSettings] = useState<TAppSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [renewing, setRenewing] = useState(false);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +61,26 @@ const Settings: React.FC = () => {
         }
     };
 
+    const handleRenewSession = async () => {
+        if (!window.confirm("Are you sure you want to renew the session? This will mark ALL current students as archived and reset ALL slot bookings. This cannot be undone.")) {
+            return;
+        }
+
+        setRenewing(true);
+        setError(null);
+        try {
+            await renewSession();
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+            alert("Session renewed successfully. All existing bookings are now inactive.");
+        } catch (err: any) {
+            console.error("Error renewing session:", err);
+            setError(err.message || "Failed to renew session.");
+        } finally {
+            setRenewing(false);
+        }
+    };
+
     if (loading) return <div className="flex justify-center p-12"><Spinner /></div>;
     if (error && !settings) return (
         <div className="p-8 text-center">
@@ -77,6 +98,16 @@ const Settings: React.FC = () => {
                     <p className="text-gray-500">Manage global registration status, section availability, and facility capacity.</p>
                 </div>
                 <div className="flex items-center space-x-4">
+                    <Button 
+                        variant="outline" 
+                        onClick={handleRenewSession} 
+                        disabled={renewing}
+                        loading={renewing}
+                        className="border-amber-200 text-amber-700 hover:bg-amber-50"
+                    >
+                        <RefreshCw size={18} className="mr-2" />
+                        Renew Session
+                    </Button>
                     {saved && <span className="text-green-600 flex items-center"><CheckCircle className="h-5 w-5 mr-1"/> Saved!</span>}
                     <Button onClick={handleSave} disabled={saving} loading={saving}>
                         Save All Changes
