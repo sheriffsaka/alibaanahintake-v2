@@ -3,7 +3,17 @@ DROP TYPE IF EXISTS public.level_enum CASCADE;
 -- Create other ENUM types.
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'gender_enum') THEN CREATE TYPE public.gender_enum AS ENUM ('Male', 'Female'); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'role_enum') THEN CREATE TYPE public.role_enum AS ENUM ('Super Admin', 'male_section_Admin', 'female_section_Admin', 'male_Front Desk', 'female_Front Desk'); END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'student_status_enum') THEN CREATE TYPE public.student_status_enum AS ENUM ('booked', 'checked-in'); END IF; END $$;
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'student_status_enum') THEN 
+        CREATE TYPE public.student_status_enum AS ENUM ('booked', 'checked-in', 'archived'); 
+    ELSE
+        -- Add 'archived' if it doesn't exist in the enum
+        IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'public.student_status_enum'::regtype AND enumlabel = 'archived') THEN
+            ALTER TYPE public.student_status_enum ADD VALUE 'archived';
+        END IF;
+    END IF; 
+END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'resource_type_enum') THEN CREATE TYPE public.resource_type_enum AS ENUM ('book', 'video', 'image', 'document'); END IF; END $$;
 
 -- 2. Create the new `levels` table.
@@ -584,9 +594,11 @@ BEGIN
     END IF;
 
     -- Check 6-week rule: A student can only book again after 6 weeks
+    -- We ignore 'archived' students to allow re-registration after a session renewal
     IF EXISTS (
         SELECT 1 FROM public.students 
         WHERE lower(email) = lower(student_data->>'email') 
+        AND status != 'archived'
         AND created_at > now() - interval '6 weeks'
     ) THEN
         RAISE EXCEPTION 'You have already booked a slot recently. Please wait 6 weeks between bookings.';
@@ -762,3 +774,69 @@ $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION public.get_dashboard_statistics TO authenticated;
 GRANT EXECUTE ON FUNCTION public.search_students(TEXT) TO authenticated;
+
+-- Added RPC for secure check-in with date validation
+CREATE OR REPLACE FUNCTION check_in_student_rpc(target_student_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    found_student_record RECORD;
+    output_record RECORD;
+    level_name_text TEXT;
+BEGIN
+    -- 1. Fetch student and check their appointment date
+    SELECT s.*, l.name as level_name INTO found_student_record 
+    FROM public.students s
+    JOIN public.levels l ON l.id = s.level_id
+    WHERE s.id = target_student_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Student not found';
+    END IF;
+
+    -- 2. Enforce check-in only on appointment date
+    IF found_student_record.intake_date != CURRENT_DATE THEN
+        RAISE EXCEPTION 'Check-in failed. This student''s appointment is scheduled for %. Please return on the scheduled date.', found_student_record.intake_date;
+    END IF;
+
+    -- 3. Check if already checked in
+    IF found_student_record.status = 'checked-in' THEN
+        RAISE EXCEPTION 'Student is already checked in.';
+    END IF;
+
+    -- 4. Perform update
+    UPDATE public.students 
+    SET status = 'checked-in' 
+    WHERE id = target_student_id 
+    RETURNING * INTO output_record;
+
+    -- 5. Return JSON record
+    RETURN jsonb_build_object(
+        'id', output_record.id,
+        'surname', output_record.surname,
+        'firstname', output_record.firstname,
+        'othername', output_record.othername,
+        'whatsapp', output_record.whatsapp,
+        'email', output_record.email,
+        'gender', output_record.gender,
+        'address', output_record.address,
+        'buildingNumber', output_record.building_number,
+        'flatNumber', output_record.flat_number,
+        'streetName', output_record.street_name,
+        'district', output_record.district,
+        'state', output_record.state,
+        'levelId', output_record.level_id,
+        'level', jsonb_build_object('id', output_record.level_id, 'name', found_student_record.level_name),
+        'intakeDate', output_record.intake_date,
+        'registrationCode', output_record.registration_code,
+        'appointmentSlotId', output_record.appointment_slot_id,
+        'status', output_record.status,
+        'language', output_record.language,
+        'createdAt', output_record.created_at
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.check_in_student_rpc(UUID) TO authenticated;

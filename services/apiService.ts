@@ -488,14 +488,15 @@ export const updateStudentDetails = async (studentId: string, updates: Partial<S
 };
 
 export const checkInStudent = async (studentId: string): Promise<Student> => {
-    const { data, error } = await supabase
-        .from('students')
-        .update({ status: 'checked-in' })
-        .eq('id', studentId)
-        .select('*, levels(name)')
-        .single();
+    const { data, error } = await supabase.rpc('check_in_student_rpc', {
+        target_student_id: studentId
+    });
 
-    if (error) throw new Error("Failed to check in student.");
+    if (error) {
+        console.error("Check-in error:", error);
+        throw new Error(error.message || "Failed to check in student.");
+    }
+    
     return studentFromSupabase(data);
 };
 

@@ -42,7 +42,8 @@ const ConfirmationPage: React.FC = () => {
         const newStudent = await submitRegistration(registrationData);
         dispatch({ type: 'CONFIRM_REGISTRATION', payload: newStudent });
       } catch (err) {
-        setError(t('bookingFailedMessage'));
+        const errorMsg = err instanceof Error ? err.message : t('bookingFailedMessage');
+        setError(errorMsg);
         console.error(err);
       } finally {
         setLoading(false);
