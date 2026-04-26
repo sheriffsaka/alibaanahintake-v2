@@ -38,7 +38,7 @@ export default {
 
     // Visit Campus
     visitCampusTitle: '参观我们的校园',
-    visitCampusDesc: '入学登记在我们的纳斯尔市总部现场进行。抵达时请确保您的手机上已准备好数字入学单。',
+    visitCampusDesc: '入学登记在纳斯尔市现场进行。抵达时请确保您的手机上已准备好数字入学单。',
     maleSectionContact: '男部/兄弟部联系方式',
     maleSectionNumbers: '+201112335628',
     femaleSectionContact: '女部/姐妹部联系方式',

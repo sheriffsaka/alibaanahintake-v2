@@ -38,7 +38,7 @@ export default {
 
     // Visit Campus
     visitCampusTitle: 'Visit Our Campus',
-    visitCampusDesc: 'Enrollment happens on-site at our Nasr City headquarters. Please ensure you have your digital intake slip ready on your phone upon arrival.',
+    visitCampusDesc: 'Enrollment happens on-site in Nasr City. Please ensure you have your digital intake slip ready on your phone upon arrival.',
     maleSectionContact: "Male / Brother's Section Contact",
     maleSectionNumbers: "+201112335628",
     femaleSectionContact: "Female / Sister's Section Contact",
@@ -76,7 +76,7 @@ export default {
     step1Title: 'Step 1: Fill the Slot Booking Form ({gender})',
     surnameLabel: 'Surname',
     firstnameLabel: 'First Name',
-    othernameLabel: 'Other Name',
+    othernameLabel: 'Other Name (optional)',
     whatsappLabel: 'WhatsApp Phone Number',
     emailLabel: 'Email Address',
     genderLabel: 'Gender',

@@ -38,7 +38,7 @@ export default {
 
     // Visit Campus
     visitCampusTitle: 'Kampusimizga tashrif buyuring',
-    visitCampusDesc: "Ro'yxatga olish bizning Nasr Sitidagi bosh ofisimizda amalga oshiriladi. Kelganda telefoningizda raqamli qabul varaqangiz tayyor ekanligiga ishonch hosil qiling.",
+    visitCampusDesc: "Ro'yxatga olish Nasr Sitida amalga oshiriladi. Kelganda telefoningizda raqamli qabul varaqangiz tayyor ekanligiga ishonch hosil qiling.",
     maleSectionContact: "Erkaklar / Birodarlar bo'limi bilan bog'lanish",
     maleSectionNumbers: "+201112335628",
     femaleSectionContact: "Ayollar / Opa-singillar bo'limi bilan bog'lanish",

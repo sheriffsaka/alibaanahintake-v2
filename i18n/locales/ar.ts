@@ -38,7 +38,7 @@ export default {
 
     // Visit Campus
     visitCampusTitle: 'قم بزيارة حرمنا الجامعي',
-    visitCampusDesc: 'يتم الالتحاق في مقرنا بمدينة نصر. يرجى التأكد من أن قسيمة القبول الرقمية جاهزة على هاتفك عند الوصول.',
+    visitCampusDesc: 'يتم الالتحاق في مدينة نصر. يرجى التأكد من أن قسيمة القبول الرقمية جاهزة على هاتفك عند الوصول.',
     maleSectionContact: "تواصل قسم الرجال",
     maleSectionNumbers: "+201112335628",
     femaleSectionContact: "تواصل قسم النساء",
