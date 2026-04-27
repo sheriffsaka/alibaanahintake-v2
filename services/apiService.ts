@@ -469,6 +469,19 @@ export const deleteStudent = async (studentId: string): Promise<void> => {
     }
 };
 
+export const bulkDeleteStudents = async (studentIds: string[]): Promise<void> => {
+    const response = await fetch(`${window.location.origin}/api/manage/bulk-delete-students`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentIds }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to delete student records');
+    }
+};
+
 export const checkInStudent = async (studentId: string): Promise<Student> => {
     const { data, error } = await supabase.rpc('check_in_student_rpc', {
         target_student_id: studentId
@@ -550,6 +563,19 @@ export const deleteSchedule = async(slotId: string): Promise<{ success: boolean 
     const { error } = await supabase.from('appointment_slots').delete().eq('id', slotId);
     if (error) throw error;
     return { success: true };
+};
+
+export const bulkDeleteSchedules = async(slotIds: string[]): Promise<void> => {
+    const response = await fetch(`${window.location.origin}/api/manage/bulk-delete-slots`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slotIds }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to delete schedule slots');
+    }
 };
 
 

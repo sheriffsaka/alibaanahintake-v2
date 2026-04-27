@@ -346,6 +346,56 @@ router.post('/manage/delete-student', async (req, res) => {
   }
 });
 
+router.post('/manage/bulk-delete-students', async (req, res) => {
+  const { studentIds } = req.body;
+  if (!studentIds || !Array.isArray(studentIds)) return res.status(400).json({ error: 'Student IDs array is required' });
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const { error } = await supabase
+      .from('students')
+      .delete()
+      .in('id', studentIds);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error: unknown) {
+    console.error('Bulk delete students error:', error);
+    res.status(500).json({ error: 'Failed to delete student records' });
+  }
+});
+
+router.post('/manage/bulk-delete-slots', async (req, res) => {
+  const { slotIds } = req.body;
+  if (!slotIds || !Array.isArray(slotIds)) return res.status(400).json({ error: 'Slot IDs array is required' });
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const { error } = await supabase
+      .from('appointment_slots')
+      .delete()
+      .in('id', slotIds);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error: unknown) {
+    console.error('Bulk delete slots error:', error);
+    res.status(500).json({ error: 'Failed to delete schedule slots' });
+  }
+});
+
 router.post('/enroll/register', async (req, res) => {
   const { slotId, studentData } = req.body;
   if (!slotId || !studentData) return res.status(400).json({ error: 'Slot ID and student data are required' });

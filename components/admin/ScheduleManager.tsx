@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { getSchedules, updateSchedule, createSchedule, deleteSchedule, getLevels, createSchedulesBulk } from '../../services/apiService';
+import { getSchedules, updateSchedule, createSchedule, deleteSchedule, getLevels, createSchedulesBulk, bulkDeleteSchedules } from '../../services/apiService';
 import { AppointmentSlot, Level, Gender } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
@@ -20,10 +20,12 @@ const ScheduleManager: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalSlots, setTotalSlots] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchInitialData = async () => {
       setLoading(true);
+      setSelectedIds(new Set());
       try {
         const [schedulesData, levelsData] = await Promise.all([
           getSchedules(currentPage, PAGE_SIZE),
@@ -43,6 +45,7 @@ const ScheduleManager: React.FC = () => {
   
   const fetchSlots = async (page: number) => {
     setLoading(true);
+    setSelectedIds(new Set());
     try {
       const { slots: data, count } = await getSchedules(page, PAGE_SIZE);
       setSlots(data);
@@ -131,6 +134,41 @@ const ScheduleManager: React.FC = () => {
         }
       }
   };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    
+    if (window.confirm(`Are you sure you want to delete ${selectedIds.size} selected slots? This action cannot be undone.`)) {
+        try {
+            setLoading(true);
+            await bulkDeleteSchedules(Array.from(selectedIds));
+            alert(`${selectedIds.size} slots deleted successfully.`);
+            fetchSlots(currentPage);
+        } catch (err) {
+            console.error("Failed to bulk delete slots", err);
+            alert("Failed to delete slots. Please try again.");
+            setLoading(false);
+        }
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === slots.length && slots.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(slots.map(s => s.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       if (!editingSlot) return;
@@ -144,7 +182,18 @@ const ScheduleManager: React.FC = () => {
 
   return (
     <Card title="Schedule Management">
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-between items-center mb-4">
+            <div>
+              {selectedIds.size > 0 && (
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm text-red-700 font-medium">{selectedIds.size} selected</span>
+                  <Button variant="danger" size="sm" onClick={handleBulkDelete}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Selected
+                  </Button>
+                </div>
+              )}
+            </div>
             <Button onClick={() => handleOpenModal()} className="flex items-center">
                 <PlusCircle className="h-4 w-4 mr-2"/>
                 Create New Slot
@@ -201,6 +250,15 @@ const ScheduleManager: React.FC = () => {
         <table className="min-w-full bg-white">
           <thead className="bg-gray-100">
             <tr>
+              <th className="py-2 px-4 text-center w-10">
+                <div onClick={toggleSelectAll} className="cursor-pointer flex justify-center">
+                  {selectedIds.size === slots.length && slots.length > 0 ? (
+                    <CheckSquare className="h-4 w-4 text-blue-600" />
+                  ) : (
+                    <Square className="h-4 w-4 text-gray-400" />
+                  )}
+                </div>
+              </th>
               <th className="py-2 px-4 text-left text-sm font-semibold text-gray-600">Date</th>
               <th className="py-2 px-4 text-left text-sm font-semibold text-gray-600">Time</th>
               <th className="py-2 px-4 text-left text-sm font-semibold text-gray-600">Level</th>
@@ -212,7 +270,16 @@ const ScheduleManager: React.FC = () => {
           </thead>
           <tbody>
             {slots.map(slot => (
-              <tr key={slot.id} className="border-b hover:bg-gray-50">
+              <tr key={slot.id} className={`border-b hover:bg-gray-50 ${selectedIds.has(slot.id) ? 'bg-blue-50' : ''}`}>
+                <td className="py-2 px-4 text-center">
+                  <div onClick={() => toggleSelect(slot.id)} className="cursor-pointer flex justify-center">
+                    {selectedIds.has(slot.id) ? (
+                      <CheckSquare className="h-4 w-4 text-blue-600" />
+                    ) : (
+                      <Square className="h-4 w-4 text-gray-400" />
+                    )}
+                  </div>
+                </td>
                 <td className="py-2 px-4">{slot.date}</td>
                 <td className="py-2 px-4">{slot.startTime} - {slot.endTime}</td>
                 <td className="py-2 px-4">{slot.level?.name || 'N/A'}</td>

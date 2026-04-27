@@ -6,9 +6,9 @@ import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Input from '../common/Input';
 import Button from '../common/Button';
-import { Download, Search, ArrowUpDown, Trash2, Edit3 } from 'lucide-react';
+import { Download, Search, ArrowUpDown, Trash2, Edit3, CheckSquare, Square } from 'lucide-react';
 import useDebounce from '../../hooks/useDebounce';
-import { deleteStudent, updateStudentDetails, getLevels } from '../../services/apiService';
+import { deleteStudent, updateStudentDetails, getLevels, bulkDeleteStudents } from '../../services/apiService';
 import { Level } from '../../types';
 import Select from '../common/Select';
 
@@ -30,10 +30,12 @@ const StudentRecords: React.FC = () => {
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [levels, setLevels] = useState<Level[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const fetchStudents = React.useCallback(async () => {
     setLoading(true);
     setError(null);
+    setSelectedIds(new Set());
     
     const isPending = { current: true };
     const timeoutId = setTimeout(() => {
@@ -111,6 +113,41 @@ const StudentRecords: React.FC = () => {
             alert("Failed to delete record. Please try again.");
         }
     }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    
+    if (window.confirm(`Are you sure you want to delete ${selectedIds.size} selected records? This action cannot be undone.`)) {
+        try {
+            setLoading(true);
+            await bulkDeleteStudents(Array.from(selectedIds));
+            alert(`${selectedIds.size} records deleted successfully.`);
+            fetchStudents();
+        } catch (err) {
+            console.error("Failed to bulk delete students", err);
+            alert("Failed to delete records. Please try again.");
+            setLoading(false);
+        }
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === students.length && students.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(students.map(s => s.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
   };
 
   const handleEditClick = (student: Student) => {
@@ -209,6 +246,16 @@ const StudentRecords: React.FC = () => {
         </Button>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg flex items-center justify-between">
+          <span className="text-sm text-red-700 font-medium">{selectedIds.size} records selected</span>
+          <Button variant="danger" size="sm" onClick={handleBulkDelete}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Selected
+          </Button>
+        </div>
+      )}
+
       {editingStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -294,10 +341,20 @@ const StudentRecords: React.FC = () => {
         <table className="min-w-full bg-white text-sm">
           <thead className="bg-gray-100">
             <tr>
+              <th className="py-2 px-4 text-center w-10">
+                <div onClick={toggleSelectAll} className="cursor-pointer flex justify-center">
+                  {selectedIds.size === students.length && students.length > 0 ? (
+                    <CheckSquare className="h-4 w-4 text-blue-600" />
+                  ) : (
+                    <Square className="h-4 w-4 text-gray-400" />
+                  )}
+                </div>
+              </th>
               <th className="py-2 px-4 text-left font-semibold text-gray-600">S/N</th>
               <th className="py-2 px-4 text-left font-semibold text-gray-600 cursor-pointer" onClick={() => handleSort('firstname')}>
                 <div className="flex items-center">Name {renderSortIcon('firstname')}</div>
               </th>
+              <th className="py-2 px-4 text-left font-semibold text-gray-600">Registration ID</th>
               <th className="py-2 px-4 text-left font-semibold text-gray-600 cursor-pointer" onClick={() => handleSort('gender')}>
                 <div className="flex items-center">Gender {renderSortIcon('gender')}</div>
               </th>
@@ -320,9 +377,19 @@ const StudentRecords: React.FC = () => {
           </thead>
           <tbody>
             {students.map((student, index) => (
-              <tr key={student.id} className="border-b hover:bg-gray-50">
+              <tr key={student.id} className={`border-b hover:bg-gray-50 ${selectedIds.has(student.id) ? 'bg-blue-50' : ''}`}>
+                <td className="py-2 px-4 text-center">
+                  <div onClick={() => toggleSelect(student.id)} className="cursor-pointer flex justify-center">
+                    {selectedIds.has(student.id) ? (
+                      <CheckSquare className="h-4 w-4 text-blue-600" />
+                    ) : (
+                      <Square className="h-4 w-4 text-gray-400" />
+                    )}
+                  </div>
+                </td>
                 <td className="py-2 px-4 text-gray-500">{(currentPage - 1) * PAGE_SIZE + index + 1}</td>
                 <td className="py-2 px-4">{student.firstname} {student.othername ? student.othername + ' ' : ''}{student.surname}</td>
+                <td className="py-2 px-4 font-mono font-semibold text-blue-700">{student.registrationCode}</td>
                 <td className="py-2 px-4">{student.gender}</td>
                 <td className="py-2 px-4">{student.email}</td>
                 <td className="py-2 px-4">{student.whatsapp}</td>
