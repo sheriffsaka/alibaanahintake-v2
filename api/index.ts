@@ -396,6 +396,47 @@ router.post('/manage/bulk-delete-slots', async (req, res) => {
   }
 });
 
+router.post('/manage/renew-session', async (req, res) => {
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    console.log('>>> Proceeding with session renewal...');
+
+    // 1. Archive all current active students
+    const { error: archiveError } = await supabase
+        .from('students')
+        .update({ status: 'archived' })
+        .not('status', 'eq', 'archived');
+
+    if (archiveError) {
+        console.error('>>> Archive Error:', archiveError);
+        throw archiveError;
+    }
+
+    // 2. Reset booked counts for all slots to zero
+    // Explicitly update all rows to ensure zero status
+    const { error: resetError } = await supabase
+        .from('appointment_slots')
+        .update({ booked: 0 });
+
+    if (resetError) {
+        console.error('>>> Slot Reset Error:', resetError);
+        throw resetError;
+    }
+
+    console.log('>>> Session renewed successfully');
+    res.json({ success: true });
+  } catch (error: unknown) {
+    console.error('Renew session error:', error);
+    res.status(500).json({ error: 'Failed to renew session' });
+  }
+});
+
 router.post('/enroll/register', async (req, res) => {
   const { slotId, studentData } = req.body;
   if (!slotId || !studentData) return res.status(400).json({ error: 'Slot ID and student data are required' });
@@ -413,7 +454,7 @@ router.post('/enroll/register', async (req, res) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // 1. Submit registration via RPC
-    const { data: newStudent, error: registrationError } = await supabase.rpc('submit_student_registration', {
+    const { data: registrationResult, error: registrationError } = await supabase.rpc('submit_student_registration', {
       slot_id: slotId,
       student_data: studentData
     });
@@ -423,14 +464,32 @@ router.post('/enroll/register', async (req, res) => {
       return res.status(400).json({ error: registrationError.message || "Failed to submit registration. The slot may have been filled." });
     }
 
-    // 2. Fetch slot details for email
+    // RPC might return an array or a single object. Ensure we have an object.
+    const newStudentRaw = Array.isArray(registrationResult) ? registrationResult[0] : registrationResult;
+    
+    if (!newStudentRaw) {
+        return res.status(500).json({ error: "Registration failed to return student data." });
+    }
+
+    // 2. Fetch full student details with joined levels for the slip/email
+    const { data: newStudent } = await supabase
+      .from('students')
+      .select('*, levels(name)')
+      .eq('id', newStudentRaw.id)
+      .single();
+
+    if (!newStudent) {
+        return res.status(500).json({ error: "Failed to retrieve student record after registration." });
+    }
+
+    // 3. Fetch slot details for email
     const { data: slot } = await supabase
       .from('appointment_slots')
       .select('*, levels(name)')
       .eq('id', slotId)
       .single();
 
-    // 3. Send confirmation email
+    // 4. Send confirmation email
     if (resendKey && newStudent.email) {
       try {
         const resend = new Resend(resendKey);
@@ -447,23 +506,23 @@ router.post('/enroll/register', async (req, res) => {
           const fullName = `${newStudent.firstname} ${newStudent.othername ? newStudent.othername + ' ' : ''}${newStudent.surname}`;
           subject = subject.replace(/{{studentName}}/g, fullName);
           body = body.replace(/{{studentName}}/g, fullName);
-          body = body.replace('{{level}}', slot?.levels?.name || '');
-          body = body.replace('{{appointmentDate}}', slot?.date || '');
+          body = body.replace('{{level}}', newStudent.levels?.name || slot?.levels?.name || '');
+          body = body.replace('{{appointmentDate}}', newStudent.intake_date || slot?.date || '');
           body = body.replace('{{appointmentTime}}', slot ? `${slot.start_time} - ${slot.end_time}` : '');
-          body = body.replace('{{registrationCode}}', newStudent.registrationCode);
+          body = body.replace('{{registrationCode}}', newStudent.registration_code);
           
           // Add all details as requested
           const detailsTable = `
             <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">
               <p><strong>Registration Details:</strong></p>
               <ul>
-                <li><strong>Registration ID:</strong> ${newStudent.registrationCode}</li>
+                <li><strong>Registration ID:</strong> ${newStudent.registration_code}</li>
                 <li><strong>Full Name:</strong> ${fullName}</li>
                 <li><strong>Gender:</strong> ${newStudent.gender}</li>
                 <li><strong>Email:</strong> ${newStudent.email}</li>
                 <li><strong>WhatsApp:</strong> ${newStudent.whatsapp}</li>
-                <li><strong>Level:</strong> ${slot?.levels?.name || 'N/A'}</li>
-                <li><strong>Intake Date:</strong> ${slot?.date || 'N/A'}</li>
+                <li><strong>Level:</strong> ${newStudent.levels?.name || 'N/A'}</li>
+                <li><strong>Intake Date:</strong> ${newStudent.intake_date || 'N/A'}</li>
                 <li><strong>Intake Time:</strong> ${slot ? `${slot.start_time} - ${slot.end_time}` : 'N/A'}</li>
               </ul>
             </div>

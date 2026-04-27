@@ -402,20 +402,15 @@ export const getLevelsWithSlots = async(gender: Gender): Promise<Level[]> => {
 };
 
 export const renewSession = async (): Promise<void> => {
-    // 1. Archive all current students (mark as status 'archived')
-    const { error: archiveError } = await supabase
-        .from('students')
-        .update({ status: 'archived' })
-        .not('status', 'eq', 'archived');
+    const response = await fetch(`${window.location.origin}/api/manage/renew-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+    });
 
-    if (archiveError) throw archiveError;
-
-    // 2. Reset booked counts for all slots
-    const { error: resetError } = await supabase
-        .from('appointment_slots')
-        .update({ booked: 0 });
-
-    if (resetError) throw resetError;
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to renew session');
+    }
 };
 
 export const updateStudentDetails = async (studentId: string, updates: Partial<Student>): Promise<Student> => {

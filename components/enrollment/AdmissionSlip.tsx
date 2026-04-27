@@ -30,10 +30,11 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
     fetchSlotTime();
   }, [student.appointmentSlotId]);
 
-  const appointmentDate = new Date(student.intakeDate);
+  const appointmentDate = student.intakeDate ? new Date(student.intakeDate) : new Date();
+  const isValidDate = !isNaN(appointmentDate.getTime());
 
-  const displayAddress = student.buildingNumber 
-    ? `${student.buildingNumber}${student.flatNumber ? ', Flat ' + student.flatNumber : ''}, ${student.streetName}, ${student.district}, ${student.state}`
+  const displayAddress = (student.buildingNumber || student.flatNumber)
+    ? `${student.buildingNumber || ''}${student.flatNumber ? ', Flat ' + student.flatNumber : ''}${student.streetName ? ', ' + student.streetName : ''}${student.district ? ', ' + student.district : ''}${student.state ? ', ' + student.state : ''}`
     : student.address;
 
   return (
@@ -49,7 +50,7 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
         </div>
         <div className="bg-gray-100 rounded-lg p-3 text-center mt-4 sm:mt-0">
             <p className="text-xs text-gray-500 font-bold">{t('registrationIdLabel')}</p>
-            <p className="font-mono font-bold text-lg text-red-700">{student.registrationCode}</p>
+            <p className="font-mono font-bold text-lg text-red-700">{student.registrationCode || 'PENDING'}</p>
         </div>
       </header>
 
@@ -76,20 +77,26 @@ const AdmissionSlip: React.FC<AdmissionSlipProps> = ({ student }) => {
                 <InfoItem label={t('genderLabel')} value={student.gender} valueClass="text-brand-green font-semibold"/>
             </div>
              <div className="relative z-10">
-                 <InfoItem label={t('homeAddressLabel')} value={displayAddress} />
+                 <InfoItem label={t('homeAddressLabel')} value={displayAddress || 'N/A'} />
             </div>
         </div>
 
         {/* Right Column: Appointment Card */}
         <div className="bg-brand-green-dark text-white rounded-3xl p-6 flex flex-col items-center text-center h-full">
             <p className="text-sm font-semibold tracking-widest opacity-80">{t('confirmedAppointmentLabel')}</p>
-            <div className="my-4">
-                <span className="text-7xl font-bold leading-none">{appointmentDate.getDate()}</span>
-                <span className="text-4xl font-semibold ml-2">{appointmentDate.toLocaleDateString(language, { month: 'short' })}</span>
-            </div>
-            <p className="text-lg opacity-90">{appointmentTime}</p>
+            {isValidDate ? (
+                <div className="my-4">
+                    <span className="text-7xl font-bold leading-none">{appointmentDate.getDate()}</span>
+                    <span className="text-4xl font-semibold ml-2">{appointmentDate.toLocaleDateString(language, { month: 'short' })}</span>
+                </div>
+            ) : (
+                <div className="my-4">
+                    <span className="text-2xl font-bold leading-none">DATE TBA</span>
+                </div>
+            )}
+            <p className="text-lg opacity-90">{appointmentTime || 'Time TBA'}</p>
             <div className="bg-white p-2 rounded-lg my-auto">
-                <QRCodeSVG value={student.registrationCode} size={128} level="H" />
+                <QRCodeSVG value={student.registrationCode || 'PENDING'} size={128} level="H" />
             </div>
             <p className="text-xs opacity-70 mt-2">{t('validityNotice')}</p>
         </div>
