@@ -33,7 +33,44 @@ const Hero: React.FC = () => {
         { number: 3, text: t('step3') },
     ];
 
-    const videoUrl = content?.heroVideoUrl?.[language] || content?.heroVideoUrl?.en || '';
+    const rawVideoUrl = content?.heroVideoUrl?.[language] || content?.heroVideoUrl?.en || '';
+
+    // Helper to ensure video URLs are embeddable (especially for Google Drive)
+    const formatVideoUrl = (url: string) => {
+        if (!url) return '';
+        
+        // Handle Google Drive links
+        if (url.includes('drive.google.com')) {
+            // Remove any trailing parameters like ?usp=sharing
+            const baseDir = url.split('?')[0];
+            if (baseDir.includes('/view')) {
+                return baseDir.replace('/view', '/preview');
+            }
+            if (baseDir.includes('/file/d/') && !baseDir.includes('/preview')) {
+                const idMatch = baseDir.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+                if (idMatch && idMatch[1]) {
+                    return `https://drive.google.com/file/d/${idMatch[1]}/preview`;
+                }
+            }
+        }
+
+        // Handle standard YouTube links to embed format
+        if (url.includes('youtube.com/watch?v=')) {
+            try {
+                const urlObj = new URL(url);
+                const id = urlObj.searchParams.get('v');
+                if (id) return `https://www.youtube.com/embed/${id}`;
+            } catch { /* ignore */ }
+        }
+        if (url.includes('youtu.be/')) {
+            const id = url.split('youtu.be/')[1]?.split('?')[0];
+            if (id) return `https://www.youtube.com/embed/${id}`;
+        }
+
+        return url;
+    };
+
+    const videoUrl = formatVideoUrl(rawVideoUrl);
 
     useEffect(() => {
         const fetchSettings = async () => {
