@@ -321,6 +321,126 @@ router.post('/manage/update-student', async (req, res) => {
   }
 });
 
+router.post('/manage/delete-student', async (req, res) => {
+  const { studentId } = req.body;
+  if (!studentId) return res.status(400).json({ error: 'Student ID is required' });
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const { error } = await supabase
+      .from('students')
+      .delete()
+      .eq('id', studentId);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error: unknown) {
+    console.error('Delete student error:', error);
+    res.status(500).json({ error: 'Failed to delete student record' });
+  }
+});
+
+router.post('/enroll/register', async (req, res) => {
+  const { slotId, studentData } = req.body;
+  if (!slotId || !studentData) return res.status(400).json({ error: 'Slot ID and student data are required' });
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const { Resend } = await import('resend');
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+    const resendKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
+    const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
+
+    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // 1. Submit registration via RPC
+    const { data: newStudent, error: registrationError } = await supabase.rpc('submit_student_registration', {
+      slot_id: slotId,
+      student_data: studentData
+    });
+
+    if (registrationError) {
+      console.error(">>> Registration RPC Error:", registrationError);
+      return res.status(400).json({ error: registrationError.message || "Failed to submit registration. The slot may have been filled." });
+    }
+
+    // 2. Fetch slot details for email
+    const { data: slot } = await supabase
+      .from('appointment_slots')
+      .select('*, levels(name)')
+      .eq('id', slotId)
+      .single();
+
+    // 3. Send confirmation email
+    if (resendKey && newStudent.email) {
+      try {
+        const resend = new Resend(resendKey);
+        const { data: settingsData } = await supabase.from('notification_settings').select('settings').single();
+        const settings = settingsData?.settings;
+        
+        const studentLang = newStudent.language || 'en';
+        const langSettings = (settings && settings[studentLang]) || (settings && settings['en']);
+        
+        if (langSettings && langSettings.confirmation.enabled) {
+          let subject = langSettings.confirmation.subject;
+          let body = langSettings.confirmation.body;
+
+          const fullName = `${newStudent.firstname} ${newStudent.othername ? newStudent.othername + ' ' : ''}${newStudent.surname}`;
+          subject = subject.replace(/{{studentName}}/g, fullName);
+          body = body.replace(/{{studentName}}/g, fullName);
+          body = body.replace('{{level}}', slot?.levels?.name || '');
+          body = body.replace('{{appointmentDate}}', slot?.date || '');
+          body = body.replace('{{appointmentTime}}', slot ? `${slot.start_time} - ${slot.end_time}` : '');
+          body = body.replace('{{registrationCode}}', newStudent.registrationCode);
+          
+          // Add all details as requested
+          const detailsTable = `
+            <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">
+              <p><strong>Registration Details:</strong></p>
+              <ul>
+                <li><strong>Registration ID:</strong> ${newStudent.registrationCode}</li>
+                <li><strong>Full Name:</strong> ${fullName}</li>
+                <li><strong>Gender:</strong> ${newStudent.gender}</li>
+                <li><strong>Email:</strong> ${newStudent.email}</li>
+                <li><strong>WhatsApp:</strong> ${newStudent.whatsapp}</li>
+                <li><strong>Level:</strong> ${slot?.levels?.name || 'N/A'}</li>
+                <li><strong>Intake Date:</strong> ${slot?.date || 'N/A'}</li>
+                <li><strong>Intake Time:</strong> ${slot ? `${slot.start_time} - ${slot.end_time}` : 'N/A'}</li>
+              </ul>
+            </div>
+          `;
+          body += detailsTable;
+
+          const formattedFrom = `Al-Ibaanah Registration <${fromEmail}>`;
+          await resend.emails.send({
+            from: formattedFrom,
+            to: newStudent.email,
+            subject: subject,
+            html: body.replace(/\n/g, '<br>')
+          });
+          console.log(`>>> Confirmation email sent to ${newStudent.email}`);
+        }
+      } catch (emailError) {
+        console.error(">>> Registration confirmation email failed:", emailError);
+      }
+    }
+
+    res.json({ student: newStudent });
+  } catch (error: unknown) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Failed to complete registration' });
+  }
+});
+
 router.get('/auth/is-confirmed', async (req, res) => {
   const email = req.query.email as string;
   if (!email) return res.status(400).json({ error: 'Email is required' });

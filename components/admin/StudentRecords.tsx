@@ -6,8 +6,11 @@ import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Input from '../common/Input';
 import Button from '../common/Button';
-import { Download, Search, ArrowUpDown } from 'lucide-react';
+import { Download, Search, ArrowUpDown, Trash2, Edit3 } from 'lucide-react';
 import useDebounce from '../../hooks/useDebounce';
+import { deleteStudent, updateStudentDetails, getLevels } from '../../services/apiService';
+import { Level } from '../../types';
+import Select from '../common/Select';
 
 type SortKey = 'firstname' | 'email' | 'level' | 'intakeDate' | 'status' | 'createdAt' | 'gender' | '';
 type SortDirection = 'asc' | 'desc';
@@ -24,6 +27,9 @@ const StudentRecords: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalStudents, setTotalStudents] = useState(0);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [levels, setLevels] = useState<Level[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   const fetchStudents = React.useCallback(async () => {
     setLoading(true);
@@ -64,7 +70,17 @@ const StudentRecords: React.FC = () => {
 
   useEffect(() => {
     fetchStudents();
+    loadLevels();
   }, [fetchStudents]);
+
+  const loadLevels = async () => {
+    try {
+      const data = await getLevels(true);
+      setLevels(data);
+    } catch (err) {
+      console.error("Failed to load levels", err);
+    }
+  };
   
   // Effect to reset to page 1 when search term or sort changes
   useEffect(() => {
@@ -82,6 +98,45 @@ const StudentRecords: React.FC = () => {
       setSortKey(key);
       setSortDirection('asc');
     }
+  };
+
+  const handleDelete = async (student: Student) => {
+    if (window.confirm(`Are you sure you want to delete the record for ${student.firstname} ${student.surname}? This action cannot be undone.`)) {
+        try {
+            await deleteStudent(student.id);
+            alert("Record deleted successfully.");
+            fetchStudents();
+        } catch (err) {
+            console.error("Failed to delete student", err);
+            alert("Failed to delete record. Please try again.");
+        }
+    }
+  };
+
+  const handleEditClick = (student: Student) => {
+    setEditingStudent({ ...student });
+  };
+
+  const handleUpdate = async () => {
+    if (!editingStudent) return;
+    setIsSaving(true);
+    try {
+      await updateStudentDetails(editingStudent.id, editingStudent);
+      alert("Student record updated successfully.");
+      setEditingStudent(null);
+      fetchStudents();
+    } catch (err) {
+      console.error("Failed to update student", err);
+      alert(err instanceof Error ? err.message : "Failed to update record.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    if (!editingStudent) return;
+    const { name, value } = e.target;
+    setEditingStudent(prev => prev ? ({ ...prev, [name]: value }) : null);
   };
 
   const exportToCSV = () => {
@@ -154,6 +209,86 @@ const StudentRecords: React.FC = () => {
         </Button>
       </div>
 
+      {editingStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b">
+              <h3 className="text-xl font-bold text-gray-800">Edit Student Record</h3>
+              <p className="text-sm text-gray-500">Updating details for {editingStudent.registrationCode}</p>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Personal Info */}
+                <div className="space-y-4 md:col-span-1">
+                  <h4 className="font-semibold text-blue-600 border-b pb-1">Personal Info</h4>
+                  <Input label="First Name" name="firstname" value={editingStudent.firstname} onChange={handleEditChange} required />
+                  <Input label="Other Name" name="othername" value={editingStudent.othername || ''} onChange={handleEditChange} />
+                  <Input label="Surname" name="surname" value={editingStudent.surname} onChange={handleEditChange} required />
+                  <Select 
+                    label="Gender" 
+                    name="gender" 
+                    value={editingStudent.gender} 
+                    onChange={handleEditChange}
+                    options={[
+                        { value: 'Male', label: 'Male' },
+                        { value: 'Female', label: 'Female' }
+                    ]} 
+                  />
+                  <Input label="Email" name="email" value={editingStudent.email} onChange={handleEditChange} required />
+                  <Input label="WhatsApp" name="whatsapp" value={editingStudent.whatsapp} onChange={handleEditChange} required />
+                </div>
+
+                {/* Appointment Info */}
+                <div className="space-y-4 md:col-span-1">
+                  <h4 className="font-semibold text-blue-600 border-b pb-1">Appointment</h4>
+                  <Select 
+                    label="Level" 
+                    name="levelId" 
+                    value={editingStudent.levelId} 
+                    onChange={handleEditChange}
+                    options={levels.map(l => ({ value: l.id, label: l.name }))}
+                    required
+                  />
+                  <Input label="Intake Date" name="intakeDate" type="date" value={editingStudent.intakeDate} onChange={handleEditChange} required />
+                  <Select 
+                    label="Status" 
+                    name="status" 
+                    value={editingStudent.status} 
+                    onChange={handleEditChange}
+                    options={[
+                        { value: 'booked', label: 'Booked' },
+                        { value: 'checked-in', label: 'Checked-In' },
+                        { value: 'archived', label: 'Archived' }
+                    ]} 
+                    required
+                  />
+                </div>
+
+                {/* Address Info */}
+                <div className="space-y-4 md:col-span-1">
+                  <h4 className="font-semibold text-blue-600 border-b pb-1">Address</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input label="Bldg No" name="buildingNumber" value={editingStudent.buildingNumber || ''} onChange={handleEditChange} />
+                    <Input label="Flat No" name="flatNumber" value={editingStudent.flatNumber || ''} onChange={handleEditChange} />
+                  </div>
+                  <Input label="Street" name="streetName" value={editingStudent.streetName || ''} onChange={handleEditChange} />
+                  <Input label="District" name="district" value={editingStudent.district || ''} onChange={handleEditChange} />
+                  <Input label="State/City" name="state" value={editingStudent.state || ''} onChange={handleEditChange} />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t flex justify-end space-x-3 bg-gray-50">
+              <Button variant="secondary" onClick={() => setEditingStudent(null)} disabled={isSaving}>Cancel</Button>
+              <Button onClick={handleUpdate} disabled={isSaving}>
+                {isSaving ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto relative">
         {loading && <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center z-10"><Spinner /></div>}
         <table className="min-w-full bg-white text-sm">
@@ -180,6 +315,7 @@ const StudentRecords: React.FC = () => {
               <th className="py-2 px-4 text-left font-semibold text-gray-600 cursor-pointer" onClick={() => handleSort('status')}>
                  <div className="flex items-center">Status {renderSortIcon('status')}</div>
               </th>
+              <th className="py-2 px-4 text-center font-semibold text-gray-600">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -201,6 +337,24 @@ const StudentRecords: React.FC = () => {
                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${student.status === 'checked-in' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
                     {student.status}
                   </span>
+                </td>
+                <td className="py-2 px-4 text-center">
+                    <div className="flex items-center justify-center space-x-2">
+                        <button 
+                            onClick={() => handleEditClick(student)}
+                            className="text-blue-500 hover:text-blue-700 transition-colors p-1"
+                            title="Edit record"
+                        >
+                            <Edit3 size={18} />
+                        </button>
+                        <button 
+                            onClick={() => handleDelete(student)}
+                            className="text-red-500 hover:text-red-700 transition-colors p-1"
+                            title="Delete record"
+                        >
+                            <Trash2 size={18} />
+                        </button>
+                    </div>
                 </td>
               </tr>
             ))}

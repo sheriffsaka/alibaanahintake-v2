@@ -245,58 +245,23 @@ export const submitRegistration = async (
 ): Promise<Student> => {
     const { appointmentSlotId, ...studentData } = formData;
     
-    const { data, error } = await supabase.rpc('submit_student_registration', {
-        slot_id: appointmentSlotId,
-        student_data: studentData
+    console.log('>>> Submitting registration via backend API...');
+    const response = await fetch(`${window.location.origin}/api/enroll/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            slotId: appointmentSlotId,
+            studentData
+        })
     });
 
-    if (error) {
-        console.error("Error in submit_student_registration RPC:", error);
-        throw new Error(error.message || "Failed to submit registration. The slot may have been filled.");
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to submit registration. Please try again.");
     }
 
-    const newStudent = data as Student;
-
-    // Send confirmation email
-    try {
-        const notificationSettings = await getNotificationSettings();
-        const studentLang = newStudent.language || 'en';
-        const langSettings = notificationSettings[studentLang] || notificationSettings['en'];
-        
-        if (langSettings && langSettings.confirmation.enabled) {
-            const slot = await getScheduleById(appointmentSlotId);
-            if (slot) {
-                let subject = langSettings.confirmation.subject;
-                let body = langSettings.confirmation.body;
-
-                // Replace placeholders
-                const fullName = `${newStudent.firstname} ${newStudent.othername ? newStudent.othername + ' ' : ''}${newStudent.surname}`;
-                subject = subject.replace(/{{studentName}}/g, fullName);
-                body = body.replace(/{{studentName}}/g, fullName);
-                body = body.replace('{{level}}', newStudent.level?.name || '');
-                body = body.replace('{{appointmentDate}}', slot.date);
-                body = body.replace('{{appointmentTime}}', `${slot.startTime} - ${slot.endTime}`);
-                body = body.replace('{{registrationCode}}', newStudent.registrationCode);
-
-                await fetchWithTimeout(`${window.location.origin}/api/send-email`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        to: newStudent.email,
-                        subject: subject,
-                        html: body.replace(/\n/g, '<br>')
-                    })
-                });
-            }
-        }
-    } catch (emailError) {
-        console.error("Failed to send confirmation email:", emailError);
-        // Do not block registration if email fails
-    }
-
-    return newStudent;
+    const { student } = await response.json();
+    return studentFromSupabase(student);
 };
 
 // --- Admin API ---
@@ -467,6 +432,10 @@ export const updateStudentDetails = async (studentId: string, updates: Partial<S
     if (updates.district) dbUpdates.district = updates.district;
     if (updates.state) dbUpdates.state = updates.state;
     if (updates.levelId) dbUpdates.level_id = updates.levelId;
+    if (updates.gender) dbUpdates.gender = updates.gender;
+    if (updates.intakeDate) dbUpdates.intake_date = updates.intakeDate;
+    if (updates.status) dbUpdates.status = updates.status;
+    if (updates.email) dbUpdates.email = updates.email;
 
     if (Object.keys(dbUpdates).length === 0) {
         throw new Error("No changes detected.");
@@ -485,6 +454,19 @@ export const updateStudentDetails = async (studentId: string, updates: Partial<S
 
     const data = await response.json();
     return studentFromSupabase(data.student);
+};
+
+export const deleteStudent = async (studentId: string): Promise<void> => {
+    const response = await fetch(`${window.location.origin}/api/manage/delete-student`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to delete student record');
+    }
 };
 
 export const checkInStudent = async (studentId: string): Promise<Student> => {
