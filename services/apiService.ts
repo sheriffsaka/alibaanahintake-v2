@@ -66,7 +66,7 @@ export const logout = async (): Promise<void> => {
     if (error) throw error;
 };
 
-export const sendOTP = async (email: string): Promise<void> => {
+export const sendOTP = async (email: string): Promise<Record<string, unknown>> => {
     console.log('>>> Sending custom 6-digit OTP to:', email);
     const response = await fetch(`${window.location.origin}/api/auth/send-otp`, {
         method: 'POST',
@@ -74,22 +74,24 @@ export const sendOTP = async (email: string): Promise<void> => {
         body: JSON.stringify({ email }),
     });
     
-        if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
         let errorMessage = 'Failed to send verification code';
-        const text = await response.text();
-        console.error(`>>> sendOTP failed with status ${response.status}:`, text);
-        try {
-            const errorData = JSON.parse(text);
-            // Prefer details for debugging, then error, then message
-            errorMessage = errorData.details || errorData.error || errorData.message || errorMessage;
-        } catch (e) {
-            // If it's not JSON, it might be a raw string or HTML from Vercel
-            const cleanText = text.length > 100 ? text.substring(0, 100) + '...' : text;
-            errorMessage = `Server error (${response.status}): ${cleanText || response.statusText || 'Unknown error'}. Please ensure the backend is running and configured correctly.`;
-            console.error('>>> Non-JSON error response in sendOTP:', e, text);
+        
+        if (response.status === 429) {
+            errorMessage = data.error || 'Daily email quota reached';
+        } else {
+            errorMessage = data.details || data.error || data.message || errorMessage;
         }
-        throw new Error(errorMessage);
+
+        const error = new Error(errorMessage) as Error & { status?: number; code?: string };
+        error.status = response.status;
+        error.code = data.code; // Development OTP if provided
+        throw error;
     }
+
+    return data;
 };
 
 export const verifyOTP = async (email: string, token: string): Promise<void> => {
@@ -339,17 +341,22 @@ export const findStudent = async (query: string): Promise<Student | null> => {
     return data ? studentFromSupabase(data) : null;
 };
 
-export const requestManageBookingOTP = async (email: string): Promise<void> => {
+export const requestManageBookingOTP = async (email: string): Promise<Record<string, unknown>> => {
     const response = await fetch(`${window.location.origin}/api/manage/request-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
     });
 
+    const data = await response.json().catch(() => ({}));
+
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to send verification code');
+        const error = new Error(data.error || 'Failed to send verification code') as Error & { status?: number };
+        error.status = response.status;
+        throw error;
     }
+
+    return data;
 };
 
 export const verifyManageBookingOTP = async (email: string, code: string): Promise<Student> => {

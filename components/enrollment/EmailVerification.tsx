@@ -24,8 +24,17 @@ const EmailVerification: React.FC = () => {
       await sendOTP(state.formData.email);
       setCountdown(60); // 60 seconds cooldown
     } catch (err: unknown) {
-      const error = err as Error;
-      if (error.message.includes('rate limit')) {
+      const error = err as { status?: number; code?: string; message?: string };
+      if (error.status === 429) {
+        let msg = "Daily email quota reached. ";
+        if (error.code) {
+          msg += `(DEV MODE: Use code ${error.code})`;
+          setOtp(error.code);
+        } else {
+          msg += "Please contact the administrator or retrieve the code from server logs.";
+        }
+        setError(msg);
+      } else if (error.message?.includes('rate limit')) {
         setError("Email rate limit exceeded. Please wait a few minutes or check your inbox for the previous code.");
       } else {
         setError(error.message || "Failed to send verification code.");

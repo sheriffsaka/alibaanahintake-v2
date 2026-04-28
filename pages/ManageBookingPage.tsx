@@ -42,7 +42,12 @@ const ManageBookingPage: React.FC = () => {
             await requestManageBookingOTP(email);
             setStep('otp');
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : t('somethingWentWrong'));
+            const error = err as { status?: number; message?: string };
+            if (error.status === 429) {
+                setError("Daily email quota reached. Please retrieve the code from server logs or try again tomorrow.");
+            } else {
+                setError(error.message || t('somethingWentWrong'));
+            }
         } finally {
             setLoading(false);
         }

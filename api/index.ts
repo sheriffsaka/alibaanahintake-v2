@@ -120,6 +120,17 @@ router.post('/auth/send-otp', async (req, res) => {
 
     if (resendError) {
       console.error('>>> Resend API Error:', resendError);
+      
+      // Handle quota reached specifically
+      if (resendError.message?.toLowerCase().includes('quota') || resendError.name === 'rate_limit_exceeded') {
+        console.warn(`>>> EMERGENCY OTP LOG (Quota Reached): Verification code for ${email} is ${otp}`);
+        return res.status(429).json({ 
+          error: 'Daily email sending quota reached', 
+          details: 'The system has reached its daily email limit. For testing, please contact the administrator to retrieve the code from the server logs.',
+          code: process.env.NODE_ENV !== 'production' ? otp : undefined // Only expose code in response if not production
+        });
+      }
+      
       throw new Error(resendError.message || 'Resend failed to send email');
     }
 
@@ -210,7 +221,7 @@ router.post('/manage/request-otp', async (req, res) => {
     if (dbError) throw dbError;
 
     // 3. Send email
-    await resend.emails.send({
+    const { data: emailData, error: resendError } = await resend.emails.send({
       from: `Al-Ibaanah <${fromEmail}>`,
       to: email,
       subject: 'Manage Booking Verification Code',
@@ -223,7 +234,19 @@ router.post('/manage/request-otp', async (req, res) => {
         </div>`
     });
 
-    res.json({ message: 'OTP sent' });
+    if (resendError) {
+        console.error('>>> Resend API Error (Manage OTP):', resendError);
+        if (resendError.message?.toLowerCase().includes('quota')) {
+            console.warn(`>>> EMERGENCY OTP LOG (Quota Reached - Manage): Verification code for ${email} is ${otp}`);
+            return res.status(429).json({ 
+                error: 'Daily email sending quota reached',
+                details: 'Please retrieve the code from the server logs or try again tomorrow.'
+            });
+        }
+        throw resendError;
+    }
+
+    res.json({ message: 'OTP sent', id: emailData?.id });
   } catch (error: unknown) {
     console.error('Request manage OTP error:', error);
     res.status(500).json({ error: 'Failed to process request' });
