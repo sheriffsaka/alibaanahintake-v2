@@ -37,6 +37,7 @@ const COUNTRY_CODES = [
   { code: '+34', label: 'Spain (+34)' },
   { code: '+39', label: 'Italy (+39)' },
   { code: '+7', label: 'Russia (+7)' },
+  { code: '+7', label: 'Kazakhstan (+7)' },
   { code: '+86', label: 'China (+86)' },
   { code: '+81', label: 'Japan (+81)' },
   { code: '+82', label: 'South Korea (+82)' },

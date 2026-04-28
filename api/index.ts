@@ -13,6 +13,79 @@ app.use((req, res, next) => {
   next();
 });
 
+// --- EMAIL HELPER ---
+const sendEmail = async (options: { 
+  to: string; 
+  subject: string; 
+  html: string; 
+  fromName?: string;
+  fromEmail?: string;
+}) => {
+  const { to, subject, html, fromName = 'Al-Ibaanah', fromEmail: customFrom } = options;
+  
+  // 1. Try SMTP if configured
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = parseInt(process.env.SMTP_PORT || '587');
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const smtpFromEmail = customFrom || process.env.SMTP_FROM_EMAIL || process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
+
+  if (smtpHost && smtpUser && smtpPass) {
+    try {
+      const nodemailer = await import('nodemailer');
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+
+      console.log(`>>> Sending email via SMTP to ${to}...`);
+      const info = await transporter.sendMail({
+        from: `"${fromName}" <${smtpFromEmail}>`,
+        to,
+        subject,
+        html,
+      });
+      console.log('>>> SMTP Email sent:', info.messageId);
+      return { success: true, id: info.messageId, method: 'smtp' };
+    } catch (smtpError) {
+      console.error('>>> SMTP Failed, falling back to Resend if available:', smtpError);
+    }
+  }
+
+  // 2. Fallback to Resend
+  const resendKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
+  const resendFromEmail = customFrom || process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
+
+  if (resendKey) {
+    try {
+      const { Resend } = await import('resend');
+      const resend = new Resend(resendKey);
+      console.log(`>>> Sending email via Resend to ${to}...`);
+      const { data, error: resendError } = await resend.emails.send({
+        from: `"${fromName}" <${resendFromEmail}>`,
+        to,
+        subject,
+        html,
+      });
+
+      if (resendError) throw resendError;
+      console.log('>>> Resend Email sent:', data?.id);
+      return { success: true, id: data?.id, method: 'resend' };
+    } catch (resendError: unknown) {
+      const error = resendError as { message?: string; name?: string };
+      console.error('>>> Resend Failed:', error);
+      throw error;
+    }
+  }
+
+  throw new Error('No email service (SMTP or Resend) is configured.');
+};
+
 // --- API ROUTES ---
 
 router.get('/health', (req, res) => {
@@ -55,24 +128,16 @@ router.post('/auth/send-otp', async (req, res) => {
 
   try {
     const { createClient } = await import('@supabase/supabase-js');
-    const { Resend } = await import('resend');
     
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    const resendKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
-    const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
 
-    if (!supabaseUrl || !supabaseServiceKey || !resendKey) {
-      console.error('>>> Missing Config:', { 
-        hasUrl: !!supabaseUrl, 
-        hasKey: !!supabaseServiceKey, 
-        hasResend: !!resendKey 
-      });
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('>>> Missing Configuration');
       return res.status(500).json({ error: 'Server configuration error' });
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const resend = new Resend(resendKey);
 
     const { data: existingStudent } = await supabase
       .from('students')
@@ -103,42 +168,43 @@ router.post('/auth/send-otp', async (req, res) => {
     const { error: dbError } = await supabase.from('otp_codes').insert({ email: email.toLowerCase(), code: otp, expires_at: expiresAt.toISOString() });
     if (dbError) throw dbError;
 
-    console.log(`>>> Attempting to send email to ${email} via Resend...`);
-    const formattedFrom = `Al-Ibaanah Registration <${fromEmail}>`;
-    const { data, error: resendError } = await resend.emails.send({
-      from: formattedFrom,
-      to: email,
-      subject: 'Verification Code - Al-Ibaanah Registration',
-      html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-          <h2 style="color: #2563eb; text-align: center;">Email Verification</h2>
-          <p>As-salamu 'alaykum,</p>
-          <p>Your verification code for the Al-Ibaanah slot booking is:</p>
-          <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px; margin: 20px 0;">${otp}</div>
-          <p>This code will expire in 15 minutes.</p>
-        </div>`
-    });
-
-    if (resendError) {
-      console.error('>>> Resend API Error:', resendError);
+    console.log(`>>> Attempting to send email to ${email} via unified helper...`);
+    try {
+      const emailResult = await sendEmail({
+        to: email,
+        subject: 'Verification Code - Al-Ibaanah Registration',
+        fromName: 'Al-Ibaanah Registration',
+        html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #2563eb; text-align: center;">Email Verification</h2>
+            <p>As-salamu 'alaykum,</p>
+            <p>Your verification code for the Al-Ibaanah slot booking is:</p>
+            <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px; margin: 20px 0;">${otp}</div>
+            <p>This code will expire in 15 minutes.</p>
+          </div>`
+      });
       
-      // Handle quota reached specifically
-      if (resendError.message?.toLowerCase().includes('quota') || resendError.name === 'rate_limit_exceeded') {
+      console.log(`>>> Email Success (${emailResult.method}):`, emailResult.id);
+      res.json({ 
+        message: 'OTP sent successfully', 
+        id: emailResult.id,
+        method: emailResult.method
+      });
+    } catch (emailError: unknown) {
+      const error = emailError as { message?: string; name?: string };
+      console.error('>>> Email Helper Error:', error);
+      
+      // Handle quota reached specifically for Resend fallback
+      if (error.message?.toLowerCase().includes('quota') || error.name === 'rate_limit_exceeded') {
         console.warn(`>>> EMERGENCY OTP LOG (Quota Reached): Verification code for ${email} is ${otp}`);
         return res.status(429).json({ 
           error: 'Daily email sending quota reached', 
-          details: 'The system has reached its daily email limit. For testing, please contact the administrator to retrieve the code from the server logs.',
-          code: process.env.NODE_ENV !== 'production' ? otp : undefined // Only expose code in response if not production
+          details: 'The system email limit has been reached. For testing, please contact the administrator to retrieve the code from server logs.',
+          code: process.env.NODE_ENV !== 'production' ? otp : undefined
         });
       }
       
-      throw new Error(resendError.message || 'Resend failed to send email');
+      throw error;
     }
-
-    console.log('>>> Resend Success:', data);
-    res.json({ 
-      message: 'OTP sent successfully', 
-      id: data?.id
-    });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorName = error instanceof Error ? error.name : 'UnknownError';
@@ -184,16 +250,12 @@ router.post('/manage/request-otp', async (req, res) => {
 
   try {
     const { createClient } = await import('@supabase/supabase-js');
-    const { Resend } = await import('resend');
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    const resendKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
-    const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
 
-    if (!supabaseUrl || !supabaseServiceKey || !resendKey) return res.status(500).json({ error: 'Server configuration error' });
+    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const resend = new Resend(resendKey);
 
     // 1. Check if student exists (prefer active ones)
     const { data: student, error: studentError } = await supabase
@@ -220,33 +282,34 @@ router.post('/manage/request-otp', async (req, res) => {
     });
     if (dbError) throw dbError;
 
-    // 3. Send email
-    const { data: emailData, error: resendError } = await resend.emails.send({
-      from: `Al-Ibaanah <${fromEmail}>`,
-      to: email,
-      subject: 'Manage Booking Verification Code',
-      html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2>Manage Your Booking</h2>
-          <p>Hello ${student.firstname},</p>
-          <p>Your verification code to access and update your booking details is:</p>
-          <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; border-radius: 8px; margin: 20px 0;">${otp}</div>
-          <p>This code will expire in 15 minutes.</p>
-        </div>`
-    });
+    // 3. Send email via unified helper
+    try {
+      const emailResult = await sendEmail({
+        to: email,
+        subject: 'Manage Booking Verification Code',
+        fromName: 'Al-Ibaanah',
+        html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2>Manage Your Booking</h2>
+            <p>Hello ${student.firstname},</p>
+            <p>Your verification code to access and update your booking details is:</p>
+            <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; border-radius: 8px; margin: 20px 0;">${otp}</div>
+            <p>This code will expire in 15 minutes.</p>
+          </div>`
+      });
 
-    if (resendError) {
-        console.error('>>> Resend API Error (Manage OTP):', resendError);
-        if (resendError.message?.toLowerCase().includes('quota')) {
+      res.json({ message: 'OTP sent', id: emailResult.id, method: emailResult.method });
+    } catch (emailError: unknown) {
+        const error = emailError as { message?: string };
+        console.error('>>> Email Helper Error (Manage OTP):', error);
+        if (error.message?.toLowerCase().includes('quota')) {
             console.warn(`>>> EMERGENCY OTP LOG (Quota Reached - Manage): Verification code for ${email} is ${otp}`);
             return res.status(429).json({ 
                 error: 'Daily email sending quota reached',
                 details: 'Please retrieve the code from the server logs or try again tomorrow.'
             });
         }
-        throw resendError;
+        throw error;
     }
-
-    res.json({ message: 'OTP sent', id: emailData?.id });
   } catch (error: unknown) {
     console.error('Request manage OTP error:', error);
     res.status(500).json({ error: 'Failed to process request' });
@@ -466,11 +529,8 @@ router.post('/enroll/register', async (req, res) => {
 
   try {
     const { createClient } = await import('@supabase/supabase-js');
-    const { Resend } = await import('resend');
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    const resendKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
-    const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
 
     if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
 
@@ -513,9 +573,8 @@ router.post('/enroll/register', async (req, res) => {
       .single();
 
     // 4. Send confirmation email
-    if (resendKey && newStudent.email) {
+    if (newStudent.email) {
       try {
-        const resend = new Resend(resendKey);
         const { data: settingsData } = await supabase.from('notification_settings').select('settings').single();
         const settings = settingsData?.settings;
         
@@ -552,11 +611,10 @@ router.post('/enroll/register', async (req, res) => {
           `;
           body += detailsTable;
 
-          const formattedFrom = `Al-Ibaanah Registration <${fromEmail}>`;
-          await resend.emails.send({
-            from: formattedFrom,
+          await sendEmail({
             to: newStudent.email,
             subject: subject,
+            fromName: 'Al-Ibaanah Registration',
             html: body.replace(/\n/g, '<br>')
           });
           console.log(`>>> Confirmation email sent to ${newStudent.email}`);
@@ -637,16 +695,12 @@ router.post('/cron/reminders', async (req, res) => {
 
   try {
     const { createClient } = await import('@supabase/supabase-js');
-    const { Resend } = await import('resend');
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    const resendKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
-    const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
 
-    if (!supabaseUrl || !supabaseServiceKey || !resendKey) return res.status(500).json({ error: 'Missing configuration' });
+    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Missing configuration' });
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const resend = new Resend(resendKey);
 
     // Fetch notification settings
     const { data: settingsData } = await supabase.from('notification_settings').select('settings').single();
@@ -679,10 +733,10 @@ router.post('/cron/reminders', async (req, res) => {
           body = body.replace('{{appointmentTime}}', `${student.appointment_slots.start_time} - ${student.appointment_slots.end_time}`);
           body = body.replace('{{registrationCode}}', student.registration_code);
 
-          await resend.emails.send({
-            from: `Al-Ibaanah Booking <${fromEmail}>`,
+          await sendEmail({
             to: student.email,
             subject,
+            fromName: 'Al-Ibaanah Booking',
             html: body.replace(/\n/g, '<br>')
           });
         }
@@ -710,10 +764,10 @@ router.post('/cron/reminders', async (req, res) => {
           body = body.replace('{{appointmentTime}}', `${student.appointment_slots.start_time} - ${student.appointment_slots.end_time}`);
           body = body.replace('{{registrationCode}}', student.registration_code);
 
-          await resend.emails.send({
-            from: `Al-Ibaanah Booking <${fromEmail}>`,
+          await sendEmail({
             to: student.email,
             subject,
+            fromName: 'Al-Ibaanah Booking',
             html: body.replace(/\n/g, '<br>')
           });
         }
@@ -729,37 +783,25 @@ router.post('/cron/reminders', async (req, res) => {
 
 router.post('/send-email', async (req, res) => {
   try {
-    const { Resend } = await import('resend');
-    const resendKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
-    const fromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'noreply@registration.ibaanah.com';
-
-    if (!resendKey) {
-      console.warn('>>> Email skipped: No Resend API key found');
-      return res.status(200).json({ message: 'Email skipped (no API key)' });
+    const { to, subject, html, fromName } = req.body;
+    
+    if (!to || !subject || !html) {
+      return res.status(400).json({ error: 'To, Subject and HTML are required' });
     }
 
-    const resend = new Resend(resendKey);
-    const { to, subject, html } = req.body;
-    const formattedFrom = `Al-Ibaanah Registration <${fromEmail}>`;
-    
-    console.log(`>>> Sending email to ${to}...`);
-    const { data, error: resendError } = await resend.emails.send({ 
-      from: formattedFrom, 
+    console.log(`>>> Sending email to ${to} via unified helper...`);
+    const emailResult = await sendEmail({ 
       to, 
       subject, 
-      html 
+      html,
+      fromName: fromName || 'Al-Ibaanah Registration'
     });
 
-    if (resendError) {
-      console.error('>>> Resend Email Error:', resendError);
-      return res.status(500).json({ error: resendError.message });
-    }
-
-    console.log('>>> Email sent successfully:', data?.id);
-    res.json({ message: 'Email sent', id: data?.id });
+    console.log(`>>> Email sent successfully (${emailResult.method}):`, emailResult.id);
+    res.json({ message: 'Email sent', id: emailResult.id, method: emailResult.method });
   } catch (error) {
     console.error('Email error:', error);
-    res.status(500).json({ error: 'Failed to send email' });
+    res.status(500).json({ error: 'Failed to send email', details: error instanceof Error ? error.message : String(error) });
   }
 });
 
