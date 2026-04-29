@@ -6,9 +6,9 @@ import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Input from '../common/Input';
 import Button from '../common/Button';
-import { Download, Search, ArrowUpDown, Trash2, Edit3, CheckSquare, Square } from 'lucide-react';
+import { Download, Search, ArrowUpDown, Trash2, Edit3, CheckSquare, Square, Send } from 'lucide-react';
 import useDebounce from '../../hooks/useDebounce';
-import { deleteStudent, updateStudentDetails, getLevels, bulkDeleteStudents } from '../../services/apiService';
+import { deleteStudent, updateStudentDetails, getLevels, bulkDeleteStudents, resendConfirmationEmail } from '../../services/apiService';
 import { Level } from '../../types';
 import Select from '../common/Select';
 
@@ -31,6 +31,23 @@ const StudentRecords: React.FC = () => {
   const [levels, setLevels] = useState<Level[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [resendingId, setResendingId] = useState<string | null>(null);
+
+  const handleResendConfirmation = async (student: Student) => {
+    if (!student.email) return;
+    if (!confirm(`Resend confirmation email to ${student.email}?`)) return;
+
+    setResendingId(student.id);
+    try {
+      await resendConfirmationEmail(student.id);
+      alert("Confirmation email resent successfully.");
+    } catch (err) {
+      console.error("Failed to resend confirmation", err);
+      alert(err instanceof Error ? err.message : "Failed to resend confirmation email.");
+    } finally {
+      setResendingId(null);
+    }
+  };
 
   const fetchStudents = React.useCallback(async () => {
     setLoading(true);
@@ -407,6 +424,14 @@ const StudentRecords: React.FC = () => {
                 </td>
                 <td className="py-2 px-4 text-center">
                     <div className="flex items-center justify-center space-x-2">
+                        <button 
+                            onClick={() => handleResendConfirmation(student)}
+                            className={`${resendingId === student.id ? 'text-gray-400' : 'text-brand-green hover:text-green-700'} transition-colors p-1`}
+                            title="Resend confirmation email"
+                            disabled={resendingId === student.id}
+                        >
+                            <Send size={18} className={resendingId === student.id ? 'animate-pulse' : ''} />
+                        </button>
                         <button 
                             onClick={() => handleEditClick(student)}
                             className="text-blue-500 hover:text-blue-700 transition-colors p-1"

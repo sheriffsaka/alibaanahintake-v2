@@ -420,6 +420,19 @@ export const renewSession = async (): Promise<void> => {
     }
 };
 
+export const resendConfirmationEmail = async (studentId: string): Promise<void> => {
+    const response = await fetch(`${window.location.origin}/api/manage/resend-confirmation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to resend confirmation email');
+    }
+};
+
 export const updateStudentDetails = async (studentId: string, updates: Partial<Student>): Promise<Student> => {
     // Map camelCase to snake_case for database
     const dbUpdates: Record<string, unknown> = {};

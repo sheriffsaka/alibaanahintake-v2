@@ -688,6 +688,68 @@ router.get('/auth/is-verified', async (req, res) => {
   }
 });
 
+router.post('/manage/resend-confirmation', async (req, res) => {
+    try {
+        const { studentId } = req.body;
+        if (!studentId) return res.status(400).json({ error: 'Student ID is required' });
+
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+        
+        if (!supabaseUrl || !supabaseServiceKey) {
+            return res.status(500).json({ error: 'Server configuration error (Supabase)' });
+        }
+
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+        // 1. Fetch student info
+        const { data: student, error: studentError } = await supabase
+            .from('students')
+            .select('*, appointment_slots(*), levels(name)')
+            .eq('id', studentId)
+            .single();
+
+        if (studentError || !student) throw new Error('Student not found');
+        if (!student.email) throw new Error('Student has no email');
+
+        // 2. Fetch notification settings
+        const { data: settingsData } = await supabase.from('notification_settings').select('settings').single();
+        const settings = settingsData?.settings;
+        const lang = student.language || 'en';
+        const langSettings = settings?.[lang] || settings?.['en'];
+
+        if (!langSettings || !langSettings.confirmation.enabled) {
+            throw new Error('Confirmation emails are disabled in settings');
+        }
+
+        // 3. Prepare email
+        let subject = langSettings.confirmation.subject;
+        let body = langSettings.confirmation.body;
+        
+        subject = subject.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
+        body = body.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
+        body = body.replace('{{level}}', student.levels?.name || '');
+        body = body.replace('{{appointmentDate}}', student.appointment_slots.date);
+        body = body.replace('{{appointmentTime}}', `${student.appointment_slots.start_time} - ${student.appointment_slots.end_time}`);
+        body = body.replace('{{registrationCode}}', student.registration_code);
+
+        // 4. Send
+        const result = await sendEmail({
+            to: student.email,
+            subject,
+            fromName: 'Al-Ibaanah Registration',
+            html: body.replace(/\n/g, '<br>')
+        });
+
+        res.json({ success: true, message: 'Confirmation email resent', id: result.id });
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        console.error('>>> Resend Confirmation Error:', err);
+        res.status(500).json({ error: err.message || 'Failed to resend confirmation' });
+    }
+});
+
 router.post('/cron/reminders', async (req, res) => {
   const authHeader = req.headers.authorization;
   const cronSecret = process.env.CRON_SECRET;
@@ -713,63 +775,87 @@ router.post('/cron/reminders', async (req, res) => {
     const todayStr = now.toISOString().split('T')[0];
 
     // 1. Fetch students for 24h reminders
-    const { data: students24h } = await supabase
+    const { data: students24h, error: error24h } = await supabase
       .from('students')
-      .select('*, appointment_slots(*), levels(name)')
-      .eq('appointment_slots.date', tomorrowStr);
+      .select('*, appointment_slots!inner(*), levels(name)')
+      .eq('appointment_slots.date', tomorrowStr)
+      .eq('status', 'booked')
+      .eq('reminded_24h', false);
 
-    if (students24h) {
+    if (error24h) console.error('>>> Error fetching 24h reminders:', error24h);
+
+    if (students24h && students24h.length > 0) {
+      console.log(`>>> Processing ${students24h.length} 24h reminders...`);
       for (const student of students24h) {
-        const lang = student.language || 'en';
-        const langSettings = settings[lang] || settings['en'];
-        if (langSettings && langSettings.reminder24h.enabled) {
-          let subject = langSettings.reminder24h.subject;
-          let body = langSettings.reminder24h.body;
-          
-          subject = subject.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
-          body = body.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
-          body = body.replace('{{level}}', student.levels?.name || '');
-          body = body.replace('{{appointmentDate}}', student.appointment_slots.date);
-          body = body.replace('{{appointmentTime}}', `${student.appointment_slots.start_time} - ${student.appointment_slots.end_time}`);
-          body = body.replace('{{registrationCode}}', student.registration_code);
+        try {
+          const lang = student.language || 'en';
+          const langSettings = settings[lang] || settings['en'];
+          if (langSettings && langSettings.reminder24h.enabled) {
+            let subject = langSettings.reminder24h.subject;
+            let body = langSettings.reminder24h.body;
+            
+            subject = subject.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
+            body = body.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
+            body = body.replace('{{level}}', student.levels?.name || '');
+            body = body.replace('{{appointmentDate}}', student.appointment_slots.date);
+            body = body.replace('{{appointmentTime}}', `${student.appointment_slots.start_time} - ${student.appointment_slots.end_time}`);
+            body = body.replace('{{registrationCode}}', student.registration_code);
 
-          await sendEmail({
-            to: student.email,
-            subject,
-            fromName: 'Al-Ibaanah Booking',
-            html: body.replace(/\n/g, '<br>')
-          });
+            await sendEmail({
+              to: student.email,
+              subject,
+              fromName: 'Al-Ibaanah Booking',
+              html: body.replace(/\n/g, '<br>')
+            });
+
+            // Mark as reminded
+            await supabase.from('students').update({ reminded_24h: true }).eq('id', student.id);
+          }
+        } catch (err) {
+          console.error(`>>> Failed to send 24h reminder to ${student.email}:`, err);
         }
       }
     }
 
     // 2. Fetch students for Day-of reminders
-    const { data: studentsDayOf } = await supabase
+    const { data: studentsDayOf, error: errorDayOf } = await supabase
       .from('students')
-      .select('*, appointment_slots(*), levels(name)')
-      .eq('appointment_slots.date', todayStr);
+      .select('*, appointment_slots!inner(*), levels(name)')
+      .eq('appointment_slots.date', todayStr)
+      .eq('status', 'booked')
+      .eq('reminded_day_of', false);
 
-    if (studentsDayOf) {
+    if (errorDayOf) console.error('>>> Error fetching Day-of reminders:', errorDayOf);
+
+    if (studentsDayOf && studentsDayOf.length > 0) {
+      console.log(`>>> Processing ${studentsDayOf.length} Day-of reminders...`);
       for (const student of studentsDayOf) {
-        const lang = student.language || 'en';
-        const langSettings = settings[lang] || settings['en'];
-        if (langSettings && langSettings.reminderDayOf.enabled) {
-          let subject = langSettings.reminderDayOf.subject;
-          let body = langSettings.reminderDayOf.body;
-          
-          subject = subject.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
-          body = body.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
-          body = body.replace('{{level}}', student.levels?.name || '');
-          body = body.replace('{{appointmentDate}}', student.appointment_slots.date);
-          body = body.replace('{{appointmentTime}}', `${student.appointment_slots.start_time} - ${student.appointment_slots.end_time}`);
-          body = body.replace('{{registrationCode}}', student.registration_code);
+        try {
+          const lang = student.language || 'en';
+          const langSettings = settings[lang] || settings['en'];
+          if (langSettings && langSettings.reminderDayOf.enabled) {
+            let subject = langSettings.reminderDayOf.subject;
+            let body = langSettings.reminderDayOf.body;
+            
+            subject = subject.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
+            body = body.replace('{{studentName}}', `${student.firstname} ${student.surname}`);
+            body = body.replace('{{level}}', student.levels?.name || '');
+            body = body.replace('{{appointmentDate}}', student.appointment_slots.date);
+            body = body.replace('{{appointmentTime}}', `${student.appointment_slots.start_time} - ${student.appointment_slots.end_time}`);
+            body = body.replace('{{registrationCode}}', student.registration_code);
 
-          await sendEmail({
-            to: student.email,
-            subject,
-            fromName: 'Al-Ibaanah Booking',
-            html: body.replace(/\n/g, '<br>')
-          });
+            await sendEmail({
+              to: student.email,
+              subject,
+              fromName: 'Al-Ibaanah Booking',
+              html: body.replace(/\n/g, '<br>')
+            });
+
+            // Mark as reminded
+            await supabase.from('students').update({ reminded_day_of: true }).eq('id', student.id);
+          }
+        } catch (err) {
+          console.error(`>>> Failed to send Day-of reminder to ${student.email}:`, err);
         }
       }
     }

@@ -85,6 +85,8 @@ CREATE TABLE IF NOT EXISTS public.students (
     appointment_slot_id UUID NOT NULL,
     status student_status_enum NOT NULL DEFAULT 'booked',
     language TEXT NOT NULL DEFAULT 'en',
+    reminded_24h BOOLEAN NOT NULL DEFAULT false,
+    reminded_day_of BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE public.students IS 'Stores registered student information.';
@@ -338,7 +340,7 @@ VALUES (1, '{
         }
     }
 }')
-ON CONFLICT (id) DO UPDATE SET settings = EXCLUDED.settings;
+ON CONFLICT (id) DO NOTHING;
 
 -- 8. Create programs table
 CREATE TABLE IF NOT EXISTS public.programs (
@@ -393,7 +395,7 @@ INSERT INTO public.asset_settings (key, value) VALUES
 }'),
 ('campusAddress', '"Block 12, Rd 18, Nasr City, Cairo, Egypt"'),
 ('campusHours', '"Sunday - Thursday, 9:00 AM - 2:00 PM"')
-ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+ON CONFLICT (key) DO NOTHING;
 
 
 -- 10. Create program_resources table
