@@ -21,7 +21,7 @@ import StudentRecords from './components/admin/StudentRecords';
 import LevelManager from './components/admin/LevelManager';
 import { SiteContentProvider } from './contexts/SiteContentContext';
 import SiteContentManager from './components/admin/SiteContentManager';
-import ErrorBoundary from './components/common/ErrorBoundary.tsx';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import DatabaseStatus from './components/common/DatabaseStatus';
 
 function App() {
