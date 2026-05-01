@@ -6,7 +6,7 @@ import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Input from '../common/Input';
 import Button from '../common/Button';
-import { Download, Search, ArrowUpDown, Trash2, Edit3, CheckSquare, Square, Send } from 'lucide-react';
+import { Download, Search, ArrowUpDown, Trash2, Edit3, CheckSquare, Square, Send, ChevronDown, Check, X } from 'lucide-react';
 import useDebounce from '../../hooks/useDebounce';
 import { deleteStudent, updateStudentDetails, getLevels, bulkDeleteStudents, resendConfirmationEmail } from '../../services/apiService';
 import { Level } from '../../types';
@@ -36,9 +36,10 @@ const StudentRecords: React.FC = () => {
   
   // New Filters
   const [filterDate, setFilterDate] = useState('');
-  const [filterSlotId, setFilterSlotId] = useState('');
+  const [filterSlotIds, setFilterSlotIds] = useState<string[]>([]);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [availableSlots, setAvailableSlots] = useState<AppointmentSlot[]>([]);
+  const [isSlotDropdownOpen, setIsSlotDropdownOpen] = useState(false);
 
   const handleResendConfirmation = async (student: Student) => {
     if (!student.email) return;
@@ -81,7 +82,7 @@ const StudentRecords: React.FC = () => {
           sortDirection,
           {
             intakeDate: filterDate || undefined,
-            appointmentSlotId: filterSlotId || undefined
+            appointmentSlotId: filterSlotIds.length > 0 ? filterSlotIds : undefined
           }
       );
       isPending.current = false;
@@ -96,7 +97,7 @@ const StudentRecords: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearchTerm, sortKey, sortDirection, filterDate, filterSlotId]);
+  }, [currentPage, debouncedSearchTerm, sortKey, sortDirection, filterDate, filterSlotIds]);
 
   useEffect(() => {
     fetchStudents();
@@ -118,7 +119,7 @@ const StudentRecords: React.FC = () => {
         setAvailableSlots(slots);
       } else {
         setAvailableSlots([]);
-        setFilterSlotId('');
+        setFilterSlotIds([]);
       }
     };
     fetchSlots();
@@ -139,7 +140,7 @@ const StudentRecords: React.FC = () => {
         setCurrentPage(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearchTerm, sortKey, sortDirection, filterDate, filterSlotId]);
+  }, [debouncedSearchTerm, sortKey, sortDirection, filterDate, filterSlotIds]);
 
 
   const handleSort = (key: SortKey) => {
@@ -283,11 +284,11 @@ const StudentRecords: React.FC = () => {
         sortDirection,
         {
           intakeDate: filterDate || undefined,
-          appointmentSlotId: filterSlotId || undefined
+          appointmentSlotId: filterSlotIds.length > 0 ? filterSlotIds : undefined
         }
       );
       
-      const filterInfo = filterDate ? `_${filterDate}${filterSlotId ? '_slot' : ''}` : '';
+      const filterInfo = filterDate ? `_${filterDate}${filterSlotIds.length > 0 ? '_multiple_slots' : ''}` : '';
       exportToCSV(allStudents, `student_records_all_${debouncedSearchTerm ? 'search_' + debouncedSearchTerm + '_' : ''}${filterInfo}_${new Date().toISOString().split('T')[0]}`);
     } catch (err) {
       console.error("Failed to export all students", err);
@@ -332,7 +333,7 @@ const StudentRecords: React.FC = () => {
               value={filterDate}
               onChange={(e) => {
                 setFilterDate(e.target.value);
-                setFilterSlotId('');
+                setFilterSlotIds([]);
               }}
               options={[
                 { value: '', label: 'All Dates' },
@@ -341,20 +342,83 @@ const StudentRecords: React.FC = () => {
               containerClassName="mb-0"
             />
           </div>
-          <div className="w-full sm:w-64">
-            <Select
-              value={filterSlotId}
-              onChange={(e) => setFilterSlotId(e.target.value)}
-              options={[
-                { value: '', label: 'All Slots' },
-                ...availableSlots.map(s => ({ 
-                  value: s.id, 
-                  label: `${s.startTime} - ${s.endTime} (${s.gender} - ${s.level?.name})` 
-                }))
-              ]}
-              disabled={!filterDate}
-              containerClassName="mb-0"
-            />
+          <div className="w-full sm:w-80 relative">
+            <div 
+              className={`
+                flex items-center justify-between px-3 py-2 border rounded-md shadow-sm bg-white cursor-pointer min-h-[38px]
+                ${!filterDate ? 'bg-gray-100 cursor-not-allowed opacity-50' : 'hover:border-blue-400'}
+                ${isSlotDropdownOpen ? 'ring-1 ring-blue-500 border-blue-500' : 'border-gray-300'}
+              `}
+              onClick={() => filterDate && setIsSlotDropdownOpen(!isSlotDropdownOpen)}
+            >
+              <div className="flex flex-wrap gap-1 items-center overflow-hidden">
+                {filterSlotIds.length === 0 ? (
+                  <span className="text-gray-500 text-sm">All Slots</span>
+                ) : (
+                  filterSlotIds.map(id => {
+                    const slot = availableSlots.find(s => s.id === id);
+                    return (
+                      <span key={id} className="bg-blue-100 text-blue-800 text-[10px] font-medium px-1.5 py-0.5 rounded flex items-center gap-1">
+                        {slot ? `${slot.startTime}-${slot.endTime}` : id}
+                        <X 
+                          className="h-3 w-3 cursor-pointer hover:text-blue-600" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFilterSlotIds(prev => prev.filter(item => item !== id));
+                          }}
+                        />
+                      </span>
+                    );
+                  })
+                )}
+              </div>
+              <ChevronDown className={`h-4 w-4 ml-2 text-gray-400 transition-transform ${isSlotDropdownOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {isSlotDropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setIsSlotDropdownOpen(false)}></div>
+                <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-20 max-h-60 overflow-y-auto py-1">
+                  {availableSlots.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-gray-500">No slots available for this date</div>
+                  ) : (
+                    <>
+                      <div 
+                        className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm font-medium border-b border-gray-100"
+                        onClick={() => setFilterSlotIds([])}
+                      >
+                        <div className={`w-4 h-4 mr-2 border rounded flex items-center justify-center ${filterSlotIds.length === 0 ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300'}`}>
+                          {filterSlotIds.length === 0 && <Check className="h-3 w-3" />}
+                        </div>
+                        All Slots
+                      </div>
+                      {availableSlots.map(slot => {
+                        const isSelected = filterSlotIds.includes(slot.id);
+                        return (
+                          <div 
+                            key={slot.id} 
+                            className="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                            onClick={() => {
+                              setFilterSlotIds(prev => 
+                                isSelected ? prev.filter(id => id !== slot.id) : [...prev, slot.id]
+                              );
+                            }}
+                          >
+                            <div className={`w-4 h-4 mr-2 border rounded flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300'}`}>
+                              {isSelected && <Check className="h-3 w-3" />}
+                            </div>
+                            <div className="flex flex-col">
+                              <span>{slot.startTime} - {slot.endTime}</span>
+                              <span className="text-[10px] text-gray-500 uppercase tracking-tight">{slot.gender} • {slot.level?.name}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">

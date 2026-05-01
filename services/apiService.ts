@@ -275,7 +275,7 @@ export const getAllStudents = async (
     sortDirection: string,
     filters?: {
         intakeDate?: string;
-        appointmentSlotId?: string;
+        appointmentSlotId?: string | string[];
     }
 ): Promise<{ students: Student[], count: number }> => {
     const from = (page - 1) * pageSize;
@@ -295,7 +295,11 @@ export const getAllStudents = async (
     }
 
     if (filters?.appointmentSlotId) {
-        query = query.eq('appointment_slot_id', filters.appointmentSlotId);
+        if (Array.isArray(filters.appointmentSlotId)) {
+            query = query.in('appointment_slot_id', filters.appointmentSlotId);
+        } else {
+            query = query.eq('appointment_slot_id', filters.appointmentSlotId);
+        }
     }
 
     if (sortKey) {
@@ -322,7 +326,7 @@ export const getAllStudentsForExport = async (
     sortDirection: string,
     filters?: {
         intakeDate?: string;
-        appointmentSlotId?: string;
+        appointmentSlotId?: string | string[];
     }
 ): Promise<Student[]> => {
     let query = supabase
@@ -339,7 +343,11 @@ export const getAllStudentsForExport = async (
     }
 
     if (filters?.appointmentSlotId) {
-        query = query.eq('appointment_slot_id', filters.appointmentSlotId);
+        if (Array.isArray(filters.appointmentSlotId)) {
+            query = query.in('appointment_slot_id', filters.appointmentSlotId);
+        } else {
+            query = query.eq('appointment_slot_id', filters.appointmentSlotId);
+        }
     }
 
     if (sortKey) {
