@@ -272,7 +272,11 @@ export const getAllStudents = async (
     pageSize: number,
     searchTerm: string,
     sortKey: string,
-    sortDirection: string
+    sortDirection: string,
+    filters?: {
+        intakeDate?: string;
+        appointmentSlotId?: string;
+    }
 ): Promise<{ students: Student[], count: number }> => {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
@@ -284,6 +288,14 @@ export const getAllStudents = async (
     if (searchTerm) {
         const searchIlke = `%${searchTerm}%`;
         query = query.or(`firstname.ilike.${searchIlke},surname.ilike.${searchIlke},email.ilike.${searchIlke},registration_code.ilike.${searchIlke}`);
+    }
+
+    if (filters?.intakeDate) {
+        query = query.eq('intake_date', filters.intakeDate);
+    }
+
+    if (filters?.appointmentSlotId) {
+        query = query.eq('appointment_slot_id', filters.appointmentSlotId);
     }
 
     if (sortKey) {
@@ -307,7 +319,11 @@ export const getAllStudents = async (
 export const getAllStudentsForExport = async (
     searchTerm: string,
     sortKey: string,
-    sortDirection: string
+    sortDirection: string,
+    filters?: {
+        intakeDate?: string;
+        appointmentSlotId?: string;
+    }
 ): Promise<Student[]> => {
     let query = supabase
         .from('students')
@@ -316,6 +332,14 @@ export const getAllStudentsForExport = async (
     if (searchTerm) {
         const searchIlke = `%${searchTerm}%`;
         query = query.or(`firstname.ilike.${searchIlke},surname.ilike.${searchIlke},email.ilike.${searchIlke},registration_code.ilike.${searchIlke}`);
+    }
+
+    if (filters?.intakeDate) {
+        query = query.eq('intake_date', filters.intakeDate);
+    }
+
+    if (filters?.appointmentSlotId) {
+        query = query.eq('appointment_slot_id', filters.appointmentSlotId);
     }
 
     if (sortKey) {
@@ -512,6 +536,33 @@ export const deleteStudent = async (studentId: string): Promise<void> => {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to delete student record');
     }
+};
+
+export const getAdminFilterOptions = async (): Promise<{ dates: string[] }> => {
+    const { data, error } = await supabase
+        .from('appointment_slots')
+        .select('date');
+    
+    if (error) {
+        console.error('Error fetching filter dates:', error);
+        return { dates: [] };
+    }
+    
+    const uniqueDates = [...new Set(data.map(d => d.date))].sort();
+    return { dates: uniqueDates };
+};
+
+export const getAdminSlotsForDate = async (date: string): Promise<AppointmentSlot[]> => {
+    const { data, error } = await supabase
+        .from('appointment_slots')
+        .select('*, levels(name)')
+        .eq('date', date);
+
+    if (error) {
+        console.error('Error fetching admin slots for date:', error);
+        return [];
+    }
+    return data.map(slotFromSupabase);
 };
 
 export const bulkDeleteStudents = async (studentIds: string[]): Promise<void> => {

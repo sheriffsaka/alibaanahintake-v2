@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
-import { getAllStudents, getAllStudentsForExport } from '../../services/apiService';
-import { Student } from '../../types';
+import { getAllStudents, getAllStudentsForExport, getAdminFilterOptions, getAdminSlotsForDate } from '../../services/apiService';
+import { Student, AppointmentSlot } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Input from '../common/Input';
@@ -33,6 +33,12 @@ const StudentRecords: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [isExportingAll, setIsExportingAll] = useState(false);
+  
+  // New Filters
+  const [filterDate, setFilterDate] = useState('');
+  const [filterSlotId, setFilterSlotId] = useState('');
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<AppointmentSlot[]>([]);
 
   const handleResendConfirmation = async (student: Student) => {
     if (!student.email) return;
@@ -72,7 +78,11 @@ const StudentRecords: React.FC = () => {
           PAGE_SIZE,
           debouncedSearchTerm,
           dbSortKey,
-          sortDirection
+          sortDirection,
+          {
+            intakeDate: filterDate || undefined,
+            appointmentSlotId: filterSlotId || undefined
+          }
       );
       isPending.current = false;
       clearTimeout(timeoutId);
@@ -86,12 +96,33 @@ const StudentRecords: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearchTerm, sortKey, sortDirection]);
+  }, [currentPage, debouncedSearchTerm, sortKey, sortDirection, filterDate, filterSlotId]);
 
   useEffect(() => {
     fetchStudents();
     loadLevels();
   }, [fetchStudents]);
+
+  useEffect(() => {
+    const fetchDates = async () => {
+      const { dates } = await getAdminFilterOptions();
+      setAvailableDates(dates);
+    };
+    fetchDates();
+  }, []);
+
+  useEffect(() => {
+    const fetchSlots = async () => {
+      if (filterDate) {
+        const slots = await getAdminSlotsForDate(filterDate);
+        setAvailableSlots(slots);
+      } else {
+        setAvailableSlots([]);
+        setFilterSlotId('');
+      }
+    };
+    fetchSlots();
+  }, [filterDate]);
 
   const loadLevels = async () => {
     try {
@@ -102,13 +133,13 @@ const StudentRecords: React.FC = () => {
     }
   };
   
-  // Effect to reset to page 1 when search term or sort changes
+  // Effect to reset to page 1 when search term, sort or filters change
   useEffect(() => {
     if(currentPage !== 1) {
         setCurrentPage(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearchTerm, sortKey, sortDirection]);
+  }, [debouncedSearchTerm, sortKey, sortDirection, filterDate, filterSlotId]);
 
 
   const handleSort = (key: SortKey) => {
@@ -249,10 +280,15 @@ const StudentRecords: React.FC = () => {
       const allStudents = await getAllStudentsForExport(
         debouncedSearchTerm,
         dbSortKey,
-        sortDirection
+        sortDirection,
+        {
+          intakeDate: filterDate || undefined,
+          appointmentSlotId: filterSlotId || undefined
+        }
       );
       
-      exportToCSV(allStudents, `student_records_all_${debouncedSearchTerm ? 'search_' + debouncedSearchTerm + '_' : ''}${new Date().toISOString().split('T')[0]}`);
+      const filterInfo = filterDate ? `_${filterDate}${filterSlotId ? '_slot' : ''}` : '';
+      exportToCSV(allStudents, `student_records_all_${debouncedSearchTerm ? 'search_' + debouncedSearchTerm + '_' : ''}${filterInfo}_${new Date().toISOString().split('T')[0]}`);
     } catch (err) {
       console.error("Failed to export all students", err);
       alert("Failed to export student records. Please try again.");
@@ -281,16 +317,47 @@ const StudentRecords: React.FC = () => {
 
   return (
     <Card title="Student Records">
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
-        <div className="w-full sm:w-1/3">
-          <Input
-            placeholder="Search by name, email, code..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            icon={<Search className="h-4 w-4 text-gray-400" />}
-          />
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-2/3">
+          <div className="flex-1 min-w-[200px]">
+            <Input
+              placeholder="Search by name, email, code..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              icon={<Search className="h-4 w-4 text-gray-400" />}
+            />
+          </div>
+          <div className="w-full sm:w-48">
+            <Select
+              value={filterDate}
+              onChange={(e) => {
+                setFilterDate(e.target.value);
+                setFilterSlotId('');
+              }}
+              options={[
+                { value: '', label: 'All Dates' },
+                ...availableDates.map(d => ({ value: d, label: d }))
+              ]}
+              containerClassName="mb-0"
+            />
+          </div>
+          <div className="w-full sm:w-64">
+            <Select
+              value={filterSlotId}
+              onChange={(e) => setFilterSlotId(e.target.value)}
+              options={[
+                { value: '', label: 'All Slots' },
+                ...availableSlots.map(s => ({ 
+                  value: s.id, 
+                  label: `${s.startTime} - ${s.endTime} (${s.gender} - ${s.level?.name})` 
+                }))
+              ]}
+              disabled={!filterDate}
+              containerClassName="mb-0"
+            />
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
           <Button onClick={handleExportCurrentPage} variant="secondary" className="flex items-center flex-1 sm:flex-auto" disabled={students.length === 0}>
             <Download className="h-4 w-4 mr-2" />
             Current Page
