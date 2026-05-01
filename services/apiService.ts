@@ -304,6 +304,36 @@ export const getAllStudents = async (
     return { students: data.map(studentFromSupabase), count: count ?? 0 };
 };
 
+export const getAllStudentsForExport = async (
+    searchTerm: string,
+    sortKey: string,
+    sortDirection: string
+): Promise<Student[]> => {
+    let query = supabase
+        .from('students')
+        .select('*, levels(name)');
+
+    if (searchTerm) {
+        const searchIlke = `%${searchTerm}%`;
+        query = query.or(`firstname.ilike.${searchIlke},surname.ilike.${searchIlke},email.ilike.${searchIlke},registration_code.ilike.${searchIlke}`);
+    }
+
+    if (sortKey) {
+        const dbSortKey = sortKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+        query = query.order(dbSortKey, { ascending: sortDirection === 'asc' });
+    } else {
+        query = query.order('created_at', { ascending: false });
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+        console.error('Error fetching students for export:', error);
+        throw error;
+    }
+    return data.map(studentFromSupabase);
+};
+
 export const getDashboardData = async () => {
     const { data, error } = await supabase.rpc('get_dashboard_statistics');
 

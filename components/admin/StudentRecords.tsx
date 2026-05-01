@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { getAllStudents } from '../../services/apiService';
+import { getAllStudents, getAllStudentsForExport } from '../../services/apiService';
 import { Student } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
@@ -32,6 +32,7 @@ const StudentRecords: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [isExportingAll, setIsExportingAll] = useState(false);
 
   const handleResendConfirmation = async (student: Student) => {
     if (!student.email) return;
@@ -193,27 +194,34 @@ const StudentRecords: React.FC = () => {
     setEditingStudent(prev => prev ? ({ ...prev, [name]: value }) : null);
   };
 
-  const exportToCSV = () => {
-    alert("This will export only the records currently visible on this page. For a full data export, please use the database management tools.");
-    const headers = ['S/N', 'Name', 'Gender', 'Email', 'WhatsApp', 'Level', 'Address', 'IntakeDate', 'Status', 'RegistrationCode'];
+  const exportToCSV = (data: Student[], filename: string) => {
+    const headers = ['S/N', 'Name', 'Gender', 'Email', 'WhatsApp', 'Level', 'Address', 'IntakeDate', 'Status', 'RegistrationCode', 'RegisteredAt'];
     const csvContent = [
       headers.join(','),
-      ...students.map((s, index) => {
-        const serialNumber = (currentPage - 1) * PAGE_SIZE + index + 1;
+      ...data.map((s, index) => {
+        const serialNumber = index + 1;
         const fullAddress = s.buildingNumber 
             ? `${s.buildingNumber}${s.flatNumber ? ', Flat ' + s.flatNumber : ''}, ${s.streetName}, ${s.district}, ${s.state}`
             : s.address;
+        
+        const escapeCSV = (str: string) => {
+            if (str === null || str === undefined) return '""';
+            const stringified = String(str);
+            return `"${stringified.replace(/"/g, '""')}"`;
+        };
+
         return [
             serialNumber,
-            `"${s.firstname} ${s.othername ? s.othername + ' ' : ''}${s.surname}"`,
-            s.gender,
-            s.email,
-            s.whatsapp,
-            s.level?.name || 'N/A',
-            `"${fullAddress}"`,
-            s.intakeDate,
-            s.status,
-            s.registrationCode
+            escapeCSV(`${s.firstname} ${s.othername ? s.othername + ' ' : ''}${s.surname}`),
+            escapeCSV(s.gender),
+            escapeCSV(s.email),
+            escapeCSV(s.whatsapp),
+            escapeCSV(s.level?.name || 'N/A'),
+            escapeCSV(fullAddress),
+            escapeCSV(s.intakeDate),
+            escapeCSV(s.status),
+            escapeCSV(s.registrationCode),
+            escapeCSV(s.createdAt)
         ].join(',');
       })
     ].join('\n');
@@ -222,10 +230,35 @@ const StudentRecords: React.FC = () => {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `student_records_page_${currentPage}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `${filename}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportCurrentPage = () => {
+    exportToCSV(students, `student_records_page_${currentPage}_${new Date().toISOString().split('T')[0]}`);
+  };
+
+  const handleExportAll = async () => {
+    setIsExportingAll(true);
+    try {
+      let dbSortKey = sortKey === 'level' ? 'levels(name)' : sortKey;
+      if (!dbSortKey) dbSortKey = 'created_at';
+      
+      const allStudents = await getAllStudentsForExport(
+        debouncedSearchTerm,
+        dbSortKey,
+        sortDirection
+      );
+      
+      exportToCSV(allStudents, `student_records_all_${debouncedSearchTerm ? 'search_' + debouncedSearchTerm + '_' : ''}${new Date().toISOString().split('T')[0]}`);
+    } catch (err) {
+      console.error("Failed to export all students", err);
+      alert("Failed to export student records. Please try again.");
+    } finally {
+      setIsExportingAll(false);
+    }
   };
   
   const renderSortIcon = (key: SortKey) => {
@@ -257,10 +290,16 @@ const StudentRecords: React.FC = () => {
             icon={<Search className="h-4 w-4 text-gray-400" />}
           />
         </div>
-        <Button onClick={exportToCSV} className="flex items-center w-full sm:w-auto" disabled={students.length === 0}>
-          <Download className="h-4 w-4 mr-2" />
-          Export Current Page
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <Button onClick={handleExportCurrentPage} variant="secondary" className="flex items-center flex-1 sm:flex-auto" disabled={students.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Current Page
+          </Button>
+          <Button onClick={handleExportAll} className="flex items-center flex-1 sm:flex-auto" disabled={students.length === 0 || isExportingAll}>
+            <Download className="h-4 w-4 mr-2" />
+            {isExportingAll ? "Exporting..." : "Export All"}
+          </Button>
+        </div>
       </div>
 
       {selectedIds.size > 0 && (
