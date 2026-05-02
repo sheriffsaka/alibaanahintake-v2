@@ -434,12 +434,12 @@ const StudentRecords: React.FC = () => {
       </div>
 
       {selectedIds.size > 0 && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg flex items-center justify-between">
-          <span className="text-sm text-red-700 font-medium">{selectedIds.size} records selected</span>
+        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg flex items-center gap-4">
           <Button variant="danger" size="sm" onClick={handleBulkDelete}>
             <Trash2 className="h-4 w-4 mr-2" />
             Delete Selected
           </Button>
+          <span className="text-sm text-red-700 font-medium">{selectedIds.size} records selected</span>
         </div>
       )}
 
