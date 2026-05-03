@@ -97,6 +97,8 @@ export interface AppSettings {
     isFemaleRegistrationOpen: boolean;
     maxDailyCapacity: number;
     closedReasons: Record<string, string>; // Multilingual reasons for closure
+    bookingStartTime?: string; // ISO String or null
+    bookingEndTime?: string; // ISO String or null
 }
 
 export interface EnrollmentState {

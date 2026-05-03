@@ -869,7 +869,9 @@ export const getAppSettings = async(): Promise<AppSettings> => {
             isMaleRegistrationOpen: data.male_registration_open,
             isFemaleRegistrationOpen: data.female_registration_open,
             maxDailyCapacity: data.max_daily_capacity,
-            closedReasons: data.closed_reasons || {}
+            closedReasons: data.closed_reasons || {},
+            bookingStartTime: data.booking_start_time,
+            bookingEndTime: data.booking_end_time
         };
     } catch (err) {
         console.error("Failed to fetch app settings, using defaults.", err);
@@ -878,19 +880,23 @@ export const getAppSettings = async(): Promise<AppSettings> => {
             isMaleRegistrationOpen: false,
             isFemaleRegistrationOpen: false,
             maxDailyCapacity: 50,
-            closedReasons: {}
+            closedReasons: {},
+            bookingStartTime: undefined,
+            bookingEndTime: undefined
         };
     }
 };
 
 export const updateAppSettings = async(settings: AppSettings): Promise<AppSettings> => {
-    const { isRegistrationOpen, isMaleRegistrationOpen, isFemaleRegistrationOpen, maxDailyCapacity, closedReasons } = settings;
+    const { isRegistrationOpen, isMaleRegistrationOpen, isFemaleRegistrationOpen, maxDailyCapacity, closedReasons, bookingStartTime, bookingEndTime } = settings;
     const { data, error } = await supabase.from('app_settings').update({ 
         registration_open: isRegistrationOpen, 
         male_registration_open: isMaleRegistrationOpen,
         female_registration_open: isFemaleRegistrationOpen,
         max_daily_capacity: maxDailyCapacity,
-        closed_reasons: closedReasons
+        closed_reasons: closedReasons,
+        booking_start_time: bookingStartTime,
+        booking_end_time: bookingEndTime
     }).eq('id', 1).select().single();
     if (error) throw error;
     return { 
@@ -898,7 +904,9 @@ export const updateAppSettings = async(settings: AppSettings): Promise<AppSettin
         isMaleRegistrationOpen: data.male_registration_open,
         isFemaleRegistrationOpen: data.female_registration_open,
         maxDailyCapacity: data.max_daily_capacity,
-        closedReasons: data.closed_reasons || {}
+        closedReasons: data.closed_reasons || {},
+        bookingStartTime: data.booking_start_time,
+        bookingEndTime: data.booking_end_time
     };
 };
 
@@ -908,7 +916,9 @@ export const updateAppSetting = async (key: keyof AppSettings, value: unknown): 
         isMaleRegistrationOpen: 'male_registration_open',
         isFemaleRegistrationOpen: 'female_registration_open',
         maxDailyCapacity: 'max_daily_capacity',
-        closedReasons: 'closed_reasons'
+        closedReasons: 'closed_reasons',
+        bookingStartTime: 'booking_start_time',
+        bookingEndTime: 'booking_end_time'
     };
 
     const updates = {
@@ -921,7 +931,9 @@ export const updateAppSetting = async (key: keyof AppSettings, value: unknown): 
         isMaleRegistrationOpen: data.male_registration_open,
         isFemaleRegistrationOpen: data.female_registration_open,
         maxDailyCapacity: data.max_daily_capacity,
-        closedReasons: data.closed_reasons || {}
+        closedReasons: data.closed_reasons || {},
+        bookingStartTime: data.booking_start_time,
+        bookingEndTime: data.booking_end_time
     };
 };
 

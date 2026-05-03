@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Clock } from 'lucide-react';
+import { getAppSettings } from '../../services/apiService';
+import { AppSettings } from '../../types';
 
 interface TimeLeft {
   days: number;
@@ -9,13 +11,12 @@ interface TimeLeft {
   seconds: number;
 }
 
-// Target: May 1, 2026, 00:00:00 Cairo time (UTC+3)
-// Cairo UTC+3: 2026-05-01T00:00:00+03:00 => 2026-04-30T21:00:00Z
-const TARGET_DATE = new Date('2026-04-30T21:00:00Z');
-
 const CountdownTimer: React.FC = () => {
-  const calculateTimeLeft = useCallback((): TimeLeft | null => {
-    const difference = TARGET_DATE.getTime() - new Date().getTime();
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(null);
+
+  const calculateTimeLeft = useCallback((targetDate: Date): TimeLeft | null => {
+    const difference = targetDate.getTime() - new Date().getTime();
     
     if (difference <= 0) return null;
 
@@ -27,17 +28,49 @@ const CountdownTimer: React.FC = () => {
     };
   }, []);
 
-  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(calculateTimeLeft());
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settings = await getAppSettings();
+        setAppSettings(settings);
+      } catch (err) {
+        console.error("Failed to fetch settings for countdown:", err);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   useEffect(() => {
+    if (!appSettings?.bookingStartTime) return;
+
+    const targetDate = new Date(appSettings.bookingStartTime);
+    
+    // Use a timeout to avoid synchronous setState inside the effect body
+    const timeout = setTimeout(() => {
+      setTimeLeft(calculateTimeLeft(targetDate));
+    }, 0);
+
     const timer = setInterval(() => {
-      setTimeLeft(calculateTimeLeft());
+      setTimeLeft(calculateTimeLeft(targetDate));
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [calculateTimeLeft]);
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(timer);
+    };
+  }, [appSettings, calculateTimeLeft]);
 
-  if (!timeLeft) return null;
+  if (!timeLeft || !appSettings?.bookingStartTime) return null;
+
+  const targetDateObj = new Date(appSettings.bookingStartTime);
+  const formattedTargetDate = targetDateObj.toLocaleDateString(undefined, { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 
   return (
     <motion.div 
@@ -65,8 +98,8 @@ const CountdownTimer: React.FC = () => {
           <TimeUnit value={timeLeft.seconds} label="Seconds" />
         </div>
         
-        <p className="text-xs text-brand-green/60 font-medium italic">
-          Official booking starts Friday, May 1st, 12:00 AM (Cairo Time)
+        <p className="text-xs text-brand-green/60 font-medium italic text-center">
+          Official booking starts {formattedTargetDate}
         </p>
       </div>
     </motion.div>

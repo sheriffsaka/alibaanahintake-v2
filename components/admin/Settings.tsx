@@ -194,6 +194,42 @@ const Settings: React.FC = () => {
                             </p>
                         </div>
                     </Card>
+
+                    <Card title="Booking Window Banners">
+                        <div className="space-y-4">
+                            <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                <h3 className="font-semibold text-gray-800 mb-2 flex items-center">
+                                    Slot Booking Countdown (Opening)
+                                    <Info className="h-4 w-4 ml-2 text-gray-400" />
+                                </h3>
+                                <Input 
+                                    label="Opening Date & Time"
+                                    type="datetime-local"
+                                    value={settings.bookingStartTime ? settings.bookingStartTime.substring(0, 16) : ''}
+                                    onChange={(e) => handleChange('bookingStartTime', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                                />
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Sets the target for the countdown banner on the landing page.
+                                </p>
+                            </div>
+
+                            <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                <h3 className="font-semibold text-gray-800 mb-2 flex items-center">
+                                    Closing Banner Time
+                                    <Info className="h-4 w-4 ml-2 text-gray-400" />
+                                </h3>
+                                <Input 
+                                    label="Closing Date & Time"
+                                    type="datetime-local"
+                                    value={settings.bookingEndTime ? settings.bookingEndTime.substring(0, 16) : ''}
+                                    onChange={(e) => handleChange('bookingEndTime', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                                />
+                                <p className="text-xs text-gray-500 mt-2">
+                                    This time will be used to automatically signal when booking is ending.
+                                </p>
+                            </div>
+                        </div>
+                    </Card>
                 </div>
 
                 {/* Content Management (Closed messages) */}

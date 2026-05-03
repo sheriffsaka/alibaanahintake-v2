@@ -87,6 +87,30 @@ const Hero: React.FC = () => {
     const handleRegistrationClick = (e: React.MouseEvent, gender: Gender) => {
         if (!appSettings) return;
 
+        const now = new Date();
+        const startTime = appSettings.bookingStartTime ? new Date(appSettings.bookingStartTime) : null;
+        const endTime = appSettings.bookingEndTime ? new Date(appSettings.bookingEndTime) : null;
+
+        // Check if booking has not started yet
+        if (startTime && now < startTime) {
+            e.preventDefault();
+            const formattedStart = startTime.toLocaleString(undefined, { 
+                month: 'long', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            alert(`Booking has not started yet. It will open on ${formattedStart}.`);
+            return;
+        }
+
+        // Check if booking has ended
+        if (endTime && now > endTime) {
+            e.preventDefault();
+            alert("Booking has already closed for this session.");
+            return;
+        }
+
         const isMainOpen = appSettings.isRegistrationOpen;
         const isSectionOpen = gender === Gender.Male 
             ? appSettings.isMaleRegistrationOpen 
@@ -101,6 +125,18 @@ const Hero: React.FC = () => {
     const getClosedMessage = (gender?: Gender) => {
         if (!appSettings) return '';
         
+        const now = new Date();
+        const startTime = appSettings.bookingStartTime ? new Date(appSettings.bookingStartTime) : null;
+        const endTime = appSettings.bookingEndTime ? new Date(appSettings.bookingEndTime) : null;
+
+        if (startTime && now < startTime) {
+            return language === 'ar' ? 'التسجيل لم يبدأ بعد' : "Registration hasn't started yet.";
+        }
+
+        if (endTime && now > endTime) {
+            return language === 'ar' ? 'تم إغلاق التسجيل لهذه الدورة' : "Registration has ended for this session.";
+        }
+
         const lang = language || 'en';
         const customMessage = appSettings.closedReasons?.[lang] || appSettings.closedReasons?.en;
         
@@ -112,6 +148,24 @@ const Hero: React.FC = () => {
         return gender === Gender.Male
             ? "Registration for the Brothers section is currently closed. Please contact the school for further notice."
             : "Registration for the Sisters section is currently closed. Please contact the school for further notice.";
+    };
+
+    const isSectionActive = (gender: Gender) => {
+        if (!appSettings) return false;
+        
+        const now = new Date();
+        const startTime = appSettings.bookingStartTime ? new Date(appSettings.bookingStartTime) : null;
+        const endTime = appSettings.bookingEndTime ? new Date(appSettings.bookingEndTime) : null;
+
+        if (startTime && now < startTime) return false;
+        if (endTime && now > endTime) return false;
+
+        const isMainOpen = appSettings.isRegistrationOpen;
+        const isGenderOpen = gender === Gender.Male 
+            ? appSettings.isMaleRegistrationOpen 
+            : appSettings.isFemaleRegistrationOpen;
+
+        return isMainOpen && isGenderOpen;
     };
 
   return (
@@ -159,7 +213,7 @@ const Hero: React.FC = () => {
                             onClick={(e) => handleRegistrationClick(e, Gender.Male)}
                         >
                             <button className={`font-semibold px-8 py-3 rounded-md shadow-lg transition-all ${
-                                (appSettings?.isRegistrationOpen && appSettings?.isMaleRegistrationOpen)
+                                isSectionActive(Gender.Male)
                                 ? 'bg-white text-brand-green-dark hover:bg-gray-200' 
                                 : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-70'
                             }`}>
@@ -172,7 +226,7 @@ const Hero: React.FC = () => {
                             onClick={(e) => handleRegistrationClick(e, Gender.Female)}
                         >
                             <button className={`font-semibold px-8 py-3 rounded-md flex items-center transition-all ${
-                                (appSettings?.isRegistrationOpen && appSettings?.isFemaleRegistrationOpen)
+                                isSectionActive(Gender.Female)
                                 ? 'border border-brand-yellow text-brand-yellow hover:bg-brand-yellow/10'
                                 : 'border border-gray-500 text-gray-500 cursor-not-allowed opacity-70'
                             }`}>
