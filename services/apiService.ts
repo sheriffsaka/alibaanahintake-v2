@@ -276,6 +276,7 @@ export const getAllStudents = async (
     filters?: {
         intakeDate?: string;
         appointmentSlotId?: string | string[];
+        gender?: Gender;
     }
 ): Promise<{ students: Student[], count: number }> => {
     const from = (page - 1) * pageSize;
@@ -300,6 +301,10 @@ export const getAllStudents = async (
         } else {
             query = query.eq('appointment_slot_id', filters.appointmentSlotId);
         }
+    }
+
+    if (filters?.gender) {
+        query = query.eq('gender', filters.gender);
     }
 
     if (sortKey) {
@@ -327,6 +332,7 @@ export const getAllStudentsForExport = async (
     filters?: {
         intakeDate?: string;
         appointmentSlotId?: string | string[];
+        gender?: Gender;
     }
 ): Promise<Student[]> => {
     let query = supabase
@@ -350,6 +356,10 @@ export const getAllStudentsForExport = async (
         }
     }
 
+    if (filters?.gender) {
+        query = query.eq('gender', filters.gender);
+    }
+
     if (sortKey) {
         const dbSortKey = sortKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
         query = query.order(dbSortKey, { ascending: sortDirection === 'asc' });
@@ -366,8 +376,10 @@ export const getAllStudentsForExport = async (
     return data.map(studentFromSupabase);
 };
 
-export const getDashboardData = async () => {
-    const { data, error } = await supabase.rpc('get_dashboard_statistics');
+export const getDashboardData = async (gender?: Gender) => {
+    const { data, error } = await supabase.rpc('get_dashboard_statistics', {
+        gender_filter: gender || null
+    });
 
     if (error || !data) {
         console.error("Dashboard data fetch error:", error);
@@ -560,11 +572,17 @@ export const getAdminFilterOptions = async (): Promise<{ dates: string[] }> => {
     return { dates: uniqueDates };
 };
 
-export const getAdminSlotsForDate = async (date: string): Promise<AppointmentSlot[]> => {
-    const { data, error } = await supabase
+export const getAdminSlotsForDate = async (date: string, gender?: Gender): Promise<AppointmentSlot[]> => {
+    let query = supabase
         .from('appointment_slots')
         .select('*, levels(name)')
         .eq('date', date);
+
+    if (gender) {
+        query = query.eq('gender', gender);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         console.error('Error fetching admin slots for date:', error);

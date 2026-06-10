@@ -1,7 +1,7 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { getAllStudents, getAllStudentsForExport, getAdminFilterOptions, getAdminSlotsForDate } from '../../services/apiService';
-import { Student, AppointmentSlot } from '../../types';
+import { Student, AppointmentSlot, Level, Role, Gender } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Input from '../common/Input';
@@ -9,7 +9,7 @@ import Button from '../common/Button';
 import { Download, Search, ArrowUpDown, Trash2, Edit3, CheckSquare, Square, Send, ChevronDown, Check, X } from 'lucide-react';
 import useDebounce from '../../hooks/useDebounce';
 import { deleteStudent, updateStudentDetails, getLevels, bulkDeleteStudents, resendConfirmationEmail } from '../../services/apiService';
-import { Level } from '../../types';
+import { useAuth } from '../../hooks/useAuth';
 import Select from '../common/Select';
 
 type SortKey = 'firstname' | 'email' | 'level' | 'intakeDate' | 'status' | 'createdAt' | 'gender' | '';
@@ -18,6 +18,20 @@ type SortDirection = 'asc' | 'desc';
 const PAGE_SIZE = 15;
 
 const StudentRecords: React.FC = () => {
+  const { user } = useAuth();
+
+  // Determine gender filter based on admin role
+  const adminGenderFilter = useMemo(() => {
+    if (!user) return undefined;
+    if (user.role === Role.MaleAdmin || user.role === Role.MaleFrontDesk) {
+      return Gender.Male;
+    }
+    if (user.role === Role.FemaleAdmin || user.role === Role.FemaleFrontDesk) {
+      return Gender.Female;
+    }
+    return undefined; // Super Admin sees all
+  }, [user]);
+
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +96,8 @@ const StudentRecords: React.FC = () => {
           sortDirection,
           {
             intakeDate: filterDate || undefined,
-            appointmentSlotId: filterSlotIds.length > 0 ? filterSlotIds : undefined
+            appointmentSlotId: filterSlotIds.length > 0 ? filterSlotIds : undefined,
+            gender: adminGenderFilter
           }
       );
       isPending.current = false;
@@ -97,11 +112,28 @@ const StudentRecords: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearchTerm, sortKey, sortDirection, filterDate, filterSlotIds]);
+  }, [currentPage, debouncedSearchTerm, sortKey, sortDirection, filterDate, filterSlotIds, adminGenderFilter]);
 
   useEffect(() => {
     fetchStudents();
     loadLevels();
+  }, [fetchStudents]);
+
+  // Sync / update student records page automatically when tab focuses or becomes visible
+  useEffect(() => {
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchStudents();
+      }
+    };
+    
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
   }, [fetchStudents]);
 
   useEffect(() => {
@@ -115,7 +147,7 @@ const StudentRecords: React.FC = () => {
   useEffect(() => {
     const fetchSlots = async () => {
       if (filterDate) {
-        const slots = await getAdminSlotsForDate(filterDate);
+        const slots = await getAdminSlotsForDate(filterDate, adminGenderFilter);
         setAvailableSlots(slots);
       } else {
         setAvailableSlots([]);
@@ -123,7 +155,7 @@ const StudentRecords: React.FC = () => {
       }
     };
     fetchSlots();
-  }, [filterDate]);
+  }, [filterDate, adminGenderFilter]);
 
   const loadLevels = async () => {
     try {
@@ -284,7 +316,8 @@ const StudentRecords: React.FC = () => {
         sortDirection,
         {
           intakeDate: filterDate || undefined,
-          appointmentSlotId: filterSlotIds.length > 0 ? filterSlotIds : undefined
+          appointmentSlotId: filterSlotIds.length > 0 ? filterSlotIds : undefined,
+          gender: adminGenderFilter
         }
       );
       

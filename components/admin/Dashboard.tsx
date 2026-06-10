@@ -1,10 +1,12 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { getDashboardData } from '../../services/apiService';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import { Users, BookCheck, UserCheck, CalendarDays } from 'lucide-react';
 import { usePolling } from '../../hooks/usePolling';
+import { useAuth } from '../../hooks/useAuth';
+import { Role, Gender } from '../../types';
 
 interface DashboardData {
     totalRegistered: number;
@@ -14,13 +16,26 @@ interface DashboardData {
     slotUtilization: { name: string; booked: number; capacity: number }[];
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF19A3', '#19FFD8'];
 const POLLING_INTERVAL = 30000; // 30 seconds
 
 const Dashboard: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  // Determine gender filter based on admin role
+  const adminGenderFilter = React.useMemo(() => {
+    if (!user) return undefined;
+    if (user.role === Role.MaleAdmin || user.role === Role.MaleFrontDesk) {
+      return Gender.Male;
+    }
+    if (user.role === Role.FemaleAdmin || user.role === Role.FemaleFrontDesk) {
+      return Gender.Female;
+    }
+    return undefined; // Super Admin sees all
+  }, [user]);
 
   const fetchDashboardData = useCallback(async () => {
     setError(null);
@@ -34,7 +49,7 @@ const Dashboard: React.FC = () => {
     }, 15000); // 15 second timeout
 
     try {
-      const dashboardData = await getDashboardData();
+      const dashboardData = await getDashboardData(adminGenderFilter);
       isPending.current = false;
       clearTimeout(timeoutId);
       setData(dashboardData);
@@ -46,10 +61,27 @@ const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [adminGenderFilter]);
 
-  // Set up polling for background refresh (includes initial fetch)
+  // Set up polling for background refresh
   usePolling(fetchDashboardData, POLLING_INTERVAL);
+
+  // Sync / update data immediately whenever the administrator visits/focuses the page
+  useEffect(() => {
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchDashboardData();
+      }
+    };
+    
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
+  }, [fetchDashboardData]);
 
   const filteredBreakdown = React.useMemo(() => 
     data?.breakdownByLevel.filter(item => item.value > 0) || [], 
@@ -65,7 +97,14 @@ const Dashboard: React.FC = () => {
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800">Live Enrollment Dashboard</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Live Enrollment Dashboard</h1>
+          {adminGenderFilter && (
+            <p className="text-sm text-gray-500 mt-1">
+              Filtered for: <span className="font-semibold text-brand-green-dark">{adminGenderFilter} Section</span>
+            </p>
+          )}
+        </div>
         {error && <div className="text-xs text-yellow-600 animate-pulse">Connection issue. Retrying...</div>}
       </div>
       
@@ -101,34 +140,34 @@ const Dashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <Card title="Registration by Level" className="lg:col-span-2">
-          <ResponsiveContainer width="100%" height={300}>
+      {/* Charts Layout - Split 50/50 to enlarge the PieChart section and avoid overlaps */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card title="Registration by Level">
+          <ResponsiveContainer width="100%" height={360}>
             <PieChart>
               <Pie
                 data={filteredBreakdown}
                 cx="50%"
-                cy="50%"
-                labelLine={false}
-                outerRadius={100}
+                cy="48%"
+                labelLine={true}
+                outerRadius={95}
                 fill="#8884d8"
                 dataKey="value"
                 nameKey="name"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
               >
                 {filteredBreakdown.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
-              <Legend />
+              <Tooltip formatter={(value, name) => [value, `Count (${name})`]} />
+              <Legend verticalAlign="bottom" height={36} />
             </PieChart>
           </ResponsiveContainer>
         </Card>
 
-        <Card title="Upcoming Slot Utilization" className="lg:col-span-3">
-          <ResponsiveContainer width="100%" height={300}>
+        <Card title="Upcoming Slot Utilization">
+          <ResponsiveContainer width="100%" height={360}>
             <BarChart data={data.slotUtilization}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} interval={0} tick={{fontSize: 10}}/>
