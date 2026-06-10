@@ -497,10 +497,15 @@ const StudentRecords: React.FC = () => {
                     name="gender" 
                     value={editingStudent.gender} 
                     onChange={handleEditChange}
-                    options={[
-                        { value: 'Male', label: 'Male' },
-                        { value: 'Female', label: 'Female' }
-                    ]} 
+                    options={
+                      adminGenderFilter 
+                        ? [{ value: adminGenderFilter, label: adminGenderFilter }]
+                        : [
+                            { value: 'Male', label: 'Male' },
+                            { value: 'Female', label: 'Female' }
+                          ]
+                    }
+                    disabled={!!adminGenderFilter}
                   />
                   <Input label="Email" name="email" value={editingStudent.email} onChange={handleEditChange} required />
                   <Input label="WhatsApp" name="whatsapp" value={editingStudent.whatsapp} onChange={handleEditChange} required />

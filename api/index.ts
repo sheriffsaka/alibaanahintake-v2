@@ -505,10 +505,11 @@ router.post('/manage/renew-session', async (req, res) => {
     }
 
     // 2. Reset booked counts for all slots to zero
-    // Explicitly update all rows to ensure zero status
+    // Satisfy PostgREST bulk-update safety by adding a wildcard filter on capacity
     const { error: resetError } = await supabase
         .from('appointment_slots')
-        .update({ booked: 0 });
+        .update({ booked: 0 })
+        .gt('capacity', 0);
 
     if (resetError) {
         console.error('>>> Slot Reset Error:', resetError);

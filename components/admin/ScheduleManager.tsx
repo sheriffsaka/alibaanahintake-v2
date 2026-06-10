@@ -1,17 +1,19 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { getSchedules, updateSchedule, createSchedule, deleteSchedule, getLevels, createSchedulesBulk, bulkDeleteSchedules } from '../../services/apiService';
-import { AppointmentSlot, Level, Gender } from '../../types';
+import { AppointmentSlot, Level, Gender, Role } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import { PlusCircle, Trash2, CheckSquare, Square } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 
 const PAGE_SIZE = 25;
 
 const ScheduleManager: React.FC = () => {
+  const { user } = useAuth();
   const [slots, setSlots] = useState<AppointmentSlot[]>([]);
   const [levels, setLevels] = useState<Level[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,13 +24,39 @@ const ScheduleManager: React.FC = () => {
   const [totalSlots, setTotalSlots] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // Determine gender filter based on admin role
+  const adminGenderFilter = useMemo(() => {
+    if (!user) return undefined;
+    if (user.role === Role.MaleAdmin || user.role === Role.MaleFrontDesk) {
+      return Gender.Male;
+    }
+    if (user.role === Role.FemaleAdmin || user.role === Role.FemaleFrontDesk) {
+      return Gender.Female;
+    }
+    return undefined; // Super Admin sees all
+  }, [user]);
+
+  const fetchSlots = React.useCallback(async (page: number) => {
+    setLoading(true);
+    setSelectedIds(new Set());
+    try {
+      const { slots: data, count } = await getSchedules(page, PAGE_SIZE, adminGenderFilter);
+      setSlots(data);
+      setTotalSlots(count ?? 0);
+    } catch (error) {
+      console.error("Failed to fetch schedules", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [adminGenderFilter]);
+
   useEffect(() => {
     const fetchInitialData = async () => {
       setLoading(true);
       setSelectedIds(new Set());
       try {
         const [schedulesData, levelsData] = await Promise.all([
-          getSchedules(currentPage, PAGE_SIZE),
+          getSchedules(currentPage, PAGE_SIZE, adminGenderFilter),
           getLevels(true), // Fetch all levels for the dropdown
         ]);
         setSlots(schedulesData.slots);
@@ -41,21 +69,7 @@ const ScheduleManager: React.FC = () => {
       }
     };
     fetchInitialData();
-  }, [currentPage]);
-  
-  const fetchSlots = async (page: number) => {
-    setLoading(true);
-    setSelectedIds(new Set());
-    try {
-      const { slots: data, count } = await getSchedules(page, PAGE_SIZE);
-      setSlots(data);
-      setTotalSlots(count ?? 0);
-    } catch (error) {
-      console.error("Failed to fetch schedules", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [currentPage, adminGenderFilter]);
 
   const handleOpenModal = (slot?: AppointmentSlot) => {
     if (slot) {
@@ -70,7 +84,7 @@ const ScheduleManager: React.FC = () => {
             startTime: '09:00',
             endTime: '10:00',
             capacity: 10,
-            gender: Gender.Male,
+            gender: adminGenderFilter || Gender.Male,
         });
         setSelectedLevelIds([defaultLevelId]);
     }
@@ -235,7 +249,18 @@ const ScheduleManager: React.FC = () => {
                             </div>
                         )}
 
-                        <Select label="Gender" name="gender" value={editingSlot.gender} onChange={handleInputChange} options={Object.values(Gender).map(g => ({value: g, label: g}))} />
+                         <Select 
+                            label="Gender" 
+                            name="gender" 
+                            value={editingSlot.gender} 
+                            onChange={handleInputChange} 
+                            options={
+                                adminGenderFilter 
+                                ? [{ value: adminGenderFilter, label: adminGenderFilter }] 
+                                : Object.values(Gender).map(g => ({ value: g, label: g }))
+                            } 
+                            disabled={!!adminGenderFilter}
+                        />
                         <Input label="Capacity" name="capacity" type="number" value={editingSlot.capacity} onChange={handleInputChange} min="0"/>
                     </div>
                     <div className="mt-6 flex justify-end space-x-2">

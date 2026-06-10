@@ -376,10 +376,8 @@ export const getAllStudentsForExport = async (
     return data.map(studentFromSupabase);
 };
 
-export const getDashboardData = async (gender?: Gender) => {
-    const { data, error } = await supabase.rpc('get_dashboard_statistics', {
-        gender_filter: gender || null
-    });
+export const getDashboardData = async () => {
+    const { data, error } = await supabase.rpc('get_dashboard_statistics');
 
     if (error || !data) {
         console.error("Dashboard data fetch error:", error);
@@ -619,13 +617,19 @@ export const checkInStudent = async (studentId: string): Promise<Student> => {
 
 
 // --- Schedule Management ---
-export const getSchedules = async (page: number, pageSize: number): Promise<{ slots: AppointmentSlot[], count: number }> => {
+export const getSchedules = async (page: number, pageSize: number, gender?: Gender): Promise<{ slots: AppointmentSlot[], count: number }> => {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const { data, error, count } = await supabase
+    let query = supabase
         .from('appointment_slots')
-        .select('*, levels(id, name)', { count: 'exact' })
+        .select('*, levels(id, name)', { count: 'exact' });
+
+    if (gender) {
+        query = query.eq('gender', gender);
+    }
+
+    const { data, error, count } = await query
         .order('date', { ascending: true })
         .order('start_time', { ascending: true })
         .range(from, to);

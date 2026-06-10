@@ -49,7 +49,7 @@ const Dashboard: React.FC = () => {
     }, 15000); // 15 second timeout
 
     try {
-      const dashboardData = await getDashboardData(adminGenderFilter);
+      const dashboardData = await getDashboardData();
       isPending.current = false;
       clearTimeout(timeoutId);
       setData(dashboardData);
@@ -61,7 +61,7 @@ const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [adminGenderFilter]);
+  }, []);
 
   // Set up polling for background refresh
   usePolling(fetchDashboardData, POLLING_INTERVAL);
