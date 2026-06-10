@@ -1,8 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { getAppSettings, updateAppSettings, renewSession } from '../../services/apiService';
-import { AppSettings as TAppSettings } from '../../types';
+import { AppSettings as TAppSettings, Role } from '../../types';
 import Spinner from '../common/Spinner';
+import { useAuth } from '../../hooks/useAuth';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Input from '../common/Input';
@@ -10,6 +11,7 @@ import Toggle from '../common/Toggle';
 import { CheckCircle, Info, RefreshCw } from 'lucide-react';
 
 const Settings: React.FC = () => {
+    const { user } = useAuth();
     const [settings, setSettings] = useState<TAppSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -65,6 +67,11 @@ const Settings: React.FC = () => {
     };
 
     const handleRenewSession = async () => {
+        if (user?.role !== Role.SuperAdmin) {
+            setError("Only Super Admin is authorized to renew the session.");
+            return;
+        }
+
         if (renewConfirmText !== 'RENEW') {
             setError("Please type RENEW to confirm.");
             return;
@@ -104,15 +111,17 @@ const Settings: React.FC = () => {
                     <p className="text-gray-500">Manage global registration status, section availability, and facility capacity.</p>
                 </div>
                 <div className="flex items-center space-x-4">
-                    <Button 
-                        variant="outline" 
-                        onClick={() => setIsRenewModalOpen(true)} 
-                        disabled={renewing}
-                        className="border-amber-200 text-amber-700 hover:bg-amber-50"
-                    >
-                        <RefreshCw size={18} className="mr-2" />
-                        Renew Session
-                    </Button>
+                    {user?.role === Role.SuperAdmin && (
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setIsRenewModalOpen(true)} 
+                            disabled={renewing}
+                            className="border-amber-200 text-amber-700 hover:bg-amber-50"
+                        >
+                            <RefreshCw size={18} className="mr-2" />
+                            Renew Session
+                        </Button>
+                    )}
                     {saved && <span className="text-green-600 flex items-center"><CheckCircle className="h-5 w-5 mr-1"/> Saved!</span>}
                     <Button onClick={handleSave} disabled={saving} loading={saving}>
                         Save All Changes

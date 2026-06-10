@@ -9,7 +9,9 @@ app.use(express.json());
 
 // --- LOGGING MIDDLEWARE ---
 app.use((req, res, next) => {
-  console.log(`>>> [API REQUEST] ${req.method} ${req.url} (Original: ${req.originalUrl})`);
+  if (req.url.startsWith('/api') || req.originalUrl.startsWith('/api')) {
+    console.log(`>>> [API REQUEST] ${req.method} ${req.url} (Original: ${req.originalUrl})`);
+  }
   next();
 });
 

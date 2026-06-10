@@ -37,7 +37,11 @@ const Dashboard: React.FC = () => {
     return undefined; // Super Admin sees all
   }, [user]);
 
+  const isFetchingRef = React.useRef(false);
+
   const fetchDashboardData = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setError(null);
     
     const isPending = { current: true };
@@ -59,6 +63,7 @@ const Dashboard: React.FC = () => {
       console.error("Failed to fetch dashboard data", err);
       setError("Could not load dashboard data. Retrying in background...");
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
   }, []);
@@ -68,18 +73,16 @@ const Dashboard: React.FC = () => {
 
   // Sync / update data immediately whenever the administrator visits/focuses the page
   useEffect(() => {
-    const handleVisibilityOrFocus = () => {
+    const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         fetchDashboardData();
       }
     };
     
-    window.addEventListener('focus', handleVisibilityOrFocus);
-    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
     
     return () => {
-      window.removeEventListener('focus', handleVisibilityOrFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [fetchDashboardData]);
 

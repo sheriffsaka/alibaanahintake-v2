@@ -71,7 +71,11 @@ const StudentRecords: React.FC = () => {
     }
   };
 
+  const isFetchingRef = useRef(false);
+
   const fetchStudents = React.useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setLoading(true);
     setError(null);
     setSelectedIds(new Set());
@@ -110,6 +114,7 @@ const StudentRecords: React.FC = () => {
       console.error("Failed to fetch students", err);
       setError("Failed to load student records. Please try again.");
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
   }, [currentPage, debouncedSearchTerm, sortKey, sortDirection, filterDate, filterSlotIds, adminGenderFilter]);
@@ -121,18 +126,16 @@ const StudentRecords: React.FC = () => {
 
   // Sync / update student records page automatically when tab focuses or becomes visible
   useEffect(() => {
-    const handleVisibilityOrFocus = () => {
+    const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         fetchStudents();
       }
     };
     
-    window.addEventListener('focus', handleVisibilityOrFocus);
-    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
     
     return () => {
-      window.removeEventListener('focus', handleVisibilityOrFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [fetchStudents]);
 
