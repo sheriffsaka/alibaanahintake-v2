@@ -657,6 +657,7 @@ export const getScheduleById = async (slotId: string): Promise<AppointmentSlot |
 
 export const createSchedule = async(slot: Omit<AppointmentSlot, 'id' | 'booked' | 'level'>): Promise<AppointmentSlot> => {
     const { startTime, endTime, levelId, gender, ...rest } = slot;
+    delete (rest as { level?: Level }).level;
     const { data, error } = await supabase.from('appointment_slots').insert({ ...rest, start_time: startTime, end_time: endTime, level_id: levelId, gender }).select('*, levels(id, name)').single();
     if (error) throw error;
     return slotFromSupabase(data);
@@ -665,6 +666,7 @@ export const createSchedule = async(slot: Omit<AppointmentSlot, 'id' | 'booked' 
 export const createSchedulesBulk = async(slots: Omit<AppointmentSlot, 'id' | 'booked' | 'level'>[]): Promise<void> => {
     const dataToInsert = slots.map(slot => {
         const { startTime, endTime, levelId, gender, ...rest } = slot;
+        delete (rest as { level?: Level }).level;
         return {
             ...rest,
             start_time: startTime,
@@ -680,6 +682,7 @@ export const createSchedulesBulk = async(slots: Omit<AppointmentSlot, 'id' | 'bo
 
 export const updateSchedule = async(slot: Omit<AppointmentSlot, 'level'>): Promise<AppointmentSlot> => {
     const { startTime, endTime, levelId, gender, ...rest } = slot;
+    delete (rest as { level?: Level }).level;
     const { data, error } = await supabase.from('appointment_slots').update({ ...rest, start_time: startTime, end_time: endTime, level_id: levelId, gender }).eq('id', slot.id).select('*, levels(id, name)').single();
     if (error) throw error;
     return slotFromSupabase(data);
@@ -917,8 +920,8 @@ export const updateAppSettings = async(settings: AppSettings): Promise<AppSettin
         female_registration_open: isFemaleRegistrationOpen,
         max_daily_capacity: maxDailyCapacity,
         closed_reasons: closedReasons,
-        booking_start_time: bookingStartTime,
-        booking_end_time: bookingEndTime
+        booking_start_time: bookingStartTime || null,
+        booking_end_time: bookingEndTime || null
     }).eq('id', 1).select().single();
     if (error) throw error;
     return { 
@@ -944,7 +947,7 @@ export const updateAppSetting = async (key: keyof AppSettings, value: unknown): 
     };
 
     const updates = {
-        [dbKeyMap[key as string]]: value
+        [dbKeyMap[key as string]]: value === "" ? null : value
     };
     const { data, error } = await supabase.from('app_settings').update(updates).eq('id', 1).select().single();
     if (error) throw error;
