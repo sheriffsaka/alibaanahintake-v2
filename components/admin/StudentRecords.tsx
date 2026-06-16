@@ -85,6 +85,7 @@ const StudentRecords: React.FC = () => {
         if (isPending.current) {
             setError("Request timed out. Please check your connection and try again.");
             setLoading(false);
+            isFetchingRef.current = false;
         }
     }, 20000); // 20 second timeout for potentially large student list
 

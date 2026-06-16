@@ -49,6 +49,7 @@ const Dashboard: React.FC = () => {
         if (isPending.current) {
             setError("Request timed out. Retrying in background...");
             setLoading(false);
+            isFetchingRef.current = false;
         }
     }, 15000); // 15 second timeout
 

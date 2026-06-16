@@ -99,6 +99,8 @@ export interface AppSettings {
     closedReasons: Record<string, string>; // Multilingual reasons for closure
     bookingStartTime?: string; // ISO String or null
     bookingEndTime?: string; // ISO String or null
+    femaleBookingStartTime?: string; // ISO String or null
+    femaleBookingEndTime?: string; // ISO String or null
 }
 
 export interface EnrollmentState {

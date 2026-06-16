@@ -224,6 +224,12 @@ BEGIN
     IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.app_settings'::regclass AND attname = 'booking_end_time') THEN
         ALTER TABLE public.app_settings ADD COLUMN booking_end_time TIMESTAMPTZ;
     END IF;
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.app_settings'::regclass AND attname = 'female_booking_start_time') THEN
+        ALTER TABLE public.app_settings ADD COLUMN female_booking_start_time TIMESTAMPTZ;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.app_settings'::regclass AND attname = 'female_booking_end_time') THEN
+        ALTER TABLE public.app_settings ADD COLUMN female_booking_end_time TIMESTAMPTZ;
+    END IF;
 END;
 $$;
 
