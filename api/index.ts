@@ -801,23 +801,69 @@ router.post('/admin/create-user', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden: Insufficient privileges' });
     }
 
-    // 2. Create the auth user with auto-confirmation enabled (so email is verified immediately)
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: email.toLowerCase(),
-      password,
-      email_confirm: true,
-    });
+    // 2. Search for existing auth user under this email to prevent "already registered" and rate-limit issues
+    let existingAuthId: string | null = null;
+    let checkPage = 1;
 
-    if (authError || !authData.user) {
-      console.error('>>> Error creating auth user in admin panel:', authError);
-      return res.status(400).json({ error: authError?.message || 'Could not create auth user' });
+    while (checkPage <= 10) {
+      const listResponse = await supabase.auth.admin.listUsers({ page: checkPage, perPage: 50 });
+      if (listResponse.error) {
+        console.error('>>> listUsers error:', listResponse.error);
+        break;
+      }
+      const authUsers = listResponse.data?.users || [];
+      if (authUsers.length === 0) break;
+
+      interface AuthUserMinimal {
+        id: string;
+        email?: string;
+      }
+      const found = authUsers.find((u: AuthUserMinimal) => u.email?.toLowerCase() === email.toLowerCase());
+      if (found) {
+        existingAuthId = found.id;
+        break;
+      }
+      checkPage++;
     }
 
-    // 3. Create the profile record linked to the newly created auth user's ID
-    const { data: profileData, error: insertError } = await supabase
+    let finalAuthId = '';
+
+    if (existingAuthId) {
+      console.log(`>>> Found existing auth user ${existingAuthId}, updating password and auto-confirming...`);
+      const { data: updateData, error: updateError } = await supabase.auth.admin.updateUserById(
+        existingAuthId,
+        {
+          password,
+          email_confirm: true,
+        }
+      );
+
+      if (updateError || !updateData.user) {
+        console.error('>>> Error updating/confirming existing auth user:', updateError);
+        return res.status(400).json({ error: updateError?.message || 'Could not update existing user account' });
+      }
+      finalAuthId = updateData.user.id;
+    } else {
+      console.log(`>>> No existing auth user found, creating a new user with auto-confirmation...`);
+      // Create the auth user with auto-confirmation enabled (so email is verified immediately, bypassing limits)
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: email.toLowerCase(),
+        password,
+        email_confirm: true,
+      });
+
+      if (authError || !authData.user) {
+        console.error('>>> Error creating auth user in admin panel:', authError);
+        return res.status(400).json({ error: authError?.message || 'Could not create auth user' });
+      }
+      finalAuthId = authData.user.id;
+    }
+
+    // 3. Upsert the profile record (handling cases where a row already exists in profiles)
+    const { data: profileData, error: upsertError } = await supabase
       .from('profiles')
-      .insert({
-        id: authData.user.id,
+      .upsert({
+        id: finalAuthId,
         name,
         email: email.toLowerCase(),
         role,
@@ -826,11 +872,13 @@ router.post('/admin/create-user', async (req, res) => {
       .select()
       .single();
 
-    if (insertError) {
-      console.error('>>> Error creating profile for admin user:', insertError);
-      // Rollback auth user creation if profile creation fails
-      await supabase.auth.admin.deleteUser(authData.user.id);
-      return res.status(400).json({ error: insertError.message });
+    if (upsertError) {
+      console.error('>>> Error upserting profile for admin user:', upsertError);
+      // Rollback auth user creation if we just created it and upsert failed
+      if (!existingAuthId) {
+        await supabase.auth.admin.deleteUser(finalAuthId);
+      }
+      return res.status(400).json({ error: upsertError.message });
     }
 
     res.json({
