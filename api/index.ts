@@ -753,6 +753,103 @@ router.post('/manage/resend-confirmation', async (req, res) => {
     }
 });
 
+router.post('/admin/create-user', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: No token provided' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  const { name, email, role, isActive, password } = req.body;
+
+  if (!name || !email || !role || !password) {
+    return res.status(400).json({ error: 'Missing required fields (name, email, role, password)' });
+  }
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return res.status(500).json({ error: 'Server configuration error (Supabase credentials missing)' });
+    }
+
+    // Create service client to bypass RLS and perform admin auth operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+
+    // 1. Verify that the requester is a valid logged-in administrator
+    const { data: { user: requestUser }, error: requestUserError } = await supabase.auth.getUser(token);
+    if (requestUserError || !requestUser) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', requestUser.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(403).json({ error: 'Forbidden: Requester profile not found' });
+    }
+
+    const adminRoles = ['Super Admin', 'male_section_Admin', 'female_section_Admin'];
+    if (!adminRoles.includes(profile.role)) {
+      return res.status(403).json({ error: 'Forbidden: Insufficient privileges' });
+    }
+
+    // 2. Create the auth user with auto-confirmation enabled (so email is verified immediately)
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: email.toLowerCase(),
+      password,
+      email_confirm: true,
+    });
+
+    if (authError || !authData.user) {
+      console.error('>>> Error creating auth user in admin panel:', authError);
+      return res.status(400).json({ error: authError?.message || 'Could not create auth user' });
+    }
+
+    // 3. Create the profile record linked to the newly created auth user's ID
+    const { data: profileData, error: insertError } = await supabase
+      .from('profiles')
+      .insert({
+        id: authData.user.id,
+        name,
+        email: email.toLowerCase(),
+        role,
+        is_active: isActive !== undefined ? isActive : true,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('>>> Error creating profile for admin user:', insertError);
+      // Rollback auth user creation if profile creation fails
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      return res.status(400).json({ error: insertError.message });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: profileData.id,
+        name: profileData.name,
+        email: profileData.email,
+        role: profileData.role,
+        isActive: profileData.is_active,
+      }
+    });
+  } catch (error: unknown) {
+    console.error('>>> Admin user creation error:', error);
+    const err = error as { message?: string };
+    res.status(500).json({ error: err?.message || 'Failed to complete admin user creation' });
+  }
+});
+
 router.post('/cron/reminders', async (req, res) => {
   const authHeader = req.headers.authorization;
   const cronSecret = process.env.CRON_SECRET;

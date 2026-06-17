@@ -825,31 +825,35 @@ export const getAdminUsers = async (): Promise<AdminUser[]> => {
 };
 
 export const createAdminUser = async(user: Omit<AdminUser, 'id'>, password: string): Promise<AdminUser> => {
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: user.email,
-        password: password,
-    });
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
 
-    if (authError) throw authError;
-    if (!authData.user) throw new Error("Could not create user account.");
+    if (!token) {
+        throw new Error("You must be logged in to create admin users.");
+    }
 
-    const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-            id: authData.user.id,
+    const response = await fetch(`${window.location.origin}/api/admin/create-user`, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
             name: user.name,
             email: user.email,
             role: user.role,
-            is_active: user.isActive,
-        })
-        .select()
-        .single();
-    
-    if (profileError) {
-        throw profileError;
+            isActive: user.isActive,
+            password
+        }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        throw new Error(data.error || 'Failed to create admin user');
     }
 
-    return { ...profileData, isActive: profileData.is_active };
+    return data.user;
 };
 
 export const updateAdminUser = async(user: AdminUser): Promise<AdminUser> => {
