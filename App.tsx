@@ -28,9 +28,6 @@ import { useAuth } from './hooks/useAuth';
 const AdminIndexRedirect = () => {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role === Role.CoAdmin) {
-    return <Navigate to="schedule" replace />;
-  }
   return <Navigate to="dashboard" replace />;
 };
 
