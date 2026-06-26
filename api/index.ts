@@ -860,13 +860,16 @@ router.post('/admin/create-user', async (req, res) => {
     }
 
     // 3. Upsert the profile record (handling cases where a row already exists in profiles)
+    const dbRole = role === 'co_Admin' ? 'Super Admin' : role;
+    const dbName = role === 'co_Admin' && !name.endsWith(' [co_Admin]') ? `${name} [co_Admin]` : name;
+
     const { data: profileData, error: upsertError } = await supabase
       .from('profiles')
       .upsert({
         id: finalAuthId,
-        name,
+        name: dbName,
         email: email.toLowerCase(),
-        role,
+        role: dbRole,
         is_active: isActive !== undefined ? isActive : true,
       })
       .select()
@@ -881,15 +884,22 @@ router.post('/admin/create-user', async (req, res) => {
       return res.status(400).json({ error: upsertError.message });
     }
 
+    const clientUser = {
+      id: profileData.id,
+      name: profileData.name,
+      email: profileData.email,
+      role: profileData.role,
+      isActive: profileData.is_active,
+    };
+
+    if (clientUser.name.endsWith(' [co_Admin]')) {
+      clientUser.name = clientUser.name.replace(' [co_Admin]', '');
+      clientUser.role = 'co_Admin';
+    }
+
     res.json({
       success: true,
-      user: {
-        id: profileData.id,
-        name: profileData.name,
-        email: profileData.email,
-        role: profileData.role,
-        isActive: profileData.is_active,
-      }
+      user: clientUser
     });
   } catch (error: unknown) {
     console.error('>>> Admin user creation error:', error);

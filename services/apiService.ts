@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { Student, AppointmentSlot, Level, AdminUser, NotificationSettings, AppSettings, SiteContent, Gender } from '../types';
+import { Student, AppointmentSlot, Level, AdminUser, NotificationSettings, AppSettings, SiteContent, Gender, Role } from '../types';
 
 
 const fetchWithTimeout = async (resource: string, options: RequestInit & { timeout?: number } = {}) => {
@@ -188,7 +188,13 @@ export const getAdminUserProfile = async (userId: string): Promise<AdminUser | n
             console.error("Error fetching profile:", error);
             return null;
         }
-        return { ...data, isActive: data.is_active };
+        
+        const user = { ...data, isActive: data.is_active };
+        if (user.name && typeof user.name === 'string' && user.name.endsWith(' [co_Admin]')) {
+            user.name = user.name.replace(' [co_Admin]', '');
+            user.role = Role.CoAdmin;
+        }
+        return user;
     } catch (err) {
         console.error("Critical error fetching profile:", err);
         return null;
@@ -842,7 +848,14 @@ export const updateSiteContent = async (key: keyof SiteContent, value: unknown):
 export const getAdminUsers = async (): Promise<AdminUser[]> => {
     const { data, error } = await supabase.from('profiles').select('*');
     if (error) throw error;
-    return data.map(u => ({ ...u, isActive: u.is_active }));
+    return data.map(u => {
+        const user = { ...u, isActive: u.is_active };
+        if (user.name && typeof user.name === 'string' && user.name.endsWith(' [co_Admin]')) {
+            user.name = user.name.replace(' [co_Admin]', '');
+            user.role = Role.CoAdmin;
+        }
+        return user;
+    });
 };
 
 export const createAdminUser = async(user: Omit<AdminUser, 'id'>, password: string): Promise<AdminUser> => {
@@ -879,9 +892,27 @@ export const createAdminUser = async(user: Omit<AdminUser, 'id'>, password: stri
 
 export const updateAdminUser = async(user: AdminUser): Promise<AdminUser> => {
     const { isActive, ...rest } = user;
-    const { data, error } = await supabase.from('profiles').update({ ...rest, is_active: isActive }).eq('id', user.id).select().single();
+    
+    // Map co_Admin to Super Admin for database storage and append suffix to name
+    const dbRole = rest.role === 'co_Admin' ? 'Super Admin' : rest.role;
+    let dbName = rest.name;
+    if (rest.role === 'co_Admin') {
+        if (!dbName.endsWith(' [co_Admin]')) {
+            dbName = `${dbName} [co_Admin]`;
+        }
+    } else {
+        dbName = dbName.replace(' [co_Admin]', '');
+    }
+
+    const { data, error } = await supabase.from('profiles').update({ ...rest, name: dbName, role: dbRole, is_active: isActive }).eq('id', user.id).select().single();
     if (error) throw error;
-    return { ...data, isActive: data.is_active };
+    
+    const clientUser = { ...data, isActive: data.is_active };
+    if (clientUser.name && typeof clientUser.name === 'string' && clientUser.name.endsWith(' [co_Admin]')) {
+        clientUser.name = clientUser.name.replace(' [co_Admin]', '');
+        clientUser.role = Role.CoAdmin;
+    }
+    return clientUser;
 };
 
 export const deleteAdminUser = async(userId: string): Promise<{ success: boolean }> => {
