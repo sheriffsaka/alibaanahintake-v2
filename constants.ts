@@ -6,6 +6,7 @@ export const ROLES: Role[] = [
   Role.FemaleAdmin,
   Role.MaleFrontDesk,
   Role.FemaleFrontDesk,
+  Role.CoAdmin,
 ];
 
 export const MANDATORY_REQUIREMENTS = {

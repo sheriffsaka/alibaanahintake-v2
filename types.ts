@@ -37,6 +37,7 @@ export enum Role {
     FemaleAdmin = 'female_section_Admin',
     MaleFrontDesk = 'male_Front Desk',
     FemaleFrontDesk = 'female_Front Desk',
+    CoAdmin = 'co_Admin',
 }
 
 export interface Student {

@@ -2,7 +2,14 @@
 DROP TYPE IF EXISTS public.level_enum CASCADE;
 -- Create other ENUM types.
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'gender_enum') THEN CREATE TYPE public.gender_enum AS ENUM ('Male', 'Female'); END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'role_enum') THEN CREATE TYPE public.role_enum AS ENUM ('Super Admin', 'male_section_Admin', 'female_section_Admin', 'male_Front Desk', 'female_Front Desk'); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'role_enum') THEN CREATE TYPE public.role_enum AS ENUM ('Super Admin', 'male_section_Admin', 'female_section_Admin', 'male_Front Desk', 'female_Front Desk', 'co_Admin'); END IF; END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'role_enum') THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'public.role_enum'::regtype AND enumlabel = 'co_Admin') THEN
+            ALTER TYPE public.role_enum ADD VALUE 'co_Admin';
+        END IF;
+    END IF;
+END $$;
 DO $$ 
 BEGIN 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'student_status_enum') THEN 
@@ -481,7 +488,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 DROP POLICY IF EXISTS "Allow public read access to active levels" ON public.levels;
 CREATE POLICY "Allow public read access to active levels" ON public.levels FOR SELECT USING (is_active = true);
 DROP POLICY IF EXISTS "Allow admin write access to levels" ON public.levels;
-CREATE POLICY "Allow admin write access to levels" ON public.levels FOR ALL USING (get_my_role() IN ('Super Admin', 'male_section_Admin', 'female_section_Admin'));
+CREATE POLICY "Allow admin write access to levels" ON public.levels FOR ALL USING (get_my_role() IN ('Super Admin', 'male_section_Admin', 'female_section_Admin', 'co_Admin'));
 
 -- Policies for programs
 DROP POLICY IF EXISTS "Allow public read access to active programs" ON public.programs;
@@ -506,7 +513,7 @@ CREATE POLICY "Allow admin write access to site assets" ON public.asset_settings
 DROP POLICY IF EXISTS "Allow public read access to slots" ON public.appointment_slots;
 CREATE POLICY "Allow public read access to slots" ON public.appointment_slots FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Allow admin write access to slots" ON public.appointment_slots;
-CREATE POLICY "Allow admin write access to slots" ON public.appointment_slots FOR ALL USING (get_my_role() IN ('Super Admin', 'male_section_Admin', 'female_section_Admin'));
+CREATE POLICY "Allow admin write access to slots" ON public.appointment_slots FOR ALL USING (get_my_role() IN ('Super Admin', 'male_section_Admin', 'female_section_Admin', 'co_Admin'));
 
 -- Grant access to the available slots view
 GRANT SELECT ON public.available_appointment_slots TO anon, authenticated;
@@ -515,12 +522,12 @@ GRANT SELECT ON public.available_appointment_slots TO anon, authenticated;
 -- Policies for students
 DROP POLICY IF EXISTS "Allow admin read access to students" ON public.students;
 CREATE POLICY "Allow admin read access to students" ON public.students FOR SELECT USING (
-    (get_my_role() = 'Super Admin') OR
+    (get_my_role() IN ('Super Admin', 'co_Admin')) OR
     (get_my_role() IN ('male_section_Admin', 'male_Front Desk') AND gender = 'Male') OR
     (get_my_role() IN ('female_section_Admin', 'female_Front Desk') AND gender = 'Female')
 );
 DROP POLICY IF EXISTS "Allow front desk to update status" ON public.students;
-CREATE POLICY "Allow front desk to update status" ON public.students FOR UPDATE USING (get_my_role() IN ('Super Admin', 'male_Front Desk', 'female_Front Desk')) WITH CHECK (get_my_role() IN ('Super Admin', 'male_Front Desk', 'female_Front Desk'));
+CREATE POLICY "Allow front desk to update status" ON public.students FOR UPDATE USING (get_my_role() IN ('Super Admin', 'male_Front Desk', 'female_Front Desk', 'co_Admin')) WITH CHECK (get_my_role() IN ('Super Admin', 'male_Front Desk', 'female_Front Desk', 'co_Admin'));
 
 -- Policies for profiles
 DROP POLICY IF EXISTS "Allow users to read their own profile" ON public.profiles;

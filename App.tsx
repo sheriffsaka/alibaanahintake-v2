@@ -23,6 +23,16 @@ import { SiteContentProvider } from './contexts/SiteContentContext';
 import SiteContentManager from './components/admin/SiteContentManager';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import DatabaseStatus from './components/common/DatabaseStatus';
+import { useAuth } from './hooks/useAuth';
+
+const AdminIndexRedirect = () => {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === Role.CoAdmin) {
+    return <Navigate to="schedule" replace />;
+  }
+  return <Navigate to="dashboard" replace />;
+};
 
 function App() {
   return (
@@ -46,22 +56,22 @@ function App() {
               <Route 
                 path="/admin" 
                 element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk, Role.CoAdmin]}>
                     <SiteContentProvider>
                       <AdminPage />
                     </SiteContentProvider>
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route index element={<AdminIndexRedirect />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="schedule" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin]}>
                     <ScheduleManager />
                   </ProtectedRoute>
                 } />
                  <Route path="levels" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin]}>
                     <LevelManager />
                   </ProtectedRoute>
                 } />
@@ -71,12 +81,12 @@ function App() {
                   </ProtectedRoute>
                 } />
                 <Route path="check-in" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk, Role.CoAdmin]}>
                     <CheckIn />
                   </ProtectedRoute>
                 } />
                 <Route path="students" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin]}>
                     <StudentRecords />
                   </ProtectedRoute>
                 } />

@@ -656,23 +656,33 @@ export const getScheduleById = async (slotId: string): Promise<AppointmentSlot |
 };
 
 export const createSchedule = async(slot: Omit<AppointmentSlot, 'id' | 'booked' | 'level'>): Promise<AppointmentSlot> => {
-    const { startTime, endTime, levelId, gender, ...rest } = slot;
-    delete (rest as { level?: Level }).level;
-    const { data, error } = await supabase.from('appointment_slots').insert({ ...rest, start_time: startTime, end_time: endTime, level_id: levelId, gender }).select('*, levels(id, name)').single();
+    const { startTime, endTime, levelId, gender, date, capacity } = slot;
+    const { data, error } = await supabase
+        .from('appointment_slots')
+        .insert({
+            start_time: startTime,
+            end_time: endTime,
+            level_id: levelId,
+            gender,
+            date,
+            capacity
+        })
+        .select('*, levels(id, name)')
+        .single();
     if (error) throw error;
     return slotFromSupabase(data);
 };
 
 export const createSchedulesBulk = async(slots: Omit<AppointmentSlot, 'id' | 'booked' | 'level'>[]): Promise<void> => {
     const dataToInsert = slots.map(slot => {
-        const { startTime, endTime, levelId, gender, ...rest } = slot;
-        delete (rest as { level?: Level }).level;
+        const { startTime, endTime, levelId, gender, date, capacity } = slot;
         return {
-            ...rest,
             start_time: startTime,
             end_time: endTime,
             level_id: levelId,
-            gender
+            gender,
+            date,
+            capacity
         };
     });
     
@@ -681,9 +691,20 @@ export const createSchedulesBulk = async(slots: Omit<AppointmentSlot, 'id' | 'bo
 };
 
 export const updateSchedule = async(slot: Omit<AppointmentSlot, 'level'>): Promise<AppointmentSlot> => {
-    const { startTime, endTime, levelId, gender, ...rest } = slot;
-    delete (rest as { level?: Level }).level;
-    const { data, error } = await supabase.from('appointment_slots').update({ ...rest, start_time: startTime, end_time: endTime, level_id: levelId, gender }).eq('id', slot.id).select('*, levels(id, name)').single();
+    const { id, startTime, endTime, levelId, gender, date, capacity } = slot;
+    const { data, error } = await supabase
+        .from('appointment_slots')
+        .update({
+            start_time: startTime,
+            end_time: endTime,
+            level_id: levelId,
+            gender,
+            date,
+            capacity
+        })
+        .eq('id', id)
+        .select('*, levels(id, name)')
+        .single();
     if (error) throw error;
     return slotFromSupabase(data);
 };
