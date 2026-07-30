@@ -37,8 +37,36 @@ export enum Role {
     FemaleAdmin = 'female_section_Admin',
     MaleFrontDesk = 'male_Front Desk',
     FemaleFrontDesk = 'female_Front Desk',
+    MaleCoAdmin = 'male_co_Admin',
+    FemaleCoAdmin = 'female_co_Admin',
     CoAdmin = 'co_Admin',
 }
+
+export const getAdminGenderFilter = (role?: Role | string, name?: string): Gender | undefined => {
+  if (!role) return undefined;
+  if (
+    role === Role.MaleAdmin ||
+    role === Role.MaleFrontDesk ||
+    role === Role.MaleCoAdmin ||
+    role === 'male_co_Admin'
+  ) {
+    return Gender.Male;
+  }
+  if (
+    role === Role.FemaleAdmin ||
+    role === Role.FemaleFrontDesk ||
+    role === Role.FemaleCoAdmin ||
+    role === 'female_co_Admin'
+  ) {
+    return Gender.Female;
+  }
+  if (role === Role.CoAdmin || role === 'co_Admin') {
+    const lowerName = (name || '').toLowerCase();
+    if (lowerName.includes('female')) return Gender.Female;
+    if (lowerName.includes('male')) return Gender.Male;
+  }
+  return undefined;
+};
 
 export interface Student {
   id: string;

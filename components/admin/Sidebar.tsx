@@ -8,12 +8,12 @@ const Sidebar: React.FC<{ isOpen: boolean }> = ({ isOpen }) => {
     const { user } = useAuth();
 
     const navLinks = [
-        { to: 'dashboard', text: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk, Role.CoAdmin] },
-        { to: 'schedule', text: 'Schedule Mgmt', icon: <CalendarCog size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin] },
-        { to: 'levels', text: 'Levels', icon: <Layers size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin] },
+        { to: 'dashboard', text: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin] },
+        { to: 'schedule', text: 'Schedule Mgmt', icon: <CalendarCog size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin] },
+        { to: 'levels', text: 'Levels', icon: <Layers size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin] },
         { to: 'content', text: 'Site Content', icon: <PenSquare size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
-        { to: 'check-in', text: 'Check-In', icon: <CheckSquare size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk, Role.CoAdmin] },
-        { to: 'students', text: 'Student Records', icon: <ClipboardList size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin] },
+        { to: 'check-in', text: 'Check-In', icon: <CheckSquare size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin] },
+        { to: 'students', text: 'Student Records', icon: <ClipboardList size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin] },
         { to: 'users', text: 'User Mgmt', icon: <Users size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
         { to: 'notifications', text: 'Notifications', icon: <Bell size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },
         { to: 'settings', text: 'Settings', icon: <Settings size={20} />, roles: [Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin] },

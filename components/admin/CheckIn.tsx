@@ -1,18 +1,20 @@
 
 import React, { useState } from 'react';
 import { findStudent, checkInStudent, getScheduleById } from '../../services/apiService';
-import { Student } from '../../types';
+import { Student, getAdminGenderFilter } from '../../types';
 import Card from '../common/Card';
 import Input from '../common/Input';
 import Button from '../common/Button';
 import Spinner from '../common/Spinner';
 import { Search, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 
 import * as htmlToImage from 'html-to-image';
 import { saveAs } from 'file-saver';
 import AdmissionSlip from '../enrollment/AdmissionSlip';
 
 const CheckIn: React.FC = () => {
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(false);
@@ -21,6 +23,10 @@ const CheckIn: React.FC = () => {
   const [appointmentTime, setAppointmentTime] = useState('');
   const [appointmentDate, setAppointmentDate] = useState<Date | null>(null);
   const slipRef = React.useRef<HTMLDivElement>(null);
+
+  const adminGenderFilter = React.useMemo(() => {
+    return getAdminGenderFilter(user?.role, user?.name);
+  }, [user]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,19 +38,24 @@ const CheckIn: React.FC = () => {
     try {
       const foundStudent = await findStudent(query);
       if (foundStudent) {
-        setStudent(foundStudent);
-        const fetchSlotTime = async () => {
-            if (foundStudent.appointmentSlotId) {
-                const studentSlot = await getScheduleById(foundStudent.appointmentSlotId);
-                if (studentSlot) {
-                    setAppointmentTime(`${studentSlot.date} @ ${studentSlot.startTime} - ${studentSlot.endTime}`);
-                    setAppointmentDate(new Date(studentSlot.date));
-                }
-            }
-        };
-        fetchSlotTime();
-        if (foundStudent.status === 'checked-in') {
-            setMessage({ type: 'info', text: 'This student has already been checked in.' });
+        if (adminGenderFilter && foundStudent.gender !== adminGenderFilter) {
+          setMessage({ type: 'error', text: `Access restricted: You only have access to ${adminGenderFilter} section student records.` });
+          setStudent(null);
+        } else {
+          setStudent(foundStudent);
+          const fetchSlotTime = async () => {
+              if (foundStudent.appointmentSlotId) {
+                  const studentSlot = await getScheduleById(foundStudent.appointmentSlotId);
+                  if (studentSlot) {
+                      setAppointmentTime(`${studentSlot.date} @ ${studentSlot.startTime} - ${studentSlot.endTime}`);
+                      setAppointmentDate(new Date(studentSlot.date));
+                  }
+              }
+          };
+          fetchSlotTime();
+          if (foundStudent.status === 'checked-in') {
+              setMessage({ type: 'info', text: 'This student has already been checked in.' });
+          }
         }
       } else {
         setMessage({ type: 'error', text: 'No student found with the provided details.' });

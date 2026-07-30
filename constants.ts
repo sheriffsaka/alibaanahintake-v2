@@ -6,6 +6,8 @@ export const ROLES: Role[] = [
   Role.FemaleAdmin,
   Role.MaleFrontDesk,
   Role.FemaleFrontDesk,
+  Role.MaleCoAdmin,
+  Role.FemaleCoAdmin,
   Role.CoAdmin,
 ];
 

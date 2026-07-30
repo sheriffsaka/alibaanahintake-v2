@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { getAllStudents, getAllStudentsForExport, getAdminFilterOptions, getAdminSlotsForDate } from '../../services/apiService';
-import { Student, AppointmentSlot, Level, Role, Gender } from '../../types';
+import { Student, AppointmentSlot, Level, getAdminGenderFilter } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Input from '../common/Input';
@@ -22,14 +22,7 @@ const StudentRecords: React.FC = () => {
 
   // Determine gender filter based on admin role
   const adminGenderFilter = useMemo(() => {
-    if (!user) return undefined;
-    if (user.role === Role.MaleAdmin || user.role === Role.MaleFrontDesk) {
-      return Gender.Male;
-    }
-    if (user.role === Role.FemaleAdmin || user.role === Role.FemaleFrontDesk) {
-      return Gender.Female;
-    }
-    return undefined; // Super Admin sees all
+    return getAdminGenderFilter(user?.role, user?.name);
   }, [user]);
 
   const [students, setStudents] = useState<Student[]>([]);

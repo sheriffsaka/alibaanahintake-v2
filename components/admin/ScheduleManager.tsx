@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { getSchedules, updateSchedule, createSchedule, deleteSchedule, getLevels, createSchedulesBulk, bulkDeleteSchedules } from '../../services/apiService';
-import { AppointmentSlot, Level, Gender, Role } from '../../types';
+import { AppointmentSlot, Level, Gender, getAdminGenderFilter } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Button from '../common/Button';
@@ -26,14 +26,7 @@ const ScheduleManager: React.FC = () => {
 
   // Determine gender filter based on admin role
   const adminGenderFilter = useMemo(() => {
-    if (!user) return undefined;
-    if (user.role === Role.MaleAdmin || user.role === Role.MaleFrontDesk) {
-      return Gender.Male;
-    }
-    if (user.role === Role.FemaleAdmin || user.role === Role.FemaleFrontDesk) {
-      return Gender.Female;
-    }
-    return undefined; // Super Admin sees all
+    return getAdminGenderFilter(user?.role, user?.name);
   }, [user]);
 
   const fetchSlots = React.useCallback(async (page: number) => {

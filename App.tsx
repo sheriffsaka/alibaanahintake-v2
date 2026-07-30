@@ -53,7 +53,7 @@ function App() {
               <Route 
                 path="/admin" 
                 element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk, Role.CoAdmin]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin]}>
                     <SiteContentProvider>
                       <AdminPage />
                     </SiteContentProvider>
@@ -63,12 +63,12 @@ function App() {
                 <Route index element={<AdminIndexRedirect />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="schedule" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin]}>
                     <ScheduleManager />
                   </ProtectedRoute>
                 } />
                  <Route path="levels" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin]}>
                     <LevelManager />
                   </ProtectedRoute>
                 } />
@@ -78,12 +78,12 @@ function App() {
                   </ProtectedRoute>
                 } />
                 <Route path="check-in" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk, Role.CoAdmin]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.MaleFrontDesk, Role.FemaleFrontDesk, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin]}>
                     <CheckIn />
                   </ProtectedRoute>
                 } />
                 <Route path="students" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin]}>
                     <StudentRecords />
                   </ProtectedRoute>
                 } />

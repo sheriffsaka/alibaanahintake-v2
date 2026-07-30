@@ -6,7 +6,7 @@ import Card from '../common/Card';
 import { Users, BookCheck, UserCheck, CalendarDays } from 'lucide-react';
 import { usePolling } from '../../hooks/usePolling';
 import { useAuth } from '../../hooks/useAuth';
-import { Role, Gender } from '../../types';
+import { getAdminGenderFilter } from '../../types';
 
 interface DashboardData {
     totalRegistered: number;
@@ -27,14 +27,7 @@ const Dashboard: React.FC = () => {
 
   // Determine gender filter based on admin role
   const adminGenderFilter = React.useMemo(() => {
-    if (!user) return undefined;
-    if (user.role === Role.MaleAdmin || user.role === Role.MaleFrontDesk) {
-      return Gender.Male;
-    }
-    if (user.role === Role.FemaleAdmin || user.role === Role.FemaleFrontDesk) {
-      return Gender.Female;
-    }
-    return undefined; // Super Admin sees all
+    return getAdminGenderFilter(user?.role, user?.name);
   }, [user]);
 
   const isFetchingRef = React.useRef(false);
@@ -54,7 +47,7 @@ const Dashboard: React.FC = () => {
     }, 15000); // 15 second timeout
 
     try {
-      const dashboardData = await getDashboardData();
+      const dashboardData = await getDashboardData(adminGenderFilter);
       isPending.current = false;
       clearTimeout(timeoutId);
       setData(dashboardData);
@@ -67,7 +60,7 @@ const Dashboard: React.FC = () => {
       isFetchingRef.current = false;
       setLoading(false);
     }
-  }, []);
+  }, [adminGenderFilter]);
 
   // Set up polling for background refresh
   usePolling(fetchDashboardData, POLLING_INTERVAL);

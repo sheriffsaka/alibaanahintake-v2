@@ -382,7 +382,46 @@ export const getAllStudentsForExport = async (
     return data.map(studentFromSupabase);
 };
 
-export const getDashboardData = async () => {
+export const getDashboardData = async (genderFilter?: Gender) => {
+    if (genderFilter) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const [totalRes, todayRes, levelsRes, slotsRes] = await Promise.all([
+            supabase.from('students').select('id', { count: 'exact', head: true }).eq('gender', genderFilter),
+            supabase.from('students').select('id, status', { count: 'exact' }).eq('intake_date', todayStr).eq('gender', genderFilter),
+            supabase.from('levels').select('id, name, sort_order').eq('is_active', true).order('sort_order'),
+            supabase.from('appointment_slots').select('date, start_time, booked, capacity').gte('date', todayStr).eq('gender', genderFilter).order('date').order('start_time').limit(10)
+        ]);
+
+        const todayStudents = todayRes.data || [];
+        const todayExpected = todayStudents.length;
+        const checkedIn = todayStudents.filter(s => s.status === 'checked-in').length;
+
+        const studentsByLevelRes = await supabase.from('students').select('level_id').eq('gender', genderFilter);
+        const levelCounts: Record<string, number> = {};
+        (studentsByLevelRes.data || []).forEach(s => {
+            if (s.level_id) levelCounts[s.level_id] = (levelCounts[s.level_id] || 0) + 1;
+        });
+
+        const breakdownByLevel = (levelsRes.data || []).map(l => ({
+            name: l.name,
+            value: levelCounts[l.id] || 0
+        }));
+
+        const slotUtilization = (slotsRes.data || []).map(s => ({
+            name: `${s.date || ''} ${s.start_time || ''}`.trim() || 'Unknown Slot',
+            booked: Number(s.booked) || 0,
+            capacity: Number(s.capacity) || 0
+        }));
+
+        return {
+            totalRegistered: totalRes.count || 0,
+            todayExpected,
+            checkedIn,
+            breakdownByLevel,
+            slotUtilization
+        };
+    }
+
     const { data, error } = await supabase.rpc('get_dashboard_statistics');
 
     if (error || !data) {
@@ -393,7 +432,7 @@ export const getDashboardData = async () => {
     return {
         ...data,
         slotUtilization: Array.isArray(data.slotUtilization) 
-            ? data.slotUtilization.map((s: Record<string, unknown>) => ({ // Using unknown is safer than any
+            ? data.slotUtilization.map((s: Record<string, unknown>) => ({
                 name: `${s.date || ''} ${s.start_time || ''}`.trim() || 'Unknown Slot',
                 booked: Number(s.booked) || 0,
                 capacity: Number(s.capacity) || 0,

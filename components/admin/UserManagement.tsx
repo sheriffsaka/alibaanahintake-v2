@@ -10,6 +10,17 @@ import Select from '../common/Select';
 import { ROLES } from '../../constants';
 import { PlusCircle, Trash2 } from 'lucide-react';
 
+const ROLE_LABELS: Record<string, string> = {
+  [Role.SuperAdmin]: 'Super Admin',
+  [Role.MaleAdmin]: 'Male Section Admin',
+  [Role.FemaleAdmin]: 'Female Section Admin',
+  [Role.MaleFrontDesk]: 'Male Front Desk',
+  [Role.FemaleFrontDesk]: 'Female Front Desk',
+  [Role.MaleCoAdmin]: 'Male Co-Admin',
+  [Role.FemaleCoAdmin]: 'Female Co-Admin',
+  [Role.CoAdmin]: 'Co-Admin (General)',
+};
+
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,7 +114,7 @@ const UserManagement: React.FC = () => {
                 <div className="space-y-4">
                     <Input label="Full Name" name="name" value={editingUser.name} onChange={handleInputChange} />
                     <Input label="Email" name="email" type="email" value={editingUser.email} onChange={handleInputChange} />
-                    <Select label="Role" name="role" value={editingUser.role} onChange={handleInputChange} options={ROLES.map(r => ({value: r, label: r}))} />
+                    <Select label="Role" name="role" value={editingUser.role} onChange={handleInputChange} options={ROLES.map(r => ({value: r, label: ROLE_LABELS[r] || r}))} />
                     {!editingUser.id && (
                         <Input label="Password" name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
                     )}
@@ -132,7 +143,7 @@ const UserManagement: React.FC = () => {
               <tr key={user.id} className="border-b hover:bg-gray-50">
                 <td className="py-2 px-4">{user.name}</td>
                 <td className="py-2 px-4">{user.email}</td>
-                <td className="py-2 px-4">{user.role}</td>
+                <td className="py-2 px-4">{ROLE_LABELS[user.role] || user.role}</td>
                 <td className="py-2 px-4">
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                     {user.isActive ? 'Active' : 'Inactive'}
