@@ -10,6 +10,28 @@ import Input from '../common/Input';
 import Toggle from '../common/Toggle';
 import { CheckCircle, Info, RefreshCw } from 'lucide-react';
 
+const toDatetimeLocal = (isoString?: string) => {
+    if (!isoString) return '';
+    try {
+        const date = new Date(isoString);
+        if (isNaN(date.getTime())) return '';
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    } catch {
+        return '';
+    }
+};
+
+const fromDatetimeLocal = (localString: string) => {
+    if (!localString) return '';
+    try {
+        const date = new Date(localString);
+        return isNaN(date.getTime()) ? '' : date.toISOString();
+    } catch {
+        return '';
+    }
+};
+
 const Settings: React.FC = () => {
     const { user } = useAuth();
     const [settings, setSettings] = useState<TAppSettings | null>(null);
@@ -218,8 +240,8 @@ const Settings: React.FC = () => {
                                         <Input 
                                             label="Opening Date & Time"
                                             type="datetime-local"
-                                            value={settings.bookingStartTime ? settings.bookingStartTime.substring(0, 16) : ''}
-                                            onChange={(e) => handleChange('bookingStartTime', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                                            value={toDatetimeLocal(settings.bookingStartTime)}
+                                            onChange={(e) => handleChange('bookingStartTime', fromDatetimeLocal(e.target.value))}
                                         />
                                         <p className="text-xs text-gray-500 mt-2">
                                             Sets the target for the Brothers countdown on the landing page.
@@ -234,8 +256,8 @@ const Settings: React.FC = () => {
                                         <Input 
                                             label="Closing Date & Time"
                                             type="datetime-local"
-                                            value={settings.bookingEndTime ? settings.bookingEndTime.substring(0, 16) : ''}
-                                            onChange={(e) => handleChange('bookingEndTime', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                                            value={toDatetimeLocal(settings.bookingEndTime)}
+                                            onChange={(e) => handleChange('bookingEndTime', fromDatetimeLocal(e.target.value))}
                                         />
                                         <p className="text-xs text-gray-500 mt-2">
                                             This time will be used to automatically signal when Brothers booking is ending.
@@ -256,8 +278,8 @@ const Settings: React.FC = () => {
                                         <Input 
                                             label="Opening Date & Time"
                                             type="datetime-local"
-                                            value={settings.femaleBookingStartTime ? settings.femaleBookingStartTime.substring(0, 16) : ''}
-                                            onChange={(e) => handleChange('femaleBookingStartTime', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                                            value={toDatetimeLocal(settings.femaleBookingStartTime)}
+                                            onChange={(e) => handleChange('femaleBookingStartTime', fromDatetimeLocal(e.target.value))}
                                         />
                                         <p className="text-xs text-gray-500 mt-2">
                                             Sets the target for the Sisters countdown on the landing page.
@@ -272,8 +294,8 @@ const Settings: React.FC = () => {
                                         <Input 
                                             label="Closing Date & Time"
                                             type="datetime-local"
-                                            value={settings.femaleBookingEndTime ? settings.femaleBookingEndTime.substring(0, 16) : ''}
-                                            onChange={(e) => handleChange('femaleBookingEndTime', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                                            value={toDatetimeLocal(settings.femaleBookingEndTime)}
+                                            onChange={(e) => handleChange('femaleBookingEndTime', fromDatetimeLocal(e.target.value))}
                                         />
                                         <p className="text-xs text-gray-500 mt-2">
                                             This time will be used to automatically signal when Sisters booking is ending.

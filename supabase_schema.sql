@@ -595,23 +595,57 @@ DECLARE
     booking_is_open BOOLEAN;
     male_open BOOLEAN;
     female_open BOOLEAN;
+    male_start TIMESTAMPTZ;
+    male_end TIMESTAMPTZ;
+    female_start TIMESTAMPTZ;
+    female_end TIMESTAMPTZ;
     level_name_text TEXT;
 BEGIN
     -- Check if bookings are open
-    SELECT registration_open, male_registration_open, female_registration_open 
-    INTO booking_is_open, male_open, female_open 
+    SELECT 
+        registration_open, 
+        male_registration_open, 
+        female_registration_open,
+        booking_start_time,
+        booking_end_time,
+        female_booking_start_time,
+        female_booking_end_time
+    INTO 
+        booking_is_open, 
+        male_open, 
+        female_open,
+        male_start,
+        male_end,
+        female_start,
+        female_end
     FROM public.app_settings WHERE id = 1;
     
     IF NOT booking_is_open THEN
         RAISE EXCEPTION 'Bookings are currently closed.';
     END IF;
 
-    IF (student_data->>'gender')::gender_enum = 'Male' AND NOT male_open THEN
-        RAISE EXCEPTION 'Registration for the Brothers section is currently closed.';
+    IF (student_data->>'gender')::gender_enum = 'Male' THEN
+        IF NOT male_open THEN
+            RAISE EXCEPTION 'Registration for the Brothers section is currently closed.';
+        END IF;
+        IF male_start IS NOT NULL AND now() < male_start THEN
+            RAISE EXCEPTION 'Registration for the Brothers section has not started yet.';
+        END IF;
+        IF male_end IS NOT NULL AND now() > male_end THEN
+            RAISE EXCEPTION 'Registration for the Brothers section has ended.';
+        END IF;
     END IF;
 
-    IF (student_data->>'gender')::gender_enum = 'Female' AND NOT female_open THEN
-        RAISE EXCEPTION 'Registration for the Sisters section is currently closed.';
+    IF (student_data->>'gender')::gender_enum = 'Female' THEN
+        IF NOT female_open THEN
+            RAISE EXCEPTION 'Registration for the Sisters section is currently closed.';
+        END IF;
+        IF female_start IS NOT NULL AND now() < female_start THEN
+            RAISE EXCEPTION 'Registration for the Sisters section has not started yet.';
+        END IF;
+        IF female_end IS NOT NULL AND now() > female_end THEN
+            RAISE EXCEPTION 'Registration for the Sisters section has ended.';
+        END IF;
     END IF;
 
     -- Check 6-week rule: A student can only book again after 6 weeks

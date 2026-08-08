@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PlayCircle, X, RefreshCw } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
-import { Gender } from '../../types';
+import { Gender, AppSettings, isGenderRegistrationOpen } from '../../types';
 import { useSiteContent } from '../../contexts/SiteContentContext';
 import { getAppSettings } from '../../services/apiService';
-import { AppSettings } from '../../types';
 
 const Hero: React.FC = () => {
     const { t, language } = useTranslation();
@@ -87,53 +86,37 @@ const Hero: React.FC = () => {
     const handleRegistrationClick = (e: React.MouseEvent, gender: Gender) => {
         if (!appSettings) return;
 
-        const now = new Date();
-        const startTime = appSettings.bookingStartTime ? new Date(appSettings.bookingStartTime) : null;
-        const endTime = appSettings.bookingEndTime ? new Date(appSettings.bookingEndTime) : null;
+        const regStatus = isGenderRegistrationOpen(appSettings, gender);
 
-        // Check if booking has not started yet
-        if (startTime && now < startTime) {
+        if (!regStatus.open) {
             e.preventDefault();
-            const formattedStart = startTime.toLocaleString(undefined, { 
-                month: 'long', 
-                day: 'numeric', 
-                hour: '2-digit', 
-                minute: '2-digit' 
-            });
-            alert(`Booking has not started yet. It will open on ${formattedStart}.`);
-            return;
-        }
-
-        // Check if booking has ended
-        if (endTime && now > endTime) {
-            e.preventDefault();
-            alert("Booking has already closed for this session.");
-            return;
-        }
-
-        const isMainOpen = appSettings.isRegistrationOpen;
-        const isSectionOpen = gender === Gender.Male 
-            ? appSettings.isMaleRegistrationOpen 
-            : appSettings.isFemaleRegistrationOpen;
-
-        if (!isMainOpen || !isSectionOpen) {
-            e.preventDefault();
-            setClosedModal({ isOpen: true, gender });
+            if (regStatus.reason === 'not_started') {
+                const startTimeStr = gender === Gender.Male ? appSettings.bookingStartTime : appSettings.femaleBookingStartTime;
+                const startTime = startTimeStr ? new Date(startTimeStr) : null;
+                const formattedStart = startTime ? startTime.toLocaleString(undefined, { 
+                    month: 'long', 
+                    day: 'numeric', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                }) : '';
+                alert(`Booking for this section has not started yet. It will open on ${formattedStart}.`);
+            } else {
+                setClosedModal({ isOpen: true, gender });
+            }
         }
     };
 
     const getClosedMessage = (gender?: Gender) => {
         if (!appSettings) return '';
         
-        const now = new Date();
-        const startTime = appSettings.bookingStartTime ? new Date(appSettings.bookingStartTime) : null;
-        const endTime = appSettings.bookingEndTime ? new Date(appSettings.bookingEndTime) : null;
+        const targetGender = gender || Gender.Male;
+        const regStatus = isGenderRegistrationOpen(appSettings, targetGender);
 
-        if (startTime && now < startTime) {
+        if (regStatus.reason === 'not_started') {
             return language === 'ar' ? 'التسجيل لم يبدأ بعد' : "Registration hasn't started yet.";
         }
 
-        if (endTime && now > endTime) {
+        if (regStatus.reason === 'ended') {
             return language === 'ar' ? 'تم إغلاق التسجيل لهذه الدورة' : "Registration has ended for this session.";
         }
 
@@ -143,29 +126,13 @@ const Hero: React.FC = () => {
         if (customMessage) return customMessage;
 
         // Default messages if none set
-        if (!gender) return "Registration is currently closed. Please contact the school for further notice.";
-
-        return gender === Gender.Male
+        return targetGender === Gender.Male
             ? "Registration for the Brothers section is currently closed. Please contact the school for further notice."
             : "Registration for the Sisters section is currently closed. Please contact the school for further notice.";
     };
 
     const isSectionActive = (gender: Gender) => {
-        if (!appSettings) return false;
-        
-        const now = new Date();
-        const startTime = appSettings.bookingStartTime ? new Date(appSettings.bookingStartTime) : null;
-        const endTime = appSettings.bookingEndTime ? new Date(appSettings.bookingEndTime) : null;
-
-        if (startTime && now < startTime) return false;
-        if (endTime && now > endTime) return false;
-
-        const isMainOpen = appSettings.isRegistrationOpen;
-        const isGenderOpen = gender === Gender.Male 
-            ? appSettings.isMaleRegistrationOpen 
-            : appSettings.isFemaleRegistrationOpen;
-
-        return isMainOpen && isGenderOpen;
+        return isGenderRegistrationOpen(appSettings, gender).open;
     };
 
   return (

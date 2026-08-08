@@ -165,3 +165,47 @@ export type EnrollmentAction =
     | { type: 'SELECT_SLOT'; payload: { id: string, date: string } }
     | { type: 'CONFIRM_REGISTRATION'; payload: Student }
     | { type: 'RESET'; payload?: { gender?: Gender, levelId?: string } };
+
+export interface RegistrationStatusResult {
+    open: boolean;
+    reason?: 'master_closed' | 'section_closed' | 'not_started' | 'ended';
+}
+
+export const isGenderRegistrationOpen = (settings: AppSettings | null, gender: Gender): RegistrationStatusResult => {
+    if (!settings) return { open: true };
+
+    // 1. Master toggle check
+    if (!settings.isRegistrationOpen) {
+        return { open: false, reason: 'master_closed' };
+    }
+
+    // 2. Gender section toggle check
+    const isSectionOpen = gender === Gender.Male 
+        ? settings.isMaleRegistrationOpen 
+        : settings.isFemaleRegistrationOpen;
+    if (!isSectionOpen) {
+        return { open: false, reason: 'section_closed' };
+    }
+
+    // 3. Gender-specific Start Date & Time check
+    const now = new Date();
+    const startTimeStr = gender === Gender.Male ? settings.bookingStartTime : settings.femaleBookingStartTime;
+    const endTimeStr = gender === Gender.Male ? settings.bookingEndTime : settings.femaleBookingEndTime;
+
+    if (startTimeStr) {
+        const startTime = new Date(startTimeStr);
+        if (!isNaN(startTime.getTime()) && now < startTime) {
+            return { open: false, reason: 'not_started' };
+        }
+    }
+
+    // 4. Gender-specific Closing Date & Time check
+    if (endTimeStr) {
+        const endTime = new Date(endTimeStr);
+        if (!isNaN(endTime.getTime()) && now > endTime) {
+            return { open: false, reason: 'ended' };
+        }
+    }
+
+    return { open: true };
+};

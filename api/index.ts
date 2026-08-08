@@ -539,6 +539,37 @@ router.post('/enroll/register', async (req, res) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // 0. Pre-validate gender registration window against app_settings
+    const { data: settingsData } = await supabase.from('app_settings').select('*').eq('id', 1).single();
+    if (settingsData) {
+      if (!settingsData.registration_open) {
+        return res.status(400).json({ error: 'Bookings are currently closed.' });
+      }
+      const gender = studentData.gender;
+      const now = new Date();
+      if (gender === 'Male') {
+        if (!settingsData.male_registration_open) {
+          return res.status(400).json({ error: 'Registration for the Brothers section is currently closed.' });
+        }
+        if (settingsData.booking_start_time && now < new Date(settingsData.booking_start_time)) {
+          return res.status(400).json({ error: 'Registration for the Brothers section has not started yet.' });
+        }
+        if (settingsData.booking_end_time && now > new Date(settingsData.booking_end_time)) {
+          return res.status(400).json({ error: 'Registration for the Brothers section has ended.' });
+        }
+      } else if (gender === 'Female') {
+        if (!settingsData.female_registration_open) {
+          return res.status(400).json({ error: 'Registration for the Sisters section is currently closed.' });
+        }
+        if (settingsData.female_booking_start_time && now < new Date(settingsData.female_booking_start_time)) {
+          return res.status(400).json({ error: 'Registration for the Sisters section has not started yet.' });
+        }
+        if (settingsData.female_booking_end_time && now > new Date(settingsData.female_booking_end_time)) {
+          return res.status(400).json({ error: 'Registration for the Sisters section has ended.' });
+        }
+      }
+    }
+
     // 1. Submit registration via RPC
     const { data: registrationResult, error: registrationError } = await supabase.rpc('submit_student_registration', {
       slot_id: slotId,

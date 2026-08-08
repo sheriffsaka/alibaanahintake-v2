@@ -5,7 +5,7 @@ import AlIbaanahLogo from './AlIbaanahLogo';
 import { ChevronDown, ExternalLink, Globe, Menu, X, LayoutDashboard, UserCircle, AlertCircle } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { langs } from '../../i18n/locales';
-import { Gender, AppSettings } from '../../types';
+import { Gender, AppSettings, isGenderRegistrationOpen } from '../../types';
 import { useSiteContent } from '../../contexts/SiteContentContext';
 import { useAuth } from '../../hooks/useAuth';
 import { getAppSettings } from '../../services/apiService';
@@ -40,12 +40,9 @@ const Header: React.FC = () => {
   const handleRegistrationClick = (e: React.MouseEvent, gender: Gender) => {
     if (!appSettings) return;
 
-    const isMainOpen = appSettings.isRegistrationOpen;
-    const isSectionOpen = gender === Gender.Male 
-        ? appSettings.isMaleRegistrationOpen 
-        : appSettings.isFemaleRegistrationOpen;
+    const regStatus = isGenderRegistrationOpen(appSettings, gender);
 
-    if (!isMainOpen || !isSectionOpen) {
+    if (!regStatus.open) {
         e.preventDefault();
         setClosedModal({ isOpen: true, gender });
     }
@@ -54,15 +51,24 @@ const Header: React.FC = () => {
   const getClosedMessage = (gender?: Gender) => {
     if (!appSettings) return '';
     
+    const targetGender = gender || Gender.Male;
+    const regStatus = isGenderRegistrationOpen(appSettings, targetGender);
+
+    if (regStatus.reason === 'not_started') {
+        return language === 'ar' ? 'التسجيل لم يبدأ بعد' : "Registration hasn't started yet.";
+    }
+
+    if (regStatus.reason === 'ended') {
+        return language === 'ar' ? 'تم إغلاق التسجيل لهذه الدورة' : "Registration has ended for this session.";
+    }
+
     const lang = language || 'en';
     const customMessage = appSettings.closedReasons?.[lang] || appSettings.closedReasons?.en;
     
     if (customMessage) return customMessage;
 
     // Default messages if none set
-    if (!gender) return t('registrationClosedMessage');
-
-    return gender === Gender.Male
+    return targetGender === Gender.Male
         ? t('maleRegistrationClosedMessage')
         : t('femaleRegistrationClosedMessage');
   };
@@ -133,10 +139,10 @@ const Header: React.FC = () => {
                                     to="/enroll" 
                                     state={{ gender: Gender.Male }} 
                                     onClick={(e) => { handleRegistrationClick(e, Gender.Male); setBookingDropdownOpen(false); }} 
-                                    className={`block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${(appSettings?.isRegistrationOpen && appSettings?.isMaleRegistrationOpen) ? '' : 'text-gray-400 font-normal italic'}`}
+                                    className={`block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${isGenderRegistrationOpen(appSettings, Gender.Male).open ? '' : 'text-gray-400 font-normal italic'}`}
                                 >
                                     {t('maleIntake')}
-                                    {(!appSettings?.isRegistrationOpen || !appSettings?.isMaleRegistrationOpen) && <span className="ml-2 rounded text-[10px] bg-red-100 text-red-600 px-1 py-0.5 uppercase font-bold">{t('closed')}</span>}
+                                    {!isGenderRegistrationOpen(appSettings, Gender.Male).open && <span className="ml-2 rounded text-[10px] bg-red-100 text-red-600 px-1 py-0.5 uppercase font-bold">{t('closed')}</span>}
                                 </Link>
                             </li>
                             <li>
@@ -144,10 +150,10 @@ const Header: React.FC = () => {
                                     to="/enroll" 
                                     state={{ gender: Gender.Female }} 
                                     onClick={(e) => { handleRegistrationClick(e, Gender.Female); setBookingDropdownOpen(false); }} 
-                                    className={`block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${(appSettings?.isRegistrationOpen && appSettings?.isFemaleRegistrationOpen) ? '' : 'text-gray-400 font-normal italic'}`}
+                                    className={`block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${isGenderRegistrationOpen(appSettings, Gender.Female).open ? '' : 'text-gray-400 font-normal italic'}`}
                                 >
                                     {t('femaleIntake')}
-                                    {(!appSettings?.isRegistrationOpen || !appSettings?.isFemaleRegistrationOpen) && <span className="ml-2 rounded text-[10px] bg-red-100 text-red-600 px-1 py-0.5 uppercase font-bold">{t('closed')}</span>}
+                                    {!isGenderRegistrationOpen(appSettings, Gender.Female).open && <span className="ml-2 rounded text-[10px] bg-red-100 text-red-600 px-1 py-0.5 uppercase font-bold">{t('closed')}</span>}
                                 </Link>
                             </li>
                         </ul>
@@ -224,26 +230,26 @@ const Header: React.FC = () => {
                             state={{ gender: Gender.Male }} 
                             onClick={(e) => { handleRegistrationClick(e, Gender.Male); setIsMenuOpen(false); }} 
                             className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
-                                (appSettings?.isRegistrationOpen && appSettings?.isMaleRegistrationOpen)
+                                isGenderRegistrationOpen(appSettings, Gender.Male).open
                                 ? 'border-brand-green/20 bg-brand-green/5 text-brand-green font-bold'
                                 : 'border-gray-100 bg-gray-50 text-gray-400'
                             }`}
                         >
                             <span>{t('maleIntake')}</span>
-                            {(!appSettings?.isRegistrationOpen || !appSettings?.isMaleRegistrationOpen) && <span className="mt-1 text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full uppercase font-black">{t('closed')}</span>}
+                            {!isGenderRegistrationOpen(appSettings, Gender.Male).open && <span className="mt-1 text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full uppercase font-black">{t('closed')}</span>}
                         </Link>
                         <Link 
                             to="/enroll" 
                             state={{ gender: Gender.Female }} 
                             onClick={(e) => { handleRegistrationClick(e, Gender.Female); setIsMenuOpen(false); }} 
                             className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
-                                (appSettings?.isRegistrationOpen && appSettings?.isFemaleRegistrationOpen)
+                                isGenderRegistrationOpen(appSettings, Gender.Female).open
                                 ? 'border-brand-yellow/30 bg-brand-yellow/5 text-brand-yellow-dark font-bold'
                                 : 'border-gray-100 bg-gray-50 text-gray-400'
                             }`}
                         >
                             <span>{t('femaleIntake')}</span>
-                            {(!appSettings?.isRegistrationOpen || !appSettings?.isFemaleRegistrationOpen) && <span className="mt-1 text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full uppercase font-black">{t('closed')}</span>}
+                            {!isGenderRegistrationOpen(appSettings, Gender.Female).open && <span className="mt-1 text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full uppercase font-black">{t('closed')}</span>}
                         </Link>
                     </div>
                 </div>

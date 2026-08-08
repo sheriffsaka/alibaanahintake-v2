@@ -1,11 +1,11 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { EnrollmentContext } from '../../contexts/EnrollmentContext';
-import { Level } from '../../types';
+import { Level, Gender, isGenderRegistrationOpen } from '../../types';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import Select from '../common/Select';
-import { getLevels } from '../../services/apiService';
-import { User, Mail, Phone, Home, Users } from 'lucide-react';
+import { getLevels, getAppSettings } from '../../services/apiService';
+import { User, Mail, Phone, Home, Users, AlertCircle } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
 
 const COUNTRY_CODES = [
@@ -197,6 +197,31 @@ const RegistrationForm: React.FC = () => {
   const [loadingLevels, setLoadingLevels] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  const [closedNotice, setClosedNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkAvailability = async () => {
+      try {
+        const settings = await getAppSettings();
+        const regStatus = isGenderRegistrationOpen(settings, state.formData.gender);
+        if (!regStatus.open) {
+          if (regStatus.reason === 'not_started') {
+            setClosedNotice(`Registration for the ${state.formData.gender === Gender.Male ? 'Brothers' : 'Sisters'} section has not started yet.`);
+          } else if (regStatus.reason === 'ended') {
+            setClosedNotice(`Registration for the ${state.formData.gender === Gender.Male ? 'Brothers' : 'Sisters'} section has ended for this session.`);
+          } else {
+            setClosedNotice(`Registration for the ${state.formData.gender === Gender.Male ? 'Brothers' : 'Sisters'} section is currently closed.`);
+          }
+        } else {
+          setClosedNotice(null);
+        }
+      } catch (e) {
+        console.error("Error checking availability in RegistrationForm:", e);
+      }
+    };
+    checkAvailability();
+  }, [state.formData.gender]);
+
   const fetchLevelsData = async () => {
     setLoadingLevels(true);
     setFetchError(null);
@@ -253,6 +278,23 @@ const RegistrationForm: React.FC = () => {
     dispatch({ type: 'UPDATE_FORM', payload: { [e.target.name]: e.target.value } });
   };
   
+  if (closedNotice) {
+    return (
+      <div className="text-center py-8 space-y-6">
+        <div className="mx-auto w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-800">Registration Closed</h2>
+        <p className="text-gray-600 max-w-md mx-auto">{closedNotice}</p>
+        <div className="pt-4">
+          <Button onClick={() => window.location.href = '/'} variant="outline">
+            Return to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">{t('step1Title', { gender: state.formData.gender })}</h2>

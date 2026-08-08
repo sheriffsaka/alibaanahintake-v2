@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { Student, AppointmentSlot, Level, AdminUser, NotificationSettings, AppSettings, SiteContent, Gender, Role } from '../types';
+import { Student, AppointmentSlot, Level, AdminUser, NotificationSettings, AppSettings, SiteContent, Gender, Role, isGenderRegistrationOpen } from '../types';
 
 
 const fetchWithTimeout = async (resource: string, options: RequestInit & { timeout?: number } = {}) => {
@@ -207,8 +207,10 @@ export const getAvailableDatesForLevel = async(levelId: string, gender: Gender):
     console.log('>>> Fetching dates for level:', levelId, 'gender:', gender);
     const settings = await getAppSettings();
     console.log('>>> App settings:', settings);
-    if (!settings.isRegistrationOpen) {
-        console.warn('>>> Registration is CLOSED');
+    
+    const regStatus = isGenderRegistrationOpen(settings, gender);
+    if (!regStatus.open) {
+        console.warn('>>> Registration is CLOSED for gender:', gender, 'Reason:', regStatus.reason);
         return [];
     }
     
@@ -234,6 +236,13 @@ export const getAvailableDatesForLevel = async(levelId: string, gender: Gender):
 
 
 export const getAvailableSlots = async (date: string, levelId: string, gender: Gender): Promise<AppointmentSlot[]> => {
+    const settings = await getAppSettings();
+    const regStatus = isGenderRegistrationOpen(settings, gender);
+    if (!regStatus.open) {
+        console.warn('>>> Registration is CLOSED for gender:', gender, 'Reason:', regStatus.reason);
+        return [];
+    }
+
     const { data, error } = await supabase
         .from('appointment_slots')
         .select('*, levels(name)')

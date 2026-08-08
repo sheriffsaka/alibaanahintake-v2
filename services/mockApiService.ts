@@ -1,4 +1,4 @@
-import { Student, AppointmentSlot, Level, Gender, AdminUser, Role, NotificationSettings, AppSettings, SiteContent } from '../types';
+import { Student, AppointmentSlot, Level, Gender, AdminUser, Role, NotificationSettings, AppSettings, SiteContent, isGenderRegistrationOpen } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Mock Database
@@ -202,13 +202,13 @@ export const getAdminUserProfile = async (userId: string): Promise<AdminUser | n
 
 // --- Public API ---
 export const getAvailableDatesForLevel = async(levelId: string, gender: Gender): Promise<string[]> => {
-    if (!appSettings.isRegistrationOpen) return simulateDelay([]);
+    if (!isGenderRegistrationOpen(appSettings, gender).open) return simulateDelay([]);
     const availableDates = appointmentSlots.filter(s => s.levelId === levelId && s.gender === gender && s.booked < s.capacity).map(s => s.date);
     return simulateDelay([...new Set(availableDates)].sort());
 }
 
 export const getAvailableSlots = async (date: string, levelId: string, gender: Gender): Promise<AppointmentSlot[]> => {
-    if (!appSettings.isRegistrationOpen) return simulateDelay([]);
+    if (!isGenderRegistrationOpen(appSettings, gender).open) return simulateDelay([]);
     return simulateDelay(appointmentSlots.filter(s => s.date === date && s.levelId === levelId && s.gender === gender));
 };
 
