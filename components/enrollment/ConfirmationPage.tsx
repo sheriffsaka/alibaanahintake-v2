@@ -22,12 +22,17 @@ const ConfirmationPage: React.FC = () => {
   const navigate = useNavigate();
   const slipRef = useRef<HTMLDivElement>(null);
 
+  const isSubmittingRef = useRef(false);
+
   useEffect(() => {
     const processRegistration = async () => {
       if (state.confirmedRegistration || !state.selectedSlotId || !state.selectedSlotDate) {
           setLoading(false);
           return;
       };
+
+      if (isSubmittingRef.current) return;
+      isSubmittingRef.current = true;
 
       setLoading(true);
       setError(null);
@@ -46,12 +51,39 @@ const ConfirmationPage: React.FC = () => {
         setError(errorMsg);
         console.error(err);
       } finally {
+        isSubmittingRef.current = false;
         setLoading(false);
       }
     };
     processRegistration();
     
   }, [dispatch, state.confirmedRegistration, state.formData, state.selectedSlotDate, state.selectedSlotId, t]);
+
+  const handleRetrySubmit = () => {
+    if (isSubmittingRef.current) return;
+    setLoading(true);
+    setError(null);
+    const { whatsappCountryCode, whatsapp, ...restFormData } = state.formData;
+    const registrationData = {
+      ...restFormData,
+      whatsapp: `${whatsappCountryCode}${whatsapp}`,
+      intakeDate: state.selectedSlotDate!,
+      appointmentSlotId: state.selectedSlotId!,
+    };
+    isSubmittingRef.current = true;
+    submitRegistration(registrationData)
+      .then((newStudent) => {
+        dispatch({ type: 'CONFIRM_REGISTRATION', payload: newStudent });
+      })
+      .catch((err) => {
+        const errorMsg = err instanceof Error ? err.message : t('bookingFailedMessage');
+        setError(errorMsg);
+      })
+      .finally(() => {
+        isSubmittingRef.current = false;
+        setLoading(false);
+      });
+  };
 
   const handleBackToPortal = () => {
       dispatch({ type: 'RESET' });
@@ -103,9 +135,10 @@ const ConfirmationPage: React.FC = () => {
     return (
       <div className="text-center text-red-600">
         <h2 className="text-2xl font-semibold mb-4">{t('bookingFailedTitle')}</h2>
-        <p>{error}</p>
-        <div className="mt-6">
-            <Button onClick={() => dispatch({ type: 'PREV_STEP' })}>{t('goBackButton')}</Button>
+        <p className="mb-4">{error}</p>
+        <div className="mt-6 flex justify-center gap-4">
+            <Button onClick={handleRetrySubmit} variant="primary">{t('retry') || 'Retry Submission'}</Button>
+            <Button onClick={() => dispatch({ type: 'PREV_STEP' })} variant="secondary">{t('goBackButton')}</Button>
         </div>
       </div>
     );
