@@ -41,7 +41,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (mounted) setSession(currentSession);
 
         if (currentSession?.access_token) {
-          syncRealtimeAuth(currentSession.access_token);
+          await syncRealtimeAuth(currentSession.access_token);
         }
 
         if (currentSession?.user) {
@@ -79,7 +79,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setSession(session);
 
         if (session?.access_token) {
-          syncRealtimeAuth(session.access_token);
+          await syncRealtimeAuth(session.access_token);
         }
 
         if (session?.user) {

@@ -129,6 +129,9 @@ const StudentRecords: React.FC = () => {
 
     const setupRealtimeChannel = async () => {
       if (isDisposed || isConnecting) return;
+      if (activeChannel && (activeChannel.state === 'joining' || activeChannel.state === 'joined')) {
+        return;
+      }
       isConnecting = true;
 
       try {
@@ -140,10 +143,13 @@ const StudentRecords: React.FC = () => {
 
         const session = await safeRefreshSession();
         if (session?.access_token) {
-          syncRealtimeAuth(session.access_token);
+          await syncRealtimeAuth(session.access_token);
         }
 
-        if (isDisposed) return;
+        if (isDisposed) {
+          isConnecting = false;
+          return;
+        }
 
         const channelName = `admin-student-records-${Date.now()}`;
         const channel = supabase.channel(channelName);
@@ -160,16 +166,16 @@ const StudentRecords: React.FC = () => {
             }
           )
           .subscribe((status) => {
-            isConnecting = false;
-
             // Ignore status events if channel is no longer active or component is disposed
             if (activeChannel !== channel || isDisposed) {
               return;
             }
 
             if (status === 'SUBSCRIBED') {
+              isConnecting = false;
               fetchStudents();
             } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+              isConnecting = false;
               console.warn(`[StudentRecords] Realtime status ${status}. Cleaning up and scheduling reconnect...`);
               
               // Disassociate activeChannel FIRST so subsequent CLOSED events from removeChannel are ignored
@@ -185,9 +191,8 @@ const StudentRecords: React.FC = () => {
             }
           });
       } catch (err) {
-        console.warn('[StudentRecords] Setup Realtime channel exception:', err);
-      } finally {
         isConnecting = false;
+        console.warn('[StudentRecords] Setup Realtime channel exception:', err);
       }
     };
 
@@ -198,7 +203,9 @@ const StudentRecords: React.FC = () => {
       if (document.visibilityState === 'visible' || navigator.onLine) {
         await safeRefreshSession();
         fetchStudents();
-        if (!activeChannel || activeChannel.state !== 'joined') {
+
+        const isChannelActive = activeChannel && (activeChannel.state === 'joining' || activeChannel.state === 'joined');
+        if (!isConnecting && !isChannelActive) {
           if (reconnectTimeout) clearTimeout(reconnectTimeout);
           setupRealtimeChannel();
         }

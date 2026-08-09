@@ -76,6 +76,9 @@ const Dashboard: React.FC = () => {
 
     const setupRealtimeChannel = async () => {
       if (isDisposed || isConnecting) return;
+      if (activeChannel && (activeChannel.state === 'joining' || activeChannel.state === 'joined')) {
+        return;
+      }
       isConnecting = true;
 
       try {
@@ -87,10 +90,13 @@ const Dashboard: React.FC = () => {
 
         const session = await safeRefreshSession();
         if (session?.access_token) {
-          syncRealtimeAuth(session.access_token);
+          await syncRealtimeAuth(session.access_token);
         }
 
-        if (isDisposed) return;
+        if (isDisposed) {
+          isConnecting = false;
+          return;
+        }
 
         const channelName = `admin-dashboard-${Date.now()}`;
         const channel = supabase.channel(channelName);
@@ -107,16 +113,16 @@ const Dashboard: React.FC = () => {
             }
           )
           .subscribe((status) => {
-            isConnecting = false;
-
             // Ignore status events if channel is no longer active or component is disposed
             if (activeChannel !== channel || isDisposed) {
               return;
             }
 
             if (status === 'SUBSCRIBED') {
+              isConnecting = false;
               fetchDashboardData();
             } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+              isConnecting = false;
               console.warn(`[Dashboard] Realtime status ${status}. Cleaning up and scheduling reconnect...`);
               
               // Disassociate activeChannel FIRST so subsequent CLOSED events from removeChannel are ignored
@@ -132,9 +138,8 @@ const Dashboard: React.FC = () => {
             }
           });
       } catch (err) {
-        console.warn('[Dashboard] Setup Realtime channel exception:', err);
-      } finally {
         isConnecting = false;
+        console.warn('[Dashboard] Setup Realtime channel exception:', err);
       }
     };
 
@@ -145,7 +150,9 @@ const Dashboard: React.FC = () => {
       if (document.visibilityState === 'visible' || navigator.onLine) {
         await safeRefreshSession();
         fetchDashboardData();
-        if (!activeChannel || activeChannel.state !== 'joined') {
+
+        const isChannelActive = activeChannel && (activeChannel.state === 'joining' || activeChannel.state === 'joined');
+        if (!isConnecting && !isChannelActive) {
           if (reconnectTimeout) clearTimeout(reconnectTimeout);
           setupRealtimeChannel();
         }

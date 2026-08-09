@@ -92,11 +92,11 @@ let lastSyncedRealtimeToken: string | null = null;
 /**
  * Synchronize the current access token to Supabase Realtime so WebSockets remain authenticated.
  */
-export const syncRealtimeAuth = (token?: string): void => {
+export const syncRealtimeAuth = async (token?: string): Promise<void> => {
   try {
     if (token && token !== lastSyncedRealtimeToken) {
       lastSyncedRealtimeToken = token;
-      supabase.realtime.setAuth(token);
+      await supabase.realtime.setAuth(token);
     }
   } catch (err) {
     console.warn('[SupabaseClient] Failed to sync Realtime auth token:', err);
@@ -140,13 +140,13 @@ export const safeRefreshSession = async (): Promise<Session | null> => {
         }
         const updatedSession = refreshData?.session || session;
         if (updatedSession?.access_token) {
-          syncRealtimeAuth(updatedSession.access_token);
+          await syncRealtimeAuth(updatedSession.access_token);
         }
         return updatedSession;
       }
 
       if (session.access_token) {
-        syncRealtimeAuth(session.access_token);
+        await syncRealtimeAuth(session.access_token);
       }
       return session;
     } catch (err) {
