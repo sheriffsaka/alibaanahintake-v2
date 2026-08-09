@@ -7,7 +7,8 @@ import { Users, BookCheck, UserCheck, CalendarDays } from 'lucide-react';
 import { usePolling } from '../../hooks/usePolling';
 import { useAuth } from '../../hooks/useAuth';
 import { getAdminGenderFilter } from '../../types';
-import { supabase } from '../../services/supabaseClient';
+import { supabase, safeRefreshSession, syncRealtimeAuth } from '../../services/supabaseClient';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface DashboardData {
     totalRegistered: number;
@@ -66,44 +67,84 @@ const Dashboard: React.FC = () => {
   // Set up polling for background refresh
   usePolling(fetchDashboardData, POLLING_INTERVAL);
 
-  // Set up Realtime subscription for instant dashboard metrics updates
+  // Set up Realtime subscription with robust recovery and channel cleanup
   useEffect(() => {
-    const channel = supabase
-      .channel('admin-dashboard-live')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'students' },
-        () => {
-          fetchDashboardData();
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          fetchDashboardData();
-        }
-      });
+    let currentChannel: RealtimeChannel | null = null;
+    let isSubscribing = false;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchDashboardData]);
+    const setupRealtimeChannel = async () => {
+      if (isSubscribing) return;
+      isSubscribing = true;
 
-  // Sync / update data immediately whenever the administrator visits/focuses or reconnects
-  useEffect(() => {
-    const handleSync = () => {
-      if (document.visibilityState === 'visible' || navigator.onLine) {
-        fetchDashboardData();
+      try {
+        if (currentChannel) {
+          await supabase.removeChannel(currentChannel);
+          currentChannel = null;
+        }
+
+        const session = await safeRefreshSession();
+        if (session?.access_token) {
+          syncRealtimeAuth(session.access_token);
+        }
+
+        const channelName = `admin-dashboard-${Date.now()}`;
+        currentChannel = supabase.channel(channelName);
+
+        currentChannel
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'students' },
+            () => {
+              fetchDashboardData();
+            }
+          )
+          .subscribe((status) => {
+            isSubscribing = false;
+            if (status === 'SUBSCRIBED') {
+              fetchDashboardData();
+            } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+              console.warn(`[Dashboard] Realtime status ${status}. Cleaning up and reconnecting...`);
+              if (currentChannel) {
+                supabase.removeChannel(currentChannel);
+                currentChannel = null;
+              }
+              if (reconnectTimeout) clearTimeout(reconnectTimeout);
+              reconnectTimeout = setTimeout(() => {
+                setupRealtimeChannel();
+              }, 2000);
+            }
+          });
+      } catch (err) {
+        isSubscribing = false;
+        console.warn('[Dashboard] Setup Realtime channel exception:', err);
       }
     };
-    
-    document.addEventListener('visibilitychange', handleSync);
-    window.addEventListener('online', handleSync);
-    window.addEventListener('focus', handleSync);
-    
+
+    setupRealtimeChannel();
+
+    const handleSyncAndReconnect = async () => {
+      if (document.visibilityState === 'visible' || navigator.onLine) {
+        await safeRefreshSession();
+        fetchDashboardData();
+        if (!currentChannel || currentChannel.state !== 'joined') {
+          setupRealtimeChannel();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleSyncAndReconnect);
+    window.addEventListener('online', handleSyncAndReconnect);
+    window.addEventListener('focus', handleSyncAndReconnect);
+
     return () => {
-      document.removeEventListener('visibilitychange', handleSync);
-      window.removeEventListener('online', handleSync);
-      window.removeEventListener('focus', handleSync);
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      document.removeEventListener('visibilitychange', handleSyncAndReconnect);
+      window.removeEventListener('online', handleSyncAndReconnect);
+      window.removeEventListener('focus', handleSyncAndReconnect);
+      if (currentChannel) {
+        supabase.removeChannel(currentChannel);
+      }
     };
   }, [fetchDashboardData]);
 

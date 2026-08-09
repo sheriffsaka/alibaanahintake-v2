@@ -11,7 +11,8 @@ import useDebounce from '../../hooks/useDebounce';
 import { deleteStudent, updateStudentDetails, getLevels, bulkDeleteStudents, resendConfirmationEmail } from '../../services/apiService';
 import { useAuth } from '../../hooks/useAuth';
 import Select from '../common/Select';
-import { supabase } from '../../services/supabaseClient';
+import { supabase, safeRefreshSession, syncRealtimeAuth } from '../../services/supabaseClient';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 type SortKey = 'firstname' | 'email' | 'level' | 'intakeDate' | 'status' | 'createdAt' | 'gender' | '';
 type SortDirection = 'asc' | 'desc';
@@ -119,44 +120,84 @@ const StudentRecords: React.FC = () => {
     loadLevels();
   }, [fetchStudents]);
 
-  // Set up Realtime subscription for instant student updates and automated recovery
+  // Set up Realtime subscription with robust recovery and channel cleanup
   useEffect(() => {
-    const channel = supabase
-      .channel('admin-student-records-live')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'students' },
-        () => {
-          fetchStudents();
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          fetchStudents();
-        }
-      });
+    let currentChannel: RealtimeChannel | null = null;
+    let isSubscribing = false;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchStudents]);
+    const setupRealtimeChannel = async () => {
+      if (isSubscribing) return;
+      isSubscribing = true;
 
-  // Sync / update student records page automatically when tab focuses or network reconnects
-  useEffect(() => {
-    const handleSync = () => {
-      if (document.visibilityState === 'visible' || navigator.onLine) {
-        fetchStudents();
+      try {
+        if (currentChannel) {
+          await supabase.removeChannel(currentChannel);
+          currentChannel = null;
+        }
+
+        const session = await safeRefreshSession();
+        if (session?.access_token) {
+          syncRealtimeAuth(session.access_token);
+        }
+
+        const channelName = `admin-student-records-${Date.now()}`;
+        currentChannel = supabase.channel(channelName);
+
+        currentChannel
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'students' },
+            () => {
+              fetchStudents();
+            }
+          )
+          .subscribe((status) => {
+            isSubscribing = false;
+            if (status === 'SUBSCRIBED') {
+              fetchStudents();
+            } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+              console.warn(`[StudentRecords] Realtime status ${status}. Cleaning up and reconnecting...`);
+              if (currentChannel) {
+                supabase.removeChannel(currentChannel);
+                currentChannel = null;
+              }
+              if (reconnectTimeout) clearTimeout(reconnectTimeout);
+              reconnectTimeout = setTimeout(() => {
+                setupRealtimeChannel();
+              }, 2000);
+            }
+          });
+      } catch (err) {
+        isSubscribing = false;
+        console.warn('[StudentRecords] Setup Realtime channel exception:', err);
       }
     };
-    
-    document.addEventListener('visibilitychange', handleSync);
-    window.addEventListener('online', handleSync);
-    window.addEventListener('focus', handleSync);
-    
+
+    setupRealtimeChannel();
+
+    const handleSyncAndReconnect = async () => {
+      if (document.visibilityState === 'visible' || navigator.onLine) {
+        await safeRefreshSession();
+        fetchStudents();
+        if (!currentChannel || currentChannel.state !== 'joined') {
+          setupRealtimeChannel();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleSyncAndReconnect);
+    window.addEventListener('online', handleSyncAndReconnect);
+    window.addEventListener('focus', handleSyncAndReconnect);
+
     return () => {
-      document.removeEventListener('visibilitychange', handleSync);
-      window.removeEventListener('online', handleSync);
-      window.removeEventListener('focus', handleSync);
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      document.removeEventListener('visibilitychange', handleSyncAndReconnect);
+      window.removeEventListener('online', handleSyncAndReconnect);
+      window.removeEventListener('focus', handleSyncAndReconnect);
+      if (currentChannel) {
+        supabase.removeChannel(currentChannel);
+      }
     };
   }, [fetchStudents]);
 

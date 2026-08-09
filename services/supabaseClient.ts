@@ -1,11 +1,39 @@
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, Session } from '@supabase/supabase-js';
 
 // Use environment variables for production, but provide fallback values for local development.
 // This allows the app to run in environments where .env files aren't configured,
 // while still using the secure environment variable approach for deployments.
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://snytpzughzqdhouqjoyh.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueXRwenVnaHpxZGhvdXFqb3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMDg4OTYsImV4cCI6MjA4Njg4NDg5Nn0.CGKjooJkDFm2VVyz3QXiZ5ksK5tZfo3FG56D5zlF6w8';
+
+// Single-flight Mutex lock to serialize token refresh calls and prevent concurrent refresh token invalidations
+class AsyncLock {
+  private locks: Map<string, Promise<unknown>> = new Map();
+
+  async acquire<T>(name: string, _acquireTimeout: number, fn: () => Promise<T>): Promise<T> {
+    const currentLock = this.locks.get(name) || Promise.resolve();
+
+    let release: () => void = () => {};
+    const nextLock = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    this.locks.set(name, currentLock.then(() => nextLock));
+
+    try {
+      await currentLock;
+      return await fn();
+    } finally {
+      release();
+      if (this.locks.get(name) === nextLock) {
+        this.locks.delete(name);
+      }
+    }
+  }
+}
+
+const authLock = new AsyncLock();
 
 // Custom fetch with timeout and automatic retry for transient network errors
 const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries = 2) => {
@@ -38,7 +66,7 @@ const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries
   throw new Error('Network request failed after retries');
 };
 
-// This check ensures that the app will fail loudly if even the fallback keys are somehow removed.
+// Check configuration
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error("Supabase configuration missing!");
 } else {
@@ -51,38 +79,96 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    // Disable Navigator LockManager to prevent timeout errors in iframe/sandboxed environments
-    lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<unknown>) => {
-      return await fn();
-    }
+    // Custom single-flight Mutex lock prevents "400 invalid_grant: Already used" errors from concurrent refreshes
+    lock: (name, acquireTimeout, fn) => authLock.acquire(name, acquireTimeout, fn),
   },
   global: {
     fetch: fetchWithRetry,
   },
 });
 
-// Setup listeners for browser focus/online events to refresh auth session automatically after tab inactivity
-if (typeof window !== 'undefined') {
-  const handleFocusOrOnline = async () => {
+let lastSyncedRealtimeToken: string | null = null;
+
+/**
+ * Synchronize the current access token to Supabase Realtime so WebSockets remain authenticated.
+ */
+export const syncRealtimeAuth = (token?: string): void => {
+  try {
+    if (token && token !== lastSyncedRealtimeToken) {
+      lastSyncedRealtimeToken = token;
+      supabase.realtime.setAuth(token);
+    }
+  } catch (err) {
+    console.warn('[SupabaseClient] Failed to sync Realtime auth token:', err);
+  }
+};
+
+let activeRefreshPromise: Promise<Session | null> | null = null;
+
+/**
+ * Deduplicated, single-flight session fetch and refresh.
+ * Guarantees only one token refresh request runs across concurrent wake-up / focus events.
+ */
+export const safeRefreshSession = async (): Promise<Session | null> => {
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
+  }
+
+  activeRefreshPromise = (async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        // If token expires in less than 5 minutes, trigger token refresh
-        const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
-        if (expiresAt && expiresAt - Date.now() < 5 * 60 * 1000) {
-          await supabase.auth.refreshSession();
-        }
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        console.warn('[SupabaseClient] Error getting session:', error.message);
+        return null;
       }
+
+      const session = data?.session;
+      if (!session) return null;
+
+      const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+      const isExpiringSoon = expiresAt > 0 && (expiresAt - Date.now() < 5 * 60 * 1000);
+
+      if (isExpiringSoon) {
+        console.log('[SupabaseClient] Session expiring soon. Executing safe session refresh...');
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+          console.warn('[SupabaseClient] refreshSession failed:', refreshError.message);
+          if (refreshError.message?.includes('invalid_grant')) {
+            return null;
+          }
+          return session; // Retain current session on transient network error
+        }
+        const updatedSession = refreshData?.session || session;
+        if (updatedSession?.access_token) {
+          syncRealtimeAuth(updatedSession.access_token);
+        }
+        return updatedSession;
+      }
+
+      if (session.access_token) {
+        syncRealtimeAuth(session.access_token);
+      }
+      return session;
     } catch (err) {
-      console.warn('Auto refresh session on focus/online failed:', err);
+      console.warn('[SupabaseClient] Exception in safeRefreshSession:', err);
+      return null;
+    } finally {
+      activeRefreshPromise = null;
+    }
+  })();
+
+  return activeRefreshPromise;
+};
+
+// Single central listener for browser focus / online / tab visibility restoration
+if (typeof window !== 'undefined') {
+  const handleWakeUp = async () => {
+    if (document.visibilityState === 'visible' || navigator.onLine) {
+      await safeRefreshSession();
     }
   };
 
-  window.addEventListener('focus', handleFocusOrOnline);
-  window.addEventListener('online', handleFocusOrOnline);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      handleFocusOrOnline();
-    }
-  });
+  window.addEventListener('focus', handleWakeUp);
+  window.addEventListener('online', handleWakeUp);
+  document.addEventListener('visibilitychange', handleWakeUp);
 }

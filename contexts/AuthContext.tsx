@@ -2,7 +2,7 @@
 import React, { createContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { AdminUser } from '../types';
 import { login as apiLogin, logout as apiLogout, getAdminUserProfile } from '../services/apiService';
-import { supabase } from '../services/supabaseClient';
+import { supabase, syncRealtimeAuth } from '../services/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -40,25 +40,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const currentSession = data?.session;
         if (mounted) setSession(currentSession);
 
+        if (currentSession?.access_token) {
+          syncRealtimeAuth(currentSession.access_token);
+        }
+
         if (currentSession?.user) {
           try {
             const profile = await getAdminUserProfile(currentSession.user.id);
             if (mounted) {
-              if (profile?.isActive) {
-                setUser(profile);
-              } else {
-                setUser(null);
-                setSession(null);
-                await apiLogout();
+              if (profile) {
+                if (profile.isActive) {
+                  setUser(profile);
+                } else {
+                  setUser(null);
+                  setSession(null);
+                  await apiLogout();
+                }
               }
             }
           } catch (profileError) {
-            console.error("Profile validation failed:", profileError);
-            if (mounted) {
-              setUser(null);
-              setSession(null);
-              await apiLogout();
-            }
+            console.warn("Profile validation failed on initial load (retaining session):", profileError);
+            // On transient network or wake-up error, do not destroy valid local auth state
           }
         }
       } catch (e) {
@@ -75,29 +77,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (!mounted) return;
         
         setSession(session);
+
+        if (session?.access_token) {
+          syncRealtimeAuth(session.access_token);
+        }
+
         if (session?.user) {
-          // Only fetch profile if it's a sign-in or refresh event to save calls
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || !user) {
             try {
               const profile = await getAdminUserProfile(session.user.id);
               if (mounted) {
-                if (profile?.isActive) {
-                  setUser(profile);
-                } else {
-                  setUser(null);
-                  await apiLogout();
+                if (profile) {
+                  if (profile.isActive) {
+                    setUser(profile);
+                  } else {
+                    setUser(null);
+                    await apiLogout();
+                  }
                 }
               }
             } catch (error) {
-              console.error("Auth state change profile validation failed:", error);
-              if (mounted) setUser(null);
+              console.warn("Auth state change profile validation failed (retaining active user):", error);
+              // CRITICAL: A temporary network/profile-fetch error on wake-up must NOT clear valid user authentication
             }
           }
         } else {
           if (mounted) setUser(null);
         }
         
-        // Ensure loading is set to false if it wasn't already
         if (mounted) setLoading(false);
       }
     );
