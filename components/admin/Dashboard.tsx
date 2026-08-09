@@ -7,6 +7,7 @@ import { Users, BookCheck, UserCheck, CalendarDays } from 'lucide-react';
 import { usePolling } from '../../hooks/usePolling';
 import { useAuth } from '../../hooks/useAuth';
 import { getAdminGenderFilter } from '../../types';
+import { supabase } from '../../services/supabaseClient';
 
 interface DashboardData {
     totalRegistered: number;
@@ -65,18 +66,44 @@ const Dashboard: React.FC = () => {
   // Set up polling for background refresh
   usePolling(fetchDashboardData, POLLING_INTERVAL);
 
-  // Sync / update data immediately whenever the administrator visits/focuses the page
+  // Set up Realtime subscription for instant dashboard metrics updates
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
+    const channel = supabase
+      .channel('admin-dashboard-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'students' },
+        () => {
+          fetchDashboardData();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          fetchDashboardData();
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchDashboardData]);
+
+  // Sync / update data immediately whenever the administrator visits/focuses or reconnects
+  useEffect(() => {
+    const handleSync = () => {
+      if (document.visibilityState === 'visible' || navigator.onLine) {
         fetchDashboardData();
       }
     };
     
-    document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('visibilitychange', handleSync);
+    window.addEventListener('online', handleSync);
+    window.addEventListener('focus', handleSync);
     
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('visibilitychange', handleSync);
+      window.removeEventListener('online', handleSync);
+      window.removeEventListener('focus', handleSync);
     };
   }, [fetchDashboardData]);
 

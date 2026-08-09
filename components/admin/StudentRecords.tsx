@@ -11,6 +11,7 @@ import useDebounce from '../../hooks/useDebounce';
 import { deleteStudent, updateStudentDetails, getLevels, bulkDeleteStudents, resendConfirmationEmail } from '../../services/apiService';
 import { useAuth } from '../../hooks/useAuth';
 import Select from '../common/Select';
+import { supabase } from '../../services/supabaseClient';
 
 type SortKey = 'firstname' | 'email' | 'level' | 'intakeDate' | 'status' | 'createdAt' | 'gender' | '';
 type SortDirection = 'asc' | 'desc';
@@ -118,18 +119,44 @@ const StudentRecords: React.FC = () => {
     loadLevels();
   }, [fetchStudents]);
 
-  // Sync / update student records page automatically when tab focuses or becomes visible
+  // Set up Realtime subscription for instant student updates and automated recovery
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
+    const channel = supabase
+      .channel('admin-student-records-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'students' },
+        () => {
+          fetchStudents();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          fetchStudents();
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchStudents]);
+
+  // Sync / update student records page automatically when tab focuses or network reconnects
+  useEffect(() => {
+    const handleSync = () => {
+      if (document.visibilityState === 'visible' || navigator.onLine) {
         fetchStudents();
       }
     };
     
-    document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('visibilitychange', handleSync);
+    window.addEventListener('online', handleSync);
+    window.addEventListener('focus', handleSync);
     
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('visibilitychange', handleSync);
+      window.removeEventListener('online', handleSync);
+      window.removeEventListener('focus', handleSync);
     };
   }, [fetchStudents]);
 
