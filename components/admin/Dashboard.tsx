@@ -69,18 +69,20 @@ const Dashboard: React.FC = () => {
 
   // Set up Realtime subscription with robust recovery and channel cleanup
   useEffect(() => {
-    let currentChannel: RealtimeChannel | null = null;
-    let isSubscribing = false;
+    let activeChannel: RealtimeChannel | null = null;
+    let isDisposed = false;
+    let isConnecting = false;
     let reconnectTimeout: NodeJS.Timeout | null = null;
 
     const setupRealtimeChannel = async () => {
-      if (isSubscribing) return;
-      isSubscribing = true;
+      if (isDisposed || isConnecting) return;
+      isConnecting = true;
 
       try {
-        if (currentChannel) {
-          await supabase.removeChannel(currentChannel);
-          currentChannel = null;
+        if (activeChannel) {
+          const oldChannel = activeChannel;
+          activeChannel = null;
+          supabase.removeChannel(oldChannel);
         }
 
         const session = await safeRefreshSession();
@@ -88,46 +90,63 @@ const Dashboard: React.FC = () => {
           syncRealtimeAuth(session.access_token);
         }
 
-        const channelName = `admin-dashboard-${Date.now()}`;
-        currentChannel = supabase.channel(channelName);
+        if (isDisposed) return;
 
-        currentChannel
+        const channelName = `admin-dashboard-${Date.now()}`;
+        const channel = supabase.channel(channelName);
+        activeChannel = channel;
+
+        channel
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'students' },
             () => {
-              fetchDashboardData();
+              if (!isDisposed) {
+                fetchDashboardData();
+              }
             }
           )
           .subscribe((status) => {
-            isSubscribing = false;
+            isConnecting = false;
+
+            // Ignore status events if channel is no longer active or component is disposed
+            if (activeChannel !== channel || isDisposed) {
+              return;
+            }
+
             if (status === 'SUBSCRIBED') {
               fetchDashboardData();
             } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-              console.warn(`[Dashboard] Realtime status ${status}. Cleaning up and reconnecting...`);
-              if (currentChannel) {
-                supabase.removeChannel(currentChannel);
-                currentChannel = null;
-              }
+              console.warn(`[Dashboard] Realtime status ${status}. Cleaning up and scheduling reconnect...`);
+              
+              // Disassociate activeChannel FIRST so subsequent CLOSED events from removeChannel are ignored
+              activeChannel = null;
+              supabase.removeChannel(channel);
+
               if (reconnectTimeout) clearTimeout(reconnectTimeout);
               reconnectTimeout = setTimeout(() => {
-                setupRealtimeChannel();
-              }, 2000);
+                if (!isDisposed) {
+                  setupRealtimeChannel();
+                }
+              }, 3000);
             }
           });
       } catch (err) {
-        isSubscribing = false;
         console.warn('[Dashboard] Setup Realtime channel exception:', err);
+      } finally {
+        isConnecting = false;
       }
     };
 
     setupRealtimeChannel();
 
     const handleSyncAndReconnect = async () => {
+      if (isDisposed) return;
       if (document.visibilityState === 'visible' || navigator.onLine) {
         await safeRefreshSession();
         fetchDashboardData();
-        if (!currentChannel || currentChannel.state !== 'joined') {
+        if (!activeChannel || activeChannel.state !== 'joined') {
+          if (reconnectTimeout) clearTimeout(reconnectTimeout);
           setupRealtimeChannel();
         }
       }
@@ -138,12 +157,16 @@ const Dashboard: React.FC = () => {
     window.addEventListener('focus', handleSyncAndReconnect);
 
     return () => {
+      isDisposed = true;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       document.removeEventListener('visibilitychange', handleSyncAndReconnect);
       window.removeEventListener('online', handleSyncAndReconnect);
       window.removeEventListener('focus', handleSyncAndReconnect);
-      if (currentChannel) {
-        supabase.removeChannel(currentChannel);
+      
+      if (activeChannel) {
+        const chanToCleanup = activeChannel;
+        activeChannel = null;
+        supabase.removeChannel(chanToCleanup);
       }
     };
   }, [fetchDashboardData]);
