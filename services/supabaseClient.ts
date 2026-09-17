@@ -7,53 +7,6 @@ import { createClient, Session } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://snytpzughzqdhouqjoyh.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueXRwenVnaHpxZGhvdXFqb3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMDg4OTYsImV4cCI6MjA4Njg4NDg5Nn0.CGKjooJkDFm2VVyz3QXiZ5ksK5tZfo3FG56D5zlF6w8';
 
-// Single-flight Mutex lock to serialize token refresh calls and prevent concurrent refresh token invalidations
-class AsyncLock {
-  private queue: Map<string, Promise<void>> = new Map();
-
-  async acquire<T>(name: string, acquireTimeout: number, fn: () => Promise<T>): Promise<T> {
-    const prev = this.queue.get(name) || Promise.resolve();
-
-    let release = () => {};
-    const lockPromise = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-
-    // Catch any previous rejections so they don't poison the lock chain
-    const chain = prev.catch(() => {}).then(() => lockPromise);
-    this.queue.set(name, chain);
-
-    let timer: NodeJS.Timeout | undefined;
-    const timeoutPromise = (acquireTimeout > 0)
-      ? new Promise<never>((_, reject) => {
-          timer = setTimeout(() => {
-            const err = new Error(`Lock acquisition timed out for: ${name}`);
-            (err as unknown as { isAcquireTimeout: boolean }).isAcquireTimeout = true;
-            reject(err);
-          }, acquireTimeout);
-        })
-      : null;
-
-    try {
-      if (timeoutPromise) {
-        await Promise.race([prev.catch(() => {}), timeoutPromise]);
-      } else {
-        await prev.catch(() => {});
-      }
-      if (timer) clearTimeout(timer);
-      return await fn();
-    } finally {
-      if (timer) clearTimeout(timer);
-      release();
-      if (this.queue.get(name) === chain) {
-        this.queue.delete(name);
-      }
-    }
-  }
-}
-
-const authLock = new AsyncLock();
-
 // Custom fetch with timeout, caller signal preservation, and safe retry for idempotent read requests
 const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries = 2): Promise<Response> => {
   const method = (options.method || 'GET').toUpperCase();
@@ -66,9 +19,16 @@ const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries
   const retries = allowRetry ? maxRetries : 0;
 
   while (attempt <= retries) {
-    const timeout = 25000; // 25 seconds timeout for cold starts and sleep recovery
+    // 30 seconds timeout for network stability and cold starts
+    const timeout = 30000;
     const timeoutController = new AbortController();
-    const timerId = setTimeout(() => timeoutController.abort(), timeout);
+    let isFinished = false;
+
+    const timerId = setTimeout(() => {
+      if (!isFinished) {
+        timeoutController.abort();
+      }
+    }, timeout);
 
     // Combine caller signal with our timeout signal
     let combinedSignal = timeoutController.signal;
@@ -90,9 +50,11 @@ const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries
         ...options,
         signal: combinedSignal,
       });
+      isFinished = true;
       clearTimeout(timerId);
       return response;
     } catch (error: unknown) {
+      isFinished = true;
       clearTimeout(timerId);
       const err = error as { name?: string; message?: string };
       // Only retry if allowed and error is transient network error (not intentional caller abort)
@@ -124,8 +86,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    // Custom single-flight Mutex lock prevents "400 invalid_grant: Already used" errors from concurrent refreshes
-    lock: (name, acquireTimeout, fn) => authLock.acquire(name, acquireTimeout, fn),
   },
   global: {
     fetch: fetchWithRetry,

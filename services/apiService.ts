@@ -243,7 +243,6 @@ export const getAdminUserProfile = async (userId: string): Promise<AdminUser | n
 export const getAvailableDatesForLevel = async(levelId: string, gender: Gender): Promise<string[]> => {
     console.log('>>> Fetching dates for level:', levelId, 'gender:', gender);
     const settings = await getAppSettings();
-    console.log('>>> App settings:', settings);
     
     const regStatus = isGenderRegistrationOpen(settings, gender);
     if (!regStatus.open) {
@@ -251,13 +250,23 @@ export const getAvailableDatesForLevel = async(levelId: string, gender: Gender):
         return [];
     }
     
-    const { data, error } = await supabase
+    let { data, error } = await supabase
         .from('available_appointment_slots')
         .select('date')
         .eq('level_id', levelId)
         .eq('gender', gender);
     
-    console.log('>>> Supabase response (dates):', { data, error });
+    if (error) {
+        console.warn('Transient error fetching available dates, retrying once...', error);
+        await new Promise((r) => setTimeout(r, 500));
+        const retry = await supabase
+            .from('available_appointment_slots')
+            .select('date')
+            .eq('level_id', levelId)
+            .eq('gender', gender);
+        data = retry.data;
+        error = retry.error;
+    }
 
     if (error) {
         console.error('Error fetching available dates:', error);
@@ -280,7 +289,7 @@ export const getAvailableSlots = async (date: string, levelId: string, gender: G
         return [];
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
         .from('appointment_slots')
         .select('*, levels(name)')
         .eq('date', date)
@@ -288,10 +297,23 @@ export const getAvailableSlots = async (date: string, levelId: string, gender: G
         .eq('gender', gender);
 
     if (error) {
+        console.warn('Transient error fetching slots, retrying once...', error);
+        await new Promise((r) => setTimeout(r, 500));
+        const retry = await supabase
+            .from('appointment_slots')
+            .select('*, levels(name)')
+            .eq('date', date)
+            .eq('level_id', levelId)
+            .eq('gender', gender);
+        data = retry.data;
+        error = retry.error;
+    }
+
+    if (error) {
         console.error('Error fetching slots:', error);
         return [];
     }
-    return data.map(slotFromSupabase);
+    return (data || []).map(slotFromSupabase);
 };
 
 export const submitRegistration = async (
@@ -659,36 +681,40 @@ export const deleteStudent = async (studentId: string): Promise<void> => {
 };
 
 export const getAdminFilterOptions = async (): Promise<{ dates: string[] }> => {
-    const { data, error } = await supabase
-        .from('appointment_slots')
-        .select('date');
-    
-    if (error) {
-        console.error('Error fetching filter dates:', error);
-        return { dates: [] };
-    }
-    
-    const uniqueDates = [...new Set(data.map(d => d.date))].sort();
-    return { dates: uniqueDates };
+    return withAutoReauth(async () => {
+        const { data, error } = await supabase
+            .from('appointment_slots')
+            .select('date');
+        
+        if (error) {
+            console.error('Error fetching filter dates:', error);
+            return { dates: [] };
+        }
+        
+        const uniqueDates = [...new Set(data.map(d => d.date))].sort();
+        return { dates: uniqueDates };
+    });
 };
 
 export const getAdminSlotsForDate = async (date: string, gender?: Gender): Promise<AppointmentSlot[]> => {
-    let query = supabase
-        .from('appointment_slots')
-        .select('*, levels(name)')
-        .eq('date', date);
+    return withAutoReauth(async () => {
+        let query = supabase
+            .from('appointment_slots')
+            .select('*, levels(name)')
+            .eq('date', date);
 
-    if (gender) {
-        query = query.eq('gender', gender);
-    }
+        if (gender) {
+            query = query.eq('gender', gender);
+        }
 
-    const { data, error } = await query;
+        const { data, error } = await query;
 
-    if (error) {
-        console.error('Error fetching admin slots for date:', error);
-        return [];
-    }
-    return data.map(slotFromSupabase);
+        if (error) {
+            console.error('Error fetching admin slots for date:', error);
+            return [];
+        }
+        return data.map(slotFromSupabase);
+    });
 };
 
 export const bulkDeleteStudents = async (studentIds: string[]): Promise<void> => {
@@ -705,16 +731,18 @@ export const bulkDeleteStudents = async (studentIds: string[]): Promise<void> =>
 };
 
 export const checkInStudent = async (studentId: string): Promise<Student> => {
-    const { data, error } = await supabase.rpc('check_in_student_rpc', {
-        target_student_id: studentId
-    });
+    return withAutoReauth(async () => {
+        const { data, error } = await supabase.rpc('check_in_student_rpc', {
+            target_student_id: studentId
+        });
 
-    if (error) {
-        console.error("Check-in error:", error);
-        throw new Error(error.message || "Failed to check in student.");
-    }
-    
-    return studentFromSupabase(data);
+        if (error) {
+            console.error("Check-in error:", error);
+            throw new Error(error.message || "Failed to check in student.");
+        }
+        
+        return studentFromSupabase(data);
+    });
 };
 
 
@@ -745,78 +773,88 @@ export const getSchedules = async (page: number, pageSize: number, gender?: Gend
 
 
 export const getScheduleById = async (slotId: string): Promise<AppointmentSlot | null> => {
-    const { data, error } = await supabase
-        .from('appointment_slots')
-        .select('*, levels(id, name)')
-        .eq('id', slotId)
-        .single();
+    return withAutoReauth(async () => {
+        const { data, error } = await supabase
+            .from('appointment_slots')
+            .select('*, levels(id, name)')
+            .eq('id', slotId)
+            .single();
 
-    if (error) {
-        console.error("Error fetching schedule by ID:", error);
-        return null;
-    }
-    
-    return data ? slotFromSupabase(data) : null;
+        if (error) {
+            console.error("Error fetching schedule by ID:", error);
+            return null;
+        }
+        
+        return data ? slotFromSupabase(data) : null;
+    });
 };
 
 export const createSchedule = async(slot: Omit<AppointmentSlot, 'id' | 'booked' | 'level'>): Promise<AppointmentSlot> => {
-    const { startTime, endTime, levelId, gender, date, capacity } = slot;
-    const { data, error } = await supabase
-        .from('appointment_slots')
-        .insert({
-            start_time: startTime,
-            end_time: endTime,
-            level_id: levelId,
-            gender,
-            date,
-            capacity
-        })
-        .select('*, levels(id, name)')
-        .single();
-    if (error) throw error;
-    return slotFromSupabase(data);
+    return withAutoReauth(async () => {
+        const { startTime, endTime, levelId, gender, date, capacity } = slot;
+        const { data, error } = await supabase
+            .from('appointment_slots')
+            .insert({
+                start_time: startTime,
+                end_time: endTime,
+                level_id: levelId,
+                gender,
+                date,
+                capacity
+            })
+            .select('*, levels(id, name)')
+            .single();
+        if (error) throw error;
+        return slotFromSupabase(data);
+    });
 };
 
 export const createSchedulesBulk = async(slots: Omit<AppointmentSlot, 'id' | 'booked' | 'level'>[]): Promise<void> => {
-    const dataToInsert = slots.map(slot => {
-        const { startTime, endTime, levelId, gender, date, capacity } = slot;
-        return {
-            start_time: startTime,
-            end_time: endTime,
-            level_id: levelId,
-            gender,
-            date,
-            capacity
-        };
+    return withAutoReauth(async () => {
+        const dataToInsert = slots.map(slot => {
+            const { startTime, endTime, levelId, gender, date, capacity } = slot;
+            return {
+                start_time: startTime,
+                end_time: endTime,
+                level_id: levelId,
+                gender,
+                date,
+                capacity
+            };
+        });
+        
+        const { error } = await supabase.from('appointment_slots').insert(dataToInsert);
+        if (error) throw error;
     });
-    
-    const { error } = await supabase.from('appointment_slots').insert(dataToInsert);
-    if (error) throw error;
 };
 
 export const updateSchedule = async(slot: Omit<AppointmentSlot, 'level'>): Promise<AppointmentSlot> => {
-    const { id, startTime, endTime, levelId, gender, date, capacity } = slot;
-    const { data, error } = await supabase
-        .from('appointment_slots')
-        .update({
-            start_time: startTime,
-            end_time: endTime,
-            level_id: levelId,
-            gender,
-            date,
-            capacity
-        })
-        .eq('id', id)
-        .select('*, levels(id, name)')
-        .single();
-    if (error) throw error;
-    return slotFromSupabase(data);
+    return withAutoReauth(async () => {
+        const { id, startTime, endTime, levelId, gender, date, capacity } = slot;
+        const { data, error } = await supabase
+            .from('appointment_slots')
+            .update({
+                start_time: startTime,
+                end_time: endTime,
+                level_id: levelId,
+                gender,
+                date,
+                capacity
+            })
+            .eq('id', id)
+            .select('*, levels(id, name)')
+            .single();
+        if (error) throw error;
+        return slotFromSupabase(data);
+    });
 };
 
 export const deleteSchedule = async(slotId: string): Promise<{ success: boolean }> => {
-    const { error } = await supabase.from('appointment_slots').delete().eq('id', slotId);
-    if (error) throw error;
-    return { success: true };
+    return withAutoReauth(async () => {
+        const { error } = await supabase.from('appointment_slots').delete().eq('id', slotId);
+        if (error) throw error;
+        return { success: true };
+    });
 };
 
 export const bulkDeleteSchedules = async(slotIds: string[]): Promise<void> => {
@@ -835,19 +873,20 @@ export const bulkDeleteSchedules = async(slotIds: string[]): Promise<void> => {
 
 // --- Level Management ---
 export const testConnection = async () => {
-  try {
-    // Simple query with no complex abort logic to ensure compatibility
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('id')
-      .limit(1);
-    
-    if (error) throw error;
-    return { success: true, data };
-  } catch (err) {
-    console.error("Supabase connection test failed:", err);
-    return { success: false, error: err };
-  }
+  return withAutoReauth(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('id')
+        .limit(1);
+      
+      if (error) throw error;
+      return { success: true, data };
+    } catch (err) {
+      console.error("Supabase connection test failed:", err);
+      return { success: false, error: err };
+    }
+  });
 };
 
 export const getLevels = async(includeInactive = false): Promise<Level[]> => {
@@ -951,26 +990,30 @@ export const getSiteContent = async (): Promise<SiteContent> => {
 };
 
 export const updateSiteContent = async (key: keyof SiteContent, value: unknown): Promise<void> => {
-    const { error } = await supabase
-        .from('asset_settings')
-        .update({ value: value })
-        .eq('key', key);
+    return withAutoReauth(async () => {
+        const { error } = await supabase
+            .from('asset_settings')
+            .update({ value: value })
+            .eq('key', key);
 
-    if (error) throw error;
+        if (error) throw error;
+    });
 };
 
 
 // --- User Management ---
 export const getAdminUsers = async (): Promise<AdminUser[]> => {
-    const { data, error } = await supabase.from('profiles').select('*');
-    if (error) throw error;
-    return data.map(u => {
-        const user = { ...u, isActive: u.is_active };
-        if (user.name && typeof user.name === 'string' && user.name.endsWith(' [co_Admin]')) {
-            user.name = user.name.replace(' [co_Admin]', '');
-            user.role = Role.CoAdmin;
-        }
-        return user;
+    return withAutoReauth(async () => {
+        const { data, error } = await supabase.from('profiles').select('*');
+        if (error) throw error;
+        return data.map(u => {
+            const user = { ...u, isActive: u.is_active };
+            if (user.name && typeof user.name === 'string' && user.name.endsWith(' [co_Admin]')) {
+                user.name = user.name.replace(' [co_Admin]', '');
+                user.role = Role.CoAdmin;
+            }
+            return user;
+        });
     });
 };
 
@@ -1007,34 +1050,38 @@ export const createAdminUser = async(user: Omit<AdminUser, 'id'>, password: stri
 };
 
 export const updateAdminUser = async(user: AdminUser): Promise<AdminUser> => {
-    const { isActive, ...rest } = user;
-    
-    // Map co_Admin to Super Admin for database storage and append suffix to name
-    const dbRole = rest.role === 'co_Admin' ? 'Super Admin' : rest.role;
-    let dbName = rest.name;
-    if (rest.role === 'co_Admin') {
-        if (!dbName.endsWith(' [co_Admin]')) {
-            dbName = `${dbName} [co_Admin]`;
+    return withAutoReauth(async () => {
+        const { isActive, ...rest } = user;
+        
+        // Map co_Admin to Super Admin for database storage and append suffix to name
+        const dbRole = rest.role === 'co_Admin' ? 'Super Admin' : rest.role;
+        let dbName = rest.name;
+        if (rest.role === 'co_Admin') {
+            if (!dbName.endsWith(' [co_Admin]')) {
+                dbName = `${dbName} [co_Admin]`;
+            }
+        } else {
+            dbName = dbName.replace(' [co_Admin]', '');
         }
-    } else {
-        dbName = dbName.replace(' [co_Admin]', '');
-    }
 
-    const { data, error } = await supabase.from('profiles').update({ ...rest, name: dbName, role: dbRole, is_active: isActive }).eq('id', user.id).select().single();
-    if (error) throw error;
-    
-    const clientUser = { ...data, isActive: data.is_active };
-    if (clientUser.name && typeof clientUser.name === 'string' && clientUser.name.endsWith(' [co_Admin]')) {
-        clientUser.name = clientUser.name.replace(' [co_Admin]', '');
-        clientUser.role = Role.CoAdmin;
-    }
-    return clientUser;
+        const { data, error } = await supabase.from('profiles').update({ ...rest, name: dbName, role: dbRole, is_active: isActive }).eq('id', user.id).select().single();
+        if (error) throw error;
+        
+        const clientUser = { ...data, isActive: data.is_active };
+        if (clientUser.name && typeof clientUser.name === 'string' && clientUser.name.endsWith(' [co_Admin]')) {
+            clientUser.name = clientUser.name.replace(' [co_Admin]', '');
+            clientUser.role = Role.CoAdmin;
+        }
+        return clientUser;
+    });
 };
 
 export const deleteAdminUser = async(userId: string): Promise<{ success: boolean }> => {
-    const { error } = await supabase.from('profiles').delete().eq('id', userId);
-    if (error) throw error;
-    return { success: true };
+    return withAutoReauth(async () => {
+        const { error } = await supabase.from('profiles').delete().eq('id', userId);
+        if (error) throw error;
+        return { success: true };
+    });
 };
 
 
@@ -1055,7 +1102,14 @@ export const updateNotificationSettings = async(settings: NotificationSettings):
 };
 
 
-let cachedAppSettings: AppSettings | null = null;
+let cachedAppSettings: AppSettings | null = (() => {
+    try {
+        const stored = typeof window !== 'undefined' ? localStorage.getItem('al_ibaanah_cached_settings') : null;
+        return stored ? JSON.parse(stored) : null;
+    } catch {
+        return null;
+    }
+})();
 
 // --- App Settings ---
 export const getAppSettings = async(): Promise<AppSettings> => {
@@ -1072,11 +1126,12 @@ export const getAppSettings = async(): Promise<AppSettings> => {
                 if (err?.code === 'PGRST301' || err?.message?.includes('JWT expired')) {
                     throw error;
                 }
-                console.error("Failed to fetch app settings, using cached or defaults.", error);
-                return cachedAppSettings || { 
-                    isRegistrationOpen: false, 
-                    isMaleRegistrationOpen: false,
-                    isFemaleRegistrationOpen: false,
+                console.warn("Failed to fetch app settings, using cached or fallback:", error);
+                if (cachedAppSettings) return cachedAppSettings;
+                return { 
+                    isRegistrationOpen: true, 
+                    isMaleRegistrationOpen: true,
+                    isFemaleRegistrationOpen: true,
                     maxDailyCapacity: 50,
                     closedReasons: {},
                     bookingStartTime: undefined,
@@ -1097,17 +1152,25 @@ export const getAppSettings = async(): Promise<AppSettings> => {
                 femaleBookingEndTime: data.female_booking_end_time
             };
             cachedAppSettings = settings;
+            try {
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('al_ibaanah_cached_settings', JSON.stringify(settings));
+                }
+            } catch {
+                // Ignore storage quota errors
+            }
             return settings;
         } catch (err) {
             const error = err as { code?: string; message?: string };
             if (error?.code === 'PGRST301' || error?.message?.includes('JWT expired')) {
                 throw err;
             }
-            console.error("Failed to fetch app settings, using cached or defaults.", err);
-            return cachedAppSettings || { 
-                isRegistrationOpen: false, 
-                isMaleRegistrationOpen: false,
-                isFemaleRegistrationOpen: false,
+            console.warn("Failed to fetch app settings, using cached or fallback:", err);
+            if (cachedAppSettings) return cachedAppSettings;
+            return { 
+                isRegistrationOpen: true, 
+                isMaleRegistrationOpen: true,
+                isFemaleRegistrationOpen: true,
                 maxDailyCapacity: 50,
                 closedReasons: {},
                 bookingStartTime: undefined,
@@ -1146,39 +1209,57 @@ export const updateAppSettings = async(settings: AppSettings): Promise<AppSettin
             femaleBookingEndTime: data.female_booking_end_time
         };
         cachedAppSettings = updated;
+        try {
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('al_ibaanah_cached_settings', JSON.stringify(updated));
+            }
+        } catch {
+            // Ignore storage quota errors
+        }
         return updated;
     });
 };
 
 export const updateAppSetting = async (key: keyof AppSettings, value: unknown): Promise<AppSettings> => {
-    const dbKeyMap: Record<string, string> = {
-        isRegistrationOpen: 'registration_open',
-        isMaleRegistrationOpen: 'male_registration_open',
-        isFemaleRegistrationOpen: 'female_registration_open',
-        maxDailyCapacity: 'max_daily_capacity',
-        closedReasons: 'closed_reasons',
-        bookingStartTime: 'booking_start_time',
-        bookingEndTime: 'booking_end_time',
-        femaleBookingStartTime: 'female_booking_start_time',
-        femaleBookingEndTime: 'female_booking_end_time'
-    };
+    return withAutoReauth(async () => {
+        const dbKeyMap: Record<string, string> = {
+            isRegistrationOpen: 'registration_open',
+            isMaleRegistrationOpen: 'male_registration_open',
+            isFemaleRegistrationOpen: 'female_registration_open',
+            maxDailyCapacity: 'max_daily_capacity',
+            closedReasons: 'closed_reasons',
+            bookingStartTime: 'booking_start_time',
+            bookingEndTime: 'booking_end_time',
+            femaleBookingStartTime: 'female_booking_start_time',
+            femaleBookingEndTime: 'female_booking_end_time'
+        };
 
-    const updates = {
-        [dbKeyMap[key as string]]: value === "" ? null : value
-    };
-    const { data, error } = await supabase.from('app_settings').update(updates).eq('id', 1).select().single();
-    if (error) throw error;
-    return { 
-        isRegistrationOpen: data.registration_open, 
-        isMaleRegistrationOpen: data.male_registration_open,
-        isFemaleRegistrationOpen: data.female_registration_open,
-        maxDailyCapacity: data.max_daily_capacity,
-        closedReasons: data.closed_reasons || {},
-        bookingStartTime: data.booking_start_time,
-        bookingEndTime: data.booking_end_time,
-        femaleBookingStartTime: data.female_booking_start_time,
-        femaleBookingEndTime: data.female_booking_end_time
-    };
+        const updates = {
+            [dbKeyMap[key as string]]: value === "" ? null : value
+        };
+        const { data, error } = await supabase.from('app_settings').update(updates).eq('id', 1).select().single();
+        if (error) throw error;
+        const updated: AppSettings = { 
+            isRegistrationOpen: data.registration_open, 
+            isMaleRegistrationOpen: data.male_registration_open,
+            isFemaleRegistrationOpen: data.female_registration_open,
+            maxDailyCapacity: data.max_daily_capacity,
+            closedReasons: data.closed_reasons || {},
+            bookingStartTime: data.booking_start_time,
+            bookingEndTime: data.booking_end_time,
+            femaleBookingStartTime: data.female_booking_start_time,
+            femaleBookingEndTime: data.female_booking_end_time
+        };
+        cachedAppSettings = updated;
+        try {
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('al_ibaanah_cached_settings', JSON.stringify(updated));
+            }
+        } catch {
+            // Ignore storage quota errors
+        }
+        return updated;
+    });
 };
 
 export const sendTestEmail = async (to: string, subject: string, html: string): Promise<void> => {

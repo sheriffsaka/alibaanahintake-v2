@@ -8,7 +8,6 @@ import { usePolling } from '../../hooks/usePolling';
 import { useAuth } from '../../hooks/useAuth';
 import { getAdminGenderFilter } from '../../types';
 import { supabase, safeRefreshSession, syncRealtimeAuth } from '../../services/supabaseClient';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface DashboardData {
     totalRegistered: number;
@@ -59,120 +58,59 @@ const Dashboard: React.FC = () => {
   // Set up polling for background refresh
   usePolling(fetchDashboardData, POLLING_INTERVAL);
 
-  // Set up Realtime subscription with robust recovery and channel cleanup
+  // Set up Realtime subscription with resilient recovery and clean lifecycle
   useEffect(() => {
-    let activeChannel: RealtimeChannel | null = null;
     let isDisposed = false;
-    let isConnecting = false;
-    let reconnectTimeout: NodeJS.Timeout | null = null;
     let syncDebounceTimer: NodeJS.Timeout | null = null;
 
-    const setupRealtimeChannel = async () => {
-      if (isDisposed || isConnecting) return;
-      if (activeChannel && (activeChannel.state === 'joining' || activeChannel.state === 'joined')) {
-        return;
-      }
-      isConnecting = true;
+    // Use a stable channel name for this component instance
+    const channelName = 'admin-dashboard-students';
+    const channel = supabase.channel(channelName);
 
-      try {
-        if (activeChannel) {
-          const oldChannel = activeChannel;
-          activeChannel = null;
-          supabase.removeChannel(oldChannel);
+    channel
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'students' },
+        () => {
+          if (!isDisposed) {
+            fetchDashboardDataRef.current();
+          }
         }
-
-        const session = await safeRefreshSession();
-        if (session?.access_token) {
-          await syncRealtimeAuth(session.access_token);
+      )
+      .subscribe((status) => {
+        if (isDisposed) return;
+        if (status === 'SUBSCRIBED') {
+          fetchDashboardDataRef.current();
+        } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          console.log(`[Dashboard] Realtime channel status: ${status} (awaiting socket auto-reconnect)`);
         }
+      });
 
-        if (isDisposed) {
-          isConnecting = false;
-          return;
-        }
-
-        const channelName = `admin-dashboard-${Date.now()}`;
-        const channel = supabase.channel(channelName);
-        activeChannel = channel;
-
-        channel
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'students' },
-            () => {
-              if (!isDisposed) {
-                fetchDashboardDataRef.current();
-              }
-            }
-          )
-          .subscribe((status) => {
-            // Ignore status events if channel is no longer active or component is disposed
-            if (activeChannel !== channel || isDisposed) {
-              return;
-            }
-
-            if (status === 'SUBSCRIBED') {
-              isConnecting = false;
-              fetchDashboardDataRef.current();
-            } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-              isConnecting = false;
-              console.warn(`[Dashboard] Realtime status ${status}. Cleaning up and scheduling reconnect...`);
-              
-              // Disassociate activeChannel FIRST so subsequent CLOSED events from removeChannel are ignored
-              activeChannel = null;
-              supabase.removeChannel(channel);
-
-              if (reconnectTimeout) clearTimeout(reconnectTimeout);
-              reconnectTimeout = setTimeout(() => {
-                if (!isDisposed) {
-                  setupRealtimeChannel();
-                }
-              }, 3000);
-            }
-          });
-      } catch (err) {
-        isConnecting = false;
-        console.warn('[Dashboard] Setup Realtime channel exception:', err);
-      }
-    };
-
-    setupRealtimeChannel();
-
-    const handleSyncAndReconnect = () => {
-      if (isDisposed) return;
-      if (document.visibilityState !== 'visible') return;
+    const handleSyncOnVisible = () => {
+      if (isDisposed || document.visibilityState !== 'visible') return;
 
       if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
       syncDebounceTimer = setTimeout(async () => {
         if (isDisposed || document.visibilityState !== 'visible') return;
-        await safeRefreshSession();
-        fetchDashboardDataRef.current();
-
-        const isChannelActive = activeChannel && (activeChannel.state === 'joining' || activeChannel.state === 'joined');
-        if (!isConnecting && !isChannelActive) {
-          if (reconnectTimeout) clearTimeout(reconnectTimeout);
-          setupRealtimeChannel();
+        const session = await safeRefreshSession();
+        if (session?.access_token) {
+          await syncRealtimeAuth(session.access_token);
         }
+        fetchDashboardDataRef.current();
       }, 300);
     };
 
-    document.addEventListener('visibilitychange', handleSyncAndReconnect);
-    window.addEventListener('online', handleSyncAndReconnect);
-    window.addEventListener('focus', handleSyncAndReconnect);
+    document.addEventListener('visibilitychange', handleSyncOnVisible);
+    window.addEventListener('online', handleSyncOnVisible);
+    window.addEventListener('focus', handleSyncOnVisible);
 
     return () => {
       isDisposed = true;
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
-      document.removeEventListener('visibilitychange', handleSyncAndReconnect);
-      window.removeEventListener('online', handleSyncAndReconnect);
-      window.removeEventListener('focus', handleSyncAndReconnect);
-      
-      if (activeChannel) {
-        const chanToCleanup = activeChannel;
-        activeChannel = null;
-        supabase.removeChannel(chanToCleanup);
-      }
+      document.removeEventListener('visibilitychange', handleSyncOnVisible);
+      window.removeEventListener('online', handleSyncOnVisible);
+      window.removeEventListener('focus', handleSyncOnVisible);
+      supabase.removeChannel(channel);
     };
   }, []);
 
