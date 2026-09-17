@@ -33,29 +33,17 @@ const Dashboard: React.FC = () => {
   }, [user]);
 
   const isFetchingRef = React.useRef(false);
+  const fetchDashboardDataRef = React.useRef<() => Promise<void>>(() => Promise.resolve());
 
   const fetchDashboardData = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     setError(null);
-    
-    const isPending = { current: true };
-    const timeoutId = setTimeout(() => {
-        if (isPending.current) {
-            setError("Request timed out. Retrying in background...");
-            setLoading(false);
-            isFetchingRef.current = false;
-        }
-    }, 15000); // 15 second timeout
 
     try {
       const dashboardData = await getDashboardData(adminGenderFilter);
-      isPending.current = false;
-      clearTimeout(timeoutId);
       setData(dashboardData);
     } catch (err) {
-      isPending.current = false;
-      clearTimeout(timeoutId);
       console.error("Failed to fetch dashboard data", err);
       setError("Could not load dashboard data. Retrying in background...");
     } finally {
@@ -63,6 +51,10 @@ const Dashboard: React.FC = () => {
       setLoading(false);
     }
   }, [adminGenderFilter]);
+
+  useEffect(() => {
+    fetchDashboardDataRef.current = fetchDashboardData;
+  }, [fetchDashboardData]);
 
   // Set up polling for background refresh
   usePolling(fetchDashboardData, POLLING_INTERVAL);
@@ -73,6 +65,7 @@ const Dashboard: React.FC = () => {
     let isDisposed = false;
     let isConnecting = false;
     let reconnectTimeout: NodeJS.Timeout | null = null;
+    let syncDebounceTimer: NodeJS.Timeout | null = null;
 
     const setupRealtimeChannel = async () => {
       if (isDisposed || isConnecting) return;
@@ -108,7 +101,7 @@ const Dashboard: React.FC = () => {
             { event: '*', schema: 'public', table: 'students' },
             () => {
               if (!isDisposed) {
-                fetchDashboardData();
+                fetchDashboardDataRef.current();
               }
             }
           )
@@ -120,7 +113,7 @@ const Dashboard: React.FC = () => {
 
             if (status === 'SUBSCRIBED') {
               isConnecting = false;
-              fetchDashboardData();
+              fetchDashboardDataRef.current();
             } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
               isConnecting = false;
               console.warn(`[Dashboard] Realtime status ${status}. Cleaning up and scheduling reconnect...`);
@@ -145,18 +138,22 @@ const Dashboard: React.FC = () => {
 
     setupRealtimeChannel();
 
-    const handleSyncAndReconnect = async () => {
+    const handleSyncAndReconnect = () => {
       if (isDisposed) return;
-      if (document.visibilityState === 'visible' || navigator.onLine) {
+      if (document.visibilityState !== 'visible') return;
+
+      if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+      syncDebounceTimer = setTimeout(async () => {
+        if (isDisposed || document.visibilityState !== 'visible') return;
         await safeRefreshSession();
-        fetchDashboardData();
+        fetchDashboardDataRef.current();
 
         const isChannelActive = activeChannel && (activeChannel.state === 'joining' || activeChannel.state === 'joined');
         if (!isConnecting && !isChannelActive) {
           if (reconnectTimeout) clearTimeout(reconnectTimeout);
           setupRealtimeChannel();
         }
-      }
+      }, 300);
     };
 
     document.addEventListener('visibilitychange', handleSyncAndReconnect);
@@ -166,6 +163,7 @@ const Dashboard: React.FC = () => {
     return () => {
       isDisposed = true;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
       document.removeEventListener('visibilitychange', handleSyncAndReconnect);
       window.removeEventListener('online', handleSyncAndReconnect);
       window.removeEventListener('focus', handleSyncAndReconnect);
@@ -176,7 +174,7 @@ const Dashboard: React.FC = () => {
         supabase.removeChannel(chanToCleanup);
       }
     };
-  }, [fetchDashboardData]);
+  }, []);
 
   const filteredBreakdown = React.useMemo(() => 
     data?.breakdownByLevel.filter(item => item.value > 0) || [], 

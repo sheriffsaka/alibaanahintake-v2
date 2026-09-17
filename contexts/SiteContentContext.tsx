@@ -36,31 +36,29 @@ export const SiteContentProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
     const fetchContent = async () => {
-        const isPending = { current: true };
-        const timeoutId = setTimeout(() => {
-            if (isPending.current) {
-                console.warn("Site content fetch timed out, using defaults.");
-                setContent(defaultContent);
-                setLoading(false);
-            }
-        }, 5000); // Reduced to 5 seconds
-
         try {
             const siteContent = await getSiteContent();
-            isPending.current = false;
-            clearTimeout(timeoutId);
-            setContent(siteContent);
+            if (mounted) {
+                setContent(siteContent);
+            }
         } catch (error) {
-            isPending.current = false;
-            clearTimeout(timeoutId);
             console.error("Failed to fetch site content, using defaults.", error);
-            setContent(defaultContent);
+            if (mounted) {
+                setContent(defaultContent);
+            }
         } finally {
-            setLoading(false);
+            if (mounted) {
+                setLoading(false);
+            }
         }
     };
     fetchContent();
+
+    return () => {
+        mounted = false;
+    };
   }, []);
 
 

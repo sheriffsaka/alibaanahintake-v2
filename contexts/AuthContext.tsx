@@ -16,9 +16,29 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AdminUser | null>(null);
+  const [user, setUser] = useState<AdminUser | null>(() => {
+    try {
+      const cached = localStorage.getItem('al_ibaanah_cached_profile');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const updateUser = useCallback((profile: AdminUser | null) => {
+    setUser(profile);
+    if (profile) {
+      try {
+        localStorage.setItem('al_ibaanah_cached_profile', JSON.stringify(profile));
+      } catch (e) {
+        console.warn('Failed to save profile cache:', e);
+      }
+    } else {
+      localStorage.removeItem('al_ibaanah_cached_profile');
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -31,7 +51,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           console.error('Error fetching initial session:', error);
           if (mounted) {
             setSession(null);
-            setUser(null);
+            updateUser(null);
             setLoading(false);
           }
           return;
@@ -50,9 +70,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (mounted) {
               if (profile) {
                 if (profile.isActive) {
-                  setUser(profile);
+                  updateUser(profile);
                 } else {
-                  setUser(null);
+                  updateUser(null);
                   setSession(null);
                   await apiLogout();
                 }
@@ -89,9 +109,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               if (mounted) {
                 if (profile) {
                   if (profile.isActive) {
-                    setUser(profile);
+                    updateUser(profile);
                   } else {
-                    setUser(null);
+                    updateUser(null);
                     await apiLogout();
                   }
                 }
@@ -102,7 +122,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
           }
         } else {
-          if (mounted) setUser(null);
+          if (mounted) updateUser(null);
         }
         
         if (mounted) setLoading(false);
@@ -114,7 +134,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       authListener?.subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [updateUser]);
 
   const login = useCallback(async (email: string, password: string): Promise<void> => {
     await apiLogin(email, password);
@@ -127,10 +147,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (err) {
       console.error("Error during logout:", err);
     } finally {
-      setUser(null);
+      updateUser(null);
       setSession(null);
     }
-  }, []);
+  }, [updateUser]);
   
   const value = useMemo(() => ({
     user,

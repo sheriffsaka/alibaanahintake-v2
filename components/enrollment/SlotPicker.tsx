@@ -80,6 +80,30 @@ const SlotPicker: React.FC = () => {
     fetchSlots();
   }, [fetchSlots]);
 
+  // Refresh dates and slots when student returns to the tab after inactivity
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          if (document.visibilityState === 'visible') {
+            fetchDates();
+            fetchSlots();
+          }
+        }, 300);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleVisibilityChange);
+    return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleVisibilityChange);
+    };
+  }, [fetchDates, fetchSlots]);
+
   const handleConfirm = () => {
       if (selectedSlotId) {
           const selectedSlot = slots.find(s => s.id === selectedSlotId);

@@ -62,6 +62,26 @@ const ScheduleManager: React.FC = () => {
       }
     };
     fetchInitialData();
+
+    let timer: NodeJS.Timeout | null = null;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          if (document.visibilityState === 'visible') {
+            fetchInitialData();
+          }
+        }, 300);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleVisibilityChange);
+    return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleVisibilityChange);
+    };
   }, [currentPage, adminGenderFilter]);
 
   const handleOpenModal = (slot?: AppointmentSlot) => {

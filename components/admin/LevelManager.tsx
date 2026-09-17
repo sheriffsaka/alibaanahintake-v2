@@ -19,23 +19,11 @@ const LevelManager: React.FC = () => {
   const fetchLevels = async () => {
     setLoading(true);
     setError(null);
-    
-    const isPending = { current: true };
-    const timeoutId = setTimeout(() => {
-        if (isPending.current) {
-            setError("Request timed out. Please check your connection and try again.");
-            setLoading(false);
-        }
-    }, 15000);
 
     try {
       const data = await getLevels(true); // Fetch all levels, including inactive
-      isPending.current = false;
-      clearTimeout(timeoutId);
       setLevels(data);
     } catch (error) {
-      isPending.current = false;
-      clearTimeout(timeoutId);
       console.error("Failed to fetch levels", error);
       setError("Failed to load levels. Please try again.");
     } finally {
@@ -45,6 +33,26 @@ const LevelManager: React.FC = () => {
 
   useEffect(() => {
     fetchLevels();
+
+    let timer: NodeJS.Timeout | null = null;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          if (document.visibilityState === 'visible') {
+            fetchLevels();
+          }
+        }, 300);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleVisibilityChange);
+    return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleVisibilityChange);
+    };
   }, []);
 
   const handleOpenModal = (level?: Level) => {

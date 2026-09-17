@@ -1,7 +1,35 @@
 
-import { supabase } from './supabaseClient';
+import { supabase, safeRefreshSession } from './supabaseClient';
 import { Student, AppointmentSlot, Level, AdminUser, NotificationSettings, AppSettings, SiteContent, Gender, Role, isGenderRegistrationOpen } from '../types';
 
+/**
+ * Automatically catches expired JWT / 401 errors from PostgREST/Supabase queries,
+ * safely refreshes the authentication session, and re-attempts the operation once.
+ */
+export const withAutoReauth = async <T>(queryFn: () => Promise<T>): Promise<T> => {
+  try {
+    return await queryFn();
+  } catch (err: unknown) {
+    const error = err as { code?: string; message?: string; status?: number };
+    const isAuthExpired = 
+      error?.code === 'PGRST301' || 
+      error?.status === 401 ||
+      (typeof error?.message === 'string' && (
+        error.message.includes('JWT expired') || 
+        error.message.includes('token is expired') ||
+        error.message.includes('invalid claim')
+      ));
+
+    if (isAuthExpired) {
+      console.log('[ApiService] Encountered expired token. Refreshing session and retrying query...');
+      const session = await safeRefreshSession(true);
+      if (session) {
+        return await queryFn();
+      }
+    }
+    throw err;
+  }
+};
 
 const fetchWithTimeout = async (resource: string, options: RequestInit & { timeout?: number } = {}) => {
     const { timeout = 15000 } = options;
@@ -177,29 +205,38 @@ export const checkSession = async (email?: string): Promise<boolean> => {
 };
 
 export const getAdminUserProfile = async (userId: string): Promise<AdminUser | null> => {
-    try {
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
-        
-        if (error) {
-            console.error("Error fetching profile:", error);
+    return withAutoReauth(async () => {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
+            
+            if (error) {
+                if (error.code === 'PGRST301' || error.message?.includes('JWT expired')) {
+                    throw error;
+                }
+                console.error("Error fetching profile:", error);
+                return null;
+            }
+            
+            const user = { ...data, isActive: data.is_active };
+            if (user.name && typeof user.name === 'string' && user.name.endsWith(' [co_Admin]')) {
+                user.name = user.name.replace(' [co_Admin]', '');
+                user.role = Role.CoAdmin;
+            }
+            return user;
+        } catch (err) {
+            const error = err as { code?: string; message?: string };
+            if (error?.code === 'PGRST301' || error?.message?.includes('JWT expired')) {
+                throw err;
+            }
+            console.error("Critical error fetching profile:", err);
             return null;
         }
-        
-        const user = { ...data, isActive: data.is_active };
-        if (user.name && typeof user.name === 'string' && user.name.endsWith(' [co_Admin]')) {
-            user.name = user.name.replace(' [co_Admin]', '');
-            user.role = Role.CoAdmin;
-        }
-        return user;
-    } catch (err) {
-        console.error("Critical error fetching profile:", err);
-        return null;
-    }
-}
+    });
+};
 
 
 // --- Student Public API ---
@@ -294,50 +331,52 @@ export const getAllStudents = async (
         gender?: Gender;
     }
 ): Promise<{ students: Student[], count: number }> => {
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    return withAutoReauth(async () => {
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
 
-    let query = supabase
-        .from('students')
-        .select('*, levels(name)', { count: 'exact' });
+        let query = supabase
+            .from('students')
+            .select('*, levels(name)', { count: 'exact' });
 
-    if (searchTerm) {
-        const searchIlke = `%${searchTerm}%`;
-        query = query.or(`firstname.ilike.${searchIlke},surname.ilike.${searchIlke},email.ilike.${searchIlke},registration_code.ilike.${searchIlke}`);
-    }
-
-    if (filters?.intakeDate) {
-        query = query.eq('intake_date', filters.intakeDate);
-    }
-
-    if (filters?.appointmentSlotId) {
-        if (Array.isArray(filters.appointmentSlotId)) {
-            query = query.in('appointment_slot_id', filters.appointmentSlotId);
-        } else {
-            query = query.eq('appointment_slot_id', filters.appointmentSlotId);
+        if (searchTerm) {
+            const searchIlke = `%${searchTerm}%`;
+            query = query.or(`firstname.ilike.${searchIlke},surname.ilike.${searchIlke},email.ilike.${searchIlke},registration_code.ilike.${searchIlke}`);
         }
-    }
 
-    if (filters?.gender) {
-        query = query.eq('gender', filters.gender);
-    }
+        if (filters?.intakeDate) {
+            query = query.eq('intake_date', filters.intakeDate);
+        }
 
-    if (sortKey) {
-        const dbSortKey = sortKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-        query = query.order(dbSortKey, { ascending: sortDirection === 'asc' });
-    } else {
-        query = query.order('created_at', { ascending: false });
-    }
+        if (filters?.appointmentSlotId) {
+            if (Array.isArray(filters.appointmentSlotId)) {
+                query = query.in('appointment_slot_id', filters.appointmentSlotId);
+            } else {
+                query = query.eq('appointment_slot_id', filters.appointmentSlotId);
+            }
+        }
 
-    query = query.range(from, to);
+        if (filters?.gender) {
+            query = query.eq('gender', filters.gender);
+        }
 
-    const { data, error, count } = await query;
+        if (sortKey) {
+            const dbSortKey = sortKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            query = query.order(dbSortKey, { ascending: sortDirection === 'asc' });
+        } else {
+            query = query.order('created_at', { ascending: false });
+        }
 
-    if (error) {
-        console.error('Error fetching students:', error);
-        throw error;
-    }
-    return { students: data.map(studentFromSupabase), count: count ?? 0 };
+        query = query.range(from, to);
+
+        const { data, error, count } = await query;
+
+        if (error) {
+            console.error('Error fetching students:', error);
+            throw error;
+        }
+        return { students: (data || []).map(studentFromSupabase), count: count ?? 0 };
+    });
 };
 
 export const getAllStudentsForExport = async (
@@ -350,121 +389,130 @@ export const getAllStudentsForExport = async (
         gender?: Gender;
     }
 ): Promise<Student[]> => {
-    let query = supabase
-        .from('students')
-        .select('*, levels(name)');
+    return withAutoReauth(async () => {
+        let query = supabase
+            .from('students')
+            .select('*, levels(name)');
 
-    if (searchTerm) {
-        const searchIlke = `%${searchTerm}%`;
-        query = query.or(`firstname.ilike.${searchIlke},surname.ilike.${searchIlke},email.ilike.${searchIlke},registration_code.ilike.${searchIlke}`);
-    }
-
-    if (filters?.intakeDate) {
-        query = query.eq('intake_date', filters.intakeDate);
-    }
-
-    if (filters?.appointmentSlotId) {
-        if (Array.isArray(filters.appointmentSlotId)) {
-            query = query.in('appointment_slot_id', filters.appointmentSlotId);
-        } else {
-            query = query.eq('appointment_slot_id', filters.appointmentSlotId);
+        if (searchTerm) {
+            const searchIlke = `%${searchTerm}%`;
+            query = query.or(`firstname.ilike.${searchIlke},surname.ilike.${searchIlke},email.ilike.${searchIlke},registration_code.ilike.${searchIlke}`);
         }
-    }
 
-    if (filters?.gender) {
-        query = query.eq('gender', filters.gender);
-    }
+        if (filters?.intakeDate) {
+            query = query.eq('intake_date', filters.intakeDate);
+        }
 
-    if (sortKey) {
-        const dbSortKey = sortKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-        query = query.order(dbSortKey, { ascending: sortDirection === 'asc' });
-    } else {
-        query = query.order('created_at', { ascending: false });
-    }
+        if (filters?.appointmentSlotId) {
+            if (Array.isArray(filters.appointmentSlotId)) {
+                query = query.in('appointment_slot_id', filters.appointmentSlotId);
+            } else {
+                query = query.eq('appointment_slot_id', filters.appointmentSlotId);
+            }
+        }
 
-    const { data, error } = await query;
+        if (filters?.gender) {
+            query = query.eq('gender', filters.gender);
+        }
 
-    if (error) {
-        console.error('Error fetching students for export:', error);
-        throw error;
-    }
-    return data.map(studentFromSupabase);
+        if (sortKey) {
+            const dbSortKey = sortKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            query = query.order(dbSortKey, { ascending: sortDirection === 'asc' });
+        } else {
+            query = query.order('created_at', { ascending: false });
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+            console.error('Error fetching students for export:', error);
+            throw error;
+        }
+        return (data || []).map(studentFromSupabase);
+    });
 };
 
 export const getDashboardData = async (genderFilter?: Gender) => {
-    if (genderFilter) {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const [totalRes, todayRes, levelsRes, slotsRes] = await Promise.all([
-            supabase.from('students').select('id', { count: 'exact', head: true }).eq('gender', genderFilter),
-            supabase.from('students').select('id, status', { count: 'exact' }).eq('intake_date', todayStr).eq('gender', genderFilter),
-            supabase.from('levels').select('id, name, sort_order').eq('is_active', true).order('sort_order'),
-            supabase.from('appointment_slots').select('date, start_time, booked, capacity').gte('date', todayStr).eq('gender', genderFilter).order('date').order('start_time').limit(10)
-        ]);
+    return withAutoReauth(async () => {
+        if (genderFilter) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const [totalRes, todayRes, levelsRes, slotsRes] = await Promise.all([
+                supabase.from('students').select('id', { count: 'exact', head: true }).eq('gender', genderFilter),
+                supabase.from('students').select('id, status', { count: 'exact' }).eq('intake_date', todayStr).eq('gender', genderFilter),
+                supabase.from('levels').select('id, name, sort_order').eq('is_active', true).order('sort_order'),
+                supabase.from('appointment_slots').select('date, start_time, booked, capacity').gte('date', todayStr).eq('gender', genderFilter).order('date').order('start_time').limit(10)
+            ]);
 
-        const todayStudents = todayRes.data || [];
-        const todayExpected = todayStudents.length;
-        const checkedIn = todayStudents.filter(s => s.status === 'checked-in').length;
+            const todayStudents = todayRes.data || [];
+            const todayExpected = todayStudents.length;
+            const checkedIn = todayStudents.filter(s => s.status === 'checked-in').length;
 
-        const studentsByLevelRes = await supabase.from('students').select('level_id').eq('gender', genderFilter);
-        const levelCounts: Record<string, number> = {};
-        (studentsByLevelRes.data || []).forEach(s => {
-            if (s.level_id) levelCounts[s.level_id] = (levelCounts[s.level_id] || 0) + 1;
-        });
+            const studentsByLevelRes = await supabase.from('students').select('level_id').eq('gender', genderFilter);
+            const levelCounts: Record<string, number> = {};
+            (studentsByLevelRes.data || []).forEach(s => {
+                if (s.level_id) levelCounts[s.level_id] = (levelCounts[s.level_id] || 0) + 1;
+            });
 
-        const breakdownByLevel = (levelsRes.data || []).map(l => ({
-            name: l.name,
-            value: levelCounts[l.id] || 0
-        }));
+            const breakdownByLevel = (levelsRes.data || []).map(l => ({
+                name: l.name,
+                value: levelCounts[l.id] || 0
+            }));
 
-        const slotUtilization = (slotsRes.data || []).map(s => ({
-            name: `${s.date || ''} ${s.start_time || ''}`.trim() || 'Unknown Slot',
-            booked: Number(s.booked) || 0,
-            capacity: Number(s.capacity) || 0
-        }));
-
-        return {
-            totalRegistered: totalRes.count || 0,
-            todayExpected,
-            checkedIn,
-            breakdownByLevel,
-            slotUtilization
-        };
-    }
-
-    const { data, error } = await supabase.rpc('get_dashboard_statistics');
-
-    if (error || !data) {
-        console.error("Dashboard data fetch error:", error);
-        throw new Error('Failed to fetch dashboard data.');
-    }
-
-    return {
-        ...data,
-        slotUtilization: Array.isArray(data.slotUtilization) 
-            ? data.slotUtilization.map((s: Record<string, unknown>) => ({
+            const slotUtilization = (slotsRes.data || []).map(s => ({
                 name: `${s.date || ''} ${s.start_time || ''}`.trim() || 'Unknown Slot',
                 booked: Number(s.booked) || 0,
-                capacity: Number(s.capacity) || 0,
-              }))
-            : [],
-    };
+                capacity: Number(s.capacity) || 0
+            }));
+
+            return {
+                totalRegistered: totalRes.count || 0,
+                todayExpected,
+                checkedIn,
+                breakdownByLevel,
+                slotUtilization
+            };
+        }
+
+        const { data, error } = await supabase.rpc('get_dashboard_statistics');
+
+        if (error || !data) {
+            console.error("Dashboard data fetch error:", error);
+            throw error || new Error('Failed to fetch dashboard data.');
+        }
+
+        return {
+            ...data,
+            slotUtilization: Array.isArray(data.slotUtilization) 
+                ? data.slotUtilization.map((s: Record<string, unknown>) => ({
+                    name: `${s.date || ''} ${s.start_time || ''}`.trim() || 'Unknown Slot',
+                    booked: Number(s.booked) || 0,
+                    capacity: Number(s.capacity) || 0,
+                  }))
+                : [],
+        };
+    });
 };
 
 export const findStudent = async (query: string): Promise<Student | null> => {
     if (!query) return null;
 
-    const { data, error } = await supabase
-      .rpc('search_students', { search_term: query })
-      .select('*, levels(name)')
-      .limit(1)
-      .maybeSingle();
+    return withAutoReauth(async () => {
+        const { data, error } = await supabase
+          .rpc('search_students', { search_term: query })
+          .select('*, levels(name)')
+          .limit(1)
+          .maybeSingle();
 
-    if (error) {
-        console.error("Error finding student via RPC:", error);
-        return null;
-    }
+        if (error) {
+            if (error.code === 'PGRST301' || error.message?.includes('JWT expired')) {
+                throw error;
+            }
+            console.error("Error finding student via RPC:", error);
+            return null;
+        }
 
-    return data ? studentFromSupabase(data) : null;
+        return data ? studentFromSupabase(data) : null;
+    });
 };
 
 export const requestManageBookingOTP = async (email: string): Promise<Record<string, unknown>> => {
@@ -672,25 +720,27 @@ export const checkInStudent = async (studentId: string): Promise<Student> => {
 
 // --- Schedule Management ---
 export const getSchedules = async (page: number, pageSize: number, gender?: Gender): Promise<{ slots: AppointmentSlot[], count: number }> => {
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    return withAutoReauth(async () => {
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
 
-    let query = supabase
-        .from('appointment_slots')
-        .select('*, levels(id, name)', { count: 'exact' });
+        let query = supabase
+            .from('appointment_slots')
+            .select('*, levels(id, name)', { count: 'exact' });
 
-    if (gender) {
-        query = query.eq('gender', gender);
-    }
+        if (gender) {
+            query = query.eq('gender', gender);
+        }
 
-    const { data, error, count } = await query
-        .order('date', { ascending: true })
-        .order('start_time', { ascending: true })
-        .range(from, to);
+        const { data, error, count } = await query
+            .order('date', { ascending: true })
+            .order('start_time', { ascending: true })
+            .range(from, to);
 
-    if (error) throw error;
-    
-    return { slots: data.map(slotFromSupabase), count: count ?? 0 };
+        if (error) throw error;
+        
+        return { slots: (data || []).map(slotFromSupabase), count: count ?? 0 };
+    });
 };
 
 
@@ -801,48 +851,58 @@ export const testConnection = async () => {
 };
 
 export const getLevels = async(includeInactive = false): Promise<Level[]> => {
-    try {
-        let query = supabase.from('levels').select('*');
-        if (!includeInactive) {
-            query = query.eq('is_active', true);
+    return withAutoReauth(async () => {
+        try {
+            let query = supabase.from('levels').select('*');
+            if (!includeInactive) {
+                query = query.eq('is_active', true);
+            }
+            const { data, error } = await query.order('sort_order', { ascending: true });
+            if (error) throw error;
+            return data.map(l => ({...l, isActive: l.is_active, sortOrder: l.sort_order}));
+        } catch (err) {
+            const error = err as { code?: string; message?: string };
+            if (error?.code === 'PGRST301' || error?.message?.includes('JWT expired')) {
+                throw err;
+            }
+            console.error("Failed to fetch levels:", err);
+            return [];
         }
-        const { data, error } = await query.order('sort_order', { ascending: true });
-        if (error) throw error;
-        return data.map(l => ({...l, isActive: l.is_active, sortOrder: l.sort_order}));
-    } catch (err) {
-        console.error("Failed to fetch levels:", err);
-        return [];
-    }
+    });
 };
 
 export const createLevel = async(level: Omit<Level, 'id'>): Promise<Level> => {
-    const { isActive, sortOrder, ...rest } = level;
-    const { data, error } = await supabase.from('levels').insert({ ...rest, is_active: isActive, sort_order: sortOrder }).select().single();
-    if (error) throw error;
-    return {...data, isActive: data.is_active, sortOrder: data.sort_order};
+    return withAutoReauth(async () => {
+        const { isActive, sortOrder, ...rest } = level;
+        const { data, error } = await supabase.from('levels').insert({ ...rest, is_active: isActive, sort_order: sortOrder }).select().single();
+        if (error) throw error;
+        return {...data, isActive: data.is_active, sortOrder: data.sort_order};
+    });
 };
 
 export const updateLevel = async(level: Level): Promise<Level> => {
-    const { isActive, sortOrder, ...rest } = level;
-    const { data, error } = await supabase.from('levels').update({ ...rest, is_active: isActive, sort_order: sortOrder }).eq('id', level.id).select().single();
-    if (error) throw error;
-    return {...data, isActive: data.is_active, sortOrder: data.sort_order};
+    return withAutoReauth(async () => {
+        const { isActive, sortOrder, ...rest } = level;
+        const { data, error } = await supabase.from('levels').update({ ...rest, is_active: isActive, sort_order: sortOrder }).eq('id', level.id).select().single();
+        if (error) throw error;
+        return {...data, isActive: data.is_active, sortOrder: data.sort_order};
+    });
 };
 
 export const deleteLevel = async(levelId: string): Promise<{ success: boolean }> => {
-    const { error } = await supabase.from('levels').delete().eq('id', levelId);
-    if (error) throw error;
-    return { success: true };
+    return withAutoReauth(async () => {
+        const { error } = await supabase.from('levels').delete().eq('id', levelId);
+        if (error) throw error;
+        return { success: true };
+    });
 };
 
 
+let cachedSiteContent: SiteContent | null = null;
+
 // --- Site Content Management ---
 export const getSiteContent = async (): Promise<SiteContent> => {
-    try {
-        const { data, error } = await supabase
-            .from('asset_settings')
-            .select('key, value');
-        
+    return withAutoReauth(async () => {
         const defaultContent: SiteContent = {
             logoUrl: 'https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png',
             officialSiteUrl: 'https://ibaanah.com/',
@@ -853,33 +913,41 @@ export const getSiteContent = async (): Promise<SiteContent> => {
             campusHours: ''
         };
 
-        if (error) {
-            console.error("Error fetching site content, returning default.", error);
-            return defaultContent;
-        }
+        try {
+            const { data, error } = await supabase
+                .from('asset_settings')
+                .select('key, value');
+            
+            if (error) {
+                const err = error as { code?: string; message?: string };
+                if (err?.code === 'PGRST301' || err?.message?.includes('JWT expired')) {
+                    throw error;
+                }
+                console.error("Error fetching site content, returning cached or default.", error);
+                return cachedSiteContent || defaultContent;
+            }
 
-        if (!data) {
-            return defaultContent;
-        }
-        
-        const fetchedContent = data.reduce((acc, { key, value }) => {
-            acc[key] = value;
-            return acc;
-        }, {} as Record<string, unknown>);
+            if (!data) {
+                return cachedSiteContent || defaultContent;
+            }
+            
+            const fetchedContent = data.reduce((acc, { key, value }) => {
+                acc[key] = value;
+                return acc;
+            }, {} as Record<string, unknown>);
 
-        return { ...defaultContent, ...fetchedContent };
-    } catch (err) {
-        console.error("Critical error fetching site content:", err);
-        return {
-            logoUrl: 'https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png',
-            officialSiteUrl: 'https://ibaanah.com/',
-            heroVideoUrl: {},
-            faqItems: {},
-            benefitItems: {},
-            campusAddress: '',
-            campusHours: ''
-        };
-    }
+            const resolvedContent = { ...defaultContent, ...fetchedContent };
+            cachedSiteContent = resolvedContent;
+            return resolvedContent;
+        } catch (err) {
+            const error = err as { code?: string; message?: string };
+            if (error?.code === 'PGRST301' || error?.message?.includes('JWT expired')) {
+                throw err;
+            }
+            console.error("Exception fetching site content:", err);
+            return cachedSiteContent || defaultContent;
+        }
+    });
 };
 
 export const updateSiteContent = async (key: keyof SiteContent, value: unknown): Promise<void> => {
@@ -972,28 +1040,101 @@ export const deleteAdminUser = async(userId: string): Promise<{ success: boolean
 
 // --- Notification Settings ---
 export const getNotificationSettings = async(): Promise<NotificationSettings> => {
-    const { data, error } = await supabase.from('notification_settings').select('settings').eq('id', 1).single();
-    if (error) throw error;
-    return data.settings;
+    return withAutoReauth(async () => {
+        const { data, error } = await supabase.from('notification_settings').select('settings').eq('id', 1).single();
+        if (error) throw error;
+        return data.settings;
+    });
 };
 export const updateNotificationSettings = async(settings: NotificationSettings): Promise<NotificationSettings> => {
-    const { data, error } = await supabase.from('notification_settings').update({ settings }).eq('id', 1).select('settings').single();
-    if (error) throw error;
-    return data.settings;
+    return withAutoReauth(async () => {
+        const { data, error } = await supabase.from('notification_settings').update({ settings }).eq('id', 1).select('settings').single();
+        if (error) throw error;
+        return data.settings;
+    });
 };
 
+
+let cachedAppSettings: AppSettings | null = null;
 
 // --- App Settings ---
 export const getAppSettings = async(): Promise<AppSettings> => {
-    try {
-        const { data, error } = await supabase
-            .from('app_settings')
-            .select('*')
-            .eq('id', 1)
-            .single();
-        
+    return withAutoReauth(async () => {
+        try {
+            const { data, error } = await supabase
+                .from('app_settings')
+                .select('*')
+                .eq('id', 1)
+                .single();
+            
+            if (error) {
+                const err = error as { code?: string; message?: string };
+                if (err?.code === 'PGRST301' || err?.message?.includes('JWT expired')) {
+                    throw error;
+                }
+                console.error("Failed to fetch app settings, using cached or defaults.", error);
+                return cachedAppSettings || { 
+                    isRegistrationOpen: false, 
+                    isMaleRegistrationOpen: false,
+                    isFemaleRegistrationOpen: false,
+                    maxDailyCapacity: 50,
+                    closedReasons: {},
+                    bookingStartTime: undefined,
+                    bookingEndTime: undefined,
+                    femaleBookingStartTime: undefined,
+                    femaleBookingEndTime: undefined
+                };
+            }
+            const settings: AppSettings = { 
+                isRegistrationOpen: data.registration_open, 
+                isMaleRegistrationOpen: data.male_registration_open,
+                isFemaleRegistrationOpen: data.female_registration_open,
+                maxDailyCapacity: data.max_daily_capacity,
+                closedReasons: data.closed_reasons || {},
+                bookingStartTime: data.booking_start_time,
+                bookingEndTime: data.booking_end_time,
+                femaleBookingStartTime: data.female_booking_start_time,
+                femaleBookingEndTime: data.female_booking_end_time
+            };
+            cachedAppSettings = settings;
+            return settings;
+        } catch (err) {
+            const error = err as { code?: string; message?: string };
+            if (error?.code === 'PGRST301' || error?.message?.includes('JWT expired')) {
+                throw err;
+            }
+            console.error("Failed to fetch app settings, using cached or defaults.", err);
+            return cachedAppSettings || { 
+                isRegistrationOpen: false, 
+                isMaleRegistrationOpen: false,
+                isFemaleRegistrationOpen: false,
+                maxDailyCapacity: 50,
+                closedReasons: {},
+                bookingStartTime: undefined,
+                bookingEndTime: undefined,
+                femaleBookingStartTime: undefined,
+                femaleBookingEndTime: undefined
+            };
+        }
+    });
+};
+
+export const updateAppSettings = async(settings: AppSettings): Promise<AppSettings> => {
+    return withAutoReauth(async () => {
+        const { isRegistrationOpen, isMaleRegistrationOpen, isFemaleRegistrationOpen, maxDailyCapacity, closedReasons, bookingStartTime, bookingEndTime, femaleBookingStartTime, femaleBookingEndTime } = settings;
+        const { data, error } = await supabase.from('app_settings').update({ 
+            registration_open: isRegistrationOpen, 
+            male_registration_open: isMaleRegistrationOpen,
+            female_registration_open: isFemaleRegistrationOpen,
+            max_daily_capacity: maxDailyCapacity,
+            closed_reasons: closedReasons,
+            booking_start_time: bookingStartTime || null,
+            booking_end_time: bookingEndTime || null,
+            female_booking_start_time: femaleBookingStartTime || null,
+            female_booking_end_time: femaleBookingEndTime || null
+        }).eq('id', 1).select().single();
         if (error) throw error;
-        return { 
+        const updated: AppSettings = { 
             isRegistrationOpen: data.registration_open, 
             isMaleRegistrationOpen: data.male_registration_open,
             isFemaleRegistrationOpen: data.female_registration_open,
@@ -1004,47 +1145,9 @@ export const getAppSettings = async(): Promise<AppSettings> => {
             femaleBookingStartTime: data.female_booking_start_time,
             femaleBookingEndTime: data.female_booking_end_time
         };
-    } catch (err) {
-        console.error("Failed to fetch app settings, using defaults.", err);
-        return { 
-            isRegistrationOpen: false, 
-            isMaleRegistrationOpen: false,
-            isFemaleRegistrationOpen: false,
-            maxDailyCapacity: 50,
-            closedReasons: {},
-            bookingStartTime: undefined,
-            bookingEndTime: undefined,
-            femaleBookingStartTime: undefined,
-            femaleBookingEndTime: undefined
-        };
-    }
-};
-
-export const updateAppSettings = async(settings: AppSettings): Promise<AppSettings> => {
-    const { isRegistrationOpen, isMaleRegistrationOpen, isFemaleRegistrationOpen, maxDailyCapacity, closedReasons, bookingStartTime, bookingEndTime, femaleBookingStartTime, femaleBookingEndTime } = settings;
-    const { data, error } = await supabase.from('app_settings').update({ 
-        registration_open: isRegistrationOpen, 
-        male_registration_open: isMaleRegistrationOpen,
-        female_registration_open: isFemaleRegistrationOpen,
-        max_daily_capacity: maxDailyCapacity,
-        closed_reasons: closedReasons,
-        booking_start_time: bookingStartTime || null,
-        booking_end_time: bookingEndTime || null,
-        female_booking_start_time: femaleBookingStartTime || null,
-        female_booking_end_time: femaleBookingEndTime || null
-    }).eq('id', 1).select().single();
-    if (error) throw error;
-    return { 
-        isRegistrationOpen: data.registration_open, 
-        isMaleRegistrationOpen: data.male_registration_open,
-        isFemaleRegistrationOpen: data.female_registration_open,
-        maxDailyCapacity: data.max_daily_capacity,
-        closedReasons: data.closed_reasons || {},
-        bookingStartTime: data.booking_start_time,
-        bookingEndTime: data.booking_end_time,
-        femaleBookingStartTime: data.female_booking_start_time,
-        femaleBookingEndTime: data.female_booking_end_time
-    };
+        cachedAppSettings = updated;
+        return updated;
+    });
 };
 
 export const updateAppSetting = async (key: keyof AppSettings, value: unknown): Promise<AppSettings> => {

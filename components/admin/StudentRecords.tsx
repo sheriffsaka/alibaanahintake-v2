@@ -67,6 +67,7 @@ const StudentRecords: React.FC = () => {
   };
 
   const isFetchingRef = useRef(false);
+  const fetchStudentsRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const fetchStudents = React.useCallback(async () => {
     if (isFetchingRef.current) return;
@@ -74,15 +75,6 @@ const StudentRecords: React.FC = () => {
     setLoading(true);
     setError(null);
     setSelectedIds(new Set());
-    
-    const isPending = { current: true };
-    const timeoutId = setTimeout(() => {
-        if (isPending.current) {
-            setError("Request timed out. Please check your connection and try again.");
-            setLoading(false);
-            isFetchingRef.current = false;
-        }
-    }, 20000); // 20 second timeout for potentially large student list
 
     try {
       let dbSortKey = sortKey === 'level' ? 'levels(name)' : sortKey;
@@ -100,13 +92,9 @@ const StudentRecords: React.FC = () => {
             gender: adminGenderFilter
           }
       );
-      isPending.current = false;
-      clearTimeout(timeoutId);
       setStudents(data);
       setTotalStudents(count);
     } catch (err) {
-      isPending.current = false;
-      clearTimeout(timeoutId);
       console.error("Failed to fetch students", err);
       setError("Failed to load student records. Please try again.");
     } finally {
@@ -114,6 +102,10 @@ const StudentRecords: React.FC = () => {
       setLoading(false);
     }
   }, [currentPage, debouncedSearchTerm, sortKey, sortDirection, filterDate, filterSlotIds, adminGenderFilter]);
+
+  useEffect(() => {
+    fetchStudentsRef.current = fetchStudents;
+  }, [fetchStudents]);
 
   useEffect(() => {
     fetchStudents();
@@ -126,6 +118,7 @@ const StudentRecords: React.FC = () => {
     let isDisposed = false;
     let isConnecting = false;
     let reconnectTimeout: NodeJS.Timeout | null = null;
+    let syncDebounceTimer: NodeJS.Timeout | null = null;
 
     const setupRealtimeChannel = async () => {
       if (isDisposed || isConnecting) return;
@@ -161,7 +154,7 @@ const StudentRecords: React.FC = () => {
             { event: '*', schema: 'public', table: 'students' },
             () => {
               if (!isDisposed) {
-                fetchStudents();
+                fetchStudentsRef.current();
               }
             }
           )
@@ -173,7 +166,7 @@ const StudentRecords: React.FC = () => {
 
             if (status === 'SUBSCRIBED') {
               isConnecting = false;
-              fetchStudents();
+              fetchStudentsRef.current();
             } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
               isConnecting = false;
               console.warn(`[StudentRecords] Realtime status ${status}. Cleaning up and scheduling reconnect...`);
@@ -198,18 +191,22 @@ const StudentRecords: React.FC = () => {
 
     setupRealtimeChannel();
 
-    const handleSyncAndReconnect = async () => {
+    const handleSyncAndReconnect = () => {
       if (isDisposed) return;
-      if (document.visibilityState === 'visible' || navigator.onLine) {
+      if (document.visibilityState !== 'visible') return;
+
+      if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+      syncDebounceTimer = setTimeout(async () => {
+        if (isDisposed || document.visibilityState !== 'visible') return;
         await safeRefreshSession();
-        fetchStudents();
+        fetchStudentsRef.current();
 
         const isChannelActive = activeChannel && (activeChannel.state === 'joining' || activeChannel.state === 'joined');
         if (!isConnecting && !isChannelActive) {
           if (reconnectTimeout) clearTimeout(reconnectTimeout);
           setupRealtimeChannel();
         }
-      }
+      }, 300);
     };
 
     document.addEventListener('visibilitychange', handleSyncAndReconnect);
@@ -219,6 +216,7 @@ const StudentRecords: React.FC = () => {
     return () => {
       isDisposed = true;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
       document.removeEventListener('visibilitychange', handleSyncAndReconnect);
       window.removeEventListener('online', handleSyncAndReconnect);
       window.removeEventListener('focus', handleSyncAndReconnect);
@@ -229,7 +227,7 @@ const StudentRecords: React.FC = () => {
         supabase.removeChannel(chanToCleanup);
       }
     };
-  }, [fetchStudents]);
+  }, []);
 
   useEffect(() => {
     const fetchDates = async () => {
