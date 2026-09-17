@@ -12,6 +12,7 @@ import { deleteStudent, updateStudentDetails, getLevels, bulkDeleteStudents, res
 import { useAuth } from '../../hooks/useAuth';
 import Select from '../common/Select';
 import { supabase, safeRefreshSession, syncRealtimeAuth } from '../../services/supabaseClient';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 type SortKey = 'firstname' | 'email' | 'level' | 'intakeDate' | 'status' | 'createdAt' | 'gender' | '';
 type SortDirection = 'asc' | 'desc';
@@ -111,59 +112,113 @@ const StudentRecords: React.FC = () => {
     loadLevels();
   }, [fetchStudents]);
 
-  // Set up Realtime subscription with resilient recovery and clean lifecycle
+  // Set up Realtime subscription with stable channel naming and lifecycle cleanup
   useEffect(() => {
+    let activeChannel: RealtimeChannel | null = null;
     let isDisposed = false;
+    let isConnecting = false;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
     let syncDebounceTimer: NodeJS.Timeout | null = null;
 
-    // Use a stable channel name for this component instance
-    const channelName = 'admin-student-records';
-    const channel = supabase.channel(channelName);
+    const setupRealtimeChannel = async () => {
+      if (isDisposed || isConnecting) return;
+      if (activeChannel && (activeChannel.state === 'joining' || activeChannel.state === 'joined')) {
+        return;
+      }
+      isConnecting = true;
 
-    channel
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'students' },
-        () => {
-          if (!isDisposed) {
-            fetchStudentsRef.current();
-          }
+      try {
+        if (activeChannel) {
+          const oldChannel = activeChannel;
+          activeChannel = null;
+          await supabase.removeChannel(oldChannel);
         }
-      )
-      .subscribe((status) => {
-        if (isDisposed) return;
-        if (status === 'SUBSCRIBED') {
-          fetchStudentsRef.current();
-        } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          console.log(`[StudentRecords] Realtime channel status: ${status} (awaiting socket auto-reconnect)`);
-        }
-      });
 
-    const handleSyncOnVisible = () => {
-      if (isDisposed || document.visibilityState !== 'visible') return;
-
-      if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
-      syncDebounceTimer = setTimeout(async () => {
-        if (isDisposed || document.visibilityState !== 'visible') return;
         const session = await safeRefreshSession();
         if (session?.access_token) {
           await syncRealtimeAuth(session.access_token);
         }
+
+        if (isDisposed) {
+          isConnecting = false;
+          return;
+        }
+
+        const channel = supabase.channel('admin-student-records');
+        activeChannel = channel;
+
+        channel
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'students' },
+            () => {
+              if (!isDisposed && (typeof document === 'undefined' || document.visibilityState === 'visible')) {
+                fetchStudentsRef.current();
+              }
+            }
+          )
+          .subscribe((status) => {
+            if (activeChannel !== channel || isDisposed) {
+              return;
+            }
+
+            if (status === 'SUBSCRIBED') {
+              isConnecting = false;
+              fetchStudentsRef.current();
+            } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+              isConnecting = false;
+              console.warn(`[StudentRecords] Realtime status: ${status}`);
+              
+              // Only schedule a reconnection if visible and not already handled
+              if (document.visibilityState === 'visible' && !reconnectTimeout) {
+                reconnectTimeout = setTimeout(() => {
+                  reconnectTimeout = null;
+                  if (!isDisposed && document.visibilityState === 'visible') {
+                    setupRealtimeChannel();
+                  }
+                }, 8000);
+              }
+            }
+          });
+      } catch (err) {
+        isConnecting = false;
+        console.warn('[StudentRecords] Setup Realtime channel exception:', err);
+      }
+    };
+
+    setupRealtimeChannel();
+
+    const handleSyncAndReconnect = () => {
+      if (isDisposed) return;
+      if (document.visibilityState !== 'visible') return;
+
+      if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+      syncDebounceTimer = setTimeout(async () => {
+        if (isDisposed || document.visibilityState !== 'visible') return;
+        await safeRefreshSession();
         fetchStudentsRef.current();
+
+        const isChannelActive = activeChannel && (activeChannel.state === 'joining' || activeChannel.state === 'joined');
+        if (!isConnecting && !isChannelActive) {
+          if (reconnectTimeout) clearTimeout(reconnectTimeout);
+          setupRealtimeChannel();
+        }
       }, 300);
     };
 
-    document.addEventListener('visibilitychange', handleSyncOnVisible);
-    window.addEventListener('online', handleSyncOnVisible);
-    window.addEventListener('focus', handleSyncOnVisible);
+    document.addEventListener('visibilitychange', handleSyncAndReconnect);
 
     return () => {
       isDisposed = true;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
-      document.removeEventListener('visibilitychange', handleSyncOnVisible);
-      window.removeEventListener('online', handleSyncOnVisible);
-      window.removeEventListener('focus', handleSyncOnVisible);
-      supabase.removeChannel(channel);
+      document.removeEventListener('visibilitychange', handleSyncAndReconnect);
+      
+      if (activeChannel) {
+        const chanToCleanup = activeChannel;
+        activeChannel = null;
+        supabase.removeChannel(chanToCleanup);
+      }
     };
   }, []);
 

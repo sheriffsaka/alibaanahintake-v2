@@ -19,16 +19,9 @@ const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries
   const retries = allowRetry ? maxRetries : 0;
 
   while (attempt <= retries) {
-    // 30 seconds timeout for network stability and cold starts
-    const timeout = 30000;
+    const timeout = 25000; // 25 seconds timeout for cold starts and sleep recovery
     const timeoutController = new AbortController();
-    let isFinished = false;
-
-    const timerId = setTimeout(() => {
-      if (!isFinished) {
-        timeoutController.abort();
-      }
-    }, timeout);
+    const timerId = setTimeout(() => timeoutController.abort(), timeout);
 
     // Combine caller signal with our timeout signal
     let combinedSignal = timeoutController.signal;
@@ -50,11 +43,9 @@ const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries
         ...options,
         signal: combinedSignal,
       });
-      isFinished = true;
       clearTimeout(timerId);
       return response;
     } catch (error: unknown) {
-      isFinished = true;
       clearTimeout(timerId);
       const err = error as { name?: string; message?: string };
       // Only retry if allowed and error is transient network error (not intentional caller abort)
@@ -86,6 +77,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+    // Uses native Web Locks (navigator.locks) across all browser tabs and windows
   },
   global: {
     fetch: fetchWithRetry,
@@ -117,6 +109,16 @@ const REFRESH_COOLDOWN_MS = 5000; // 5-second cooldown between non-forced refres
  * Guarantees only one token refresh request runs across concurrent wake-up / focus events.
  */
 export const safeRefreshSession = async (force = false): Promise<Session | null> => {
+  // If the browser tab is hidden and not forced, do not trigger network token refresh
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible' && !force) {
+    try {
+      const { data } = await supabase.auth.getSession();
+      return data?.session ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   if (activeRefreshPromise) {
     return activeRefreshPromise;
   }
@@ -143,15 +145,15 @@ export const safeRefreshSession = async (force = false): Promise<Session | null>
       if (!session) return null;
 
       const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
-      // Refresh if token is expired, expires within 3 minutes, or refresh was explicitly forced
-      const isExpiringSoon = expiresAt > 0 && (expiresAt - Date.now() < 3 * 60 * 1000);
+      // Refresh if token is expired, expires within 2 minutes, or refresh was explicitly forced
+      const isExpiringSoon = expiresAt > 0 && (expiresAt - Date.now() < 2 * 60 * 1000);
 
       if (isExpiringSoon || force) {
         console.log('[SupabaseClient] Session expiring or refresh requested. Executing session refresh...');
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError) {
-          console.warn('[SupabaseClient] refreshSession failed:', refreshError.message);
-          if (refreshError.message?.includes('invalid_grant')) {
+          console.warn('[SupabaseClient] refreshSession result:', refreshError.message);
+          if (refreshError.message?.includes('invalid_grant') || refreshError.message?.includes('Already Used')) {
             return null;
           }
           return session; // Retain current session on transient network error
@@ -180,13 +182,13 @@ export const safeRefreshSession = async (force = false): Promise<Session | null>
   return activeRefreshPromise;
 };
 
-// Single central listener for browser focus / online / tab visibility restoration
+// Single central listener for browser online / tab visibility restoration
 if (typeof window !== 'undefined') {
   let wakeUpDebounceTimer: NodeJS.Timeout | null = null;
 
   const handleWakeUp = () => {
-    // CRITICAL: NEVER run wake-up logic when the tab is hidden!
-    if (document.visibilityState !== 'visible') {
+    // Only execute when the tab is visible and online
+    if (document.visibilityState !== 'visible' || !navigator.onLine) {
       return;
     }
 
@@ -200,7 +202,6 @@ if (typeof window !== 'undefined') {
     }, 300);
   };
 
-  window.addEventListener('focus', handleWakeUp);
   window.addEventListener('online', handleWakeUp);
   document.addEventListener('visibilitychange', handleWakeUp);
 }

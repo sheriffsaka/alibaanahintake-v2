@@ -1,8 +1,32 @@
 import express from 'express';
 import cors from 'cors';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const app = express();
 const router = express.Router();
+
+let serviceSupabaseClient: SupabaseClient | null = null;
+
+const getServiceSupabase = (): SupabaseClient => {
+  if (serviceSupabaseClient) return serviceSupabaseClient;
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://snytpzughzqdhouqjoyh.supabase.co';
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Server configuration error: Supabase service role credentials not configured');
+  }
+
+  serviceSupabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false
+    }
+  });
+
+  return serviceSupabaseClient;
+};
 
 app.use(cors());
 app.use(express.json());
@@ -129,17 +153,7 @@ router.post('/auth/send-otp', async (req, res) => {
   if (!email || typeof email !== 'string') return res.status(400).json({ error: 'Email is required' });
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('>>> Missing Configuration');
-      return res.status(500).json({ error: 'Server configuration error' });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceSupabase();
 
     const { data: existingStudent } = await supabase
       .from('students')
@@ -224,12 +238,7 @@ router.post('/auth/verify-otp', async (req, res) => {
   if (!email || !code) return res.status(400).json({ error: 'Email and code are required' });
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceSupabase();
     const { data, error } = await supabase.from('otp_codes').select('*').eq('email', email.toLowerCase()).eq('code', code).gt('expires_at', new Date().toISOString()).limit(1);
     if (error) throw error;
     if (!data || data.length === 0) return res.status(400).json({ error: 'Invalid or expired verification code' });
@@ -251,13 +260,7 @@ router.post('/manage/request-otp', async (req, res) => {
   if (!email) return res.status(400).json({ error: 'Email is required' });
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-
-    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceSupabase();
 
     // 1. Check if student exists (prefer active ones)
     const { data: student, error: studentError } = await supabase
@@ -323,12 +326,7 @@ router.post('/manage/verify-otp', async (req, res) => {
   if (!email || !code) return res.status(400).json({ error: 'Email and code are required' });
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceSupabase();
     
     // 1. Verify OTP
     const { data: otpData, error: otpError } = await supabase
@@ -370,12 +368,7 @@ router.post('/manage/update-student', async (req, res) => {
   if (!studentId || !updates) return res.status(400).json({ error: 'Student ID and updates are required' });
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceSupabase();
     console.log(`>>> Attempting update for student ID: ${studentId}`, updates);
 
     const { data, error } = await supabase
@@ -414,12 +407,7 @@ router.post('/manage/delete-student', async (req, res) => {
   if (!studentId) return res.status(400).json({ error: 'Student ID is required' });
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceSupabase();
     
     const { error } = await supabase
       .from('students')
@@ -439,12 +427,7 @@ router.post('/manage/bulk-delete-students', async (req, res) => {
   if (!studentIds || !Array.isArray(studentIds)) return res.status(400).json({ error: 'Student IDs array is required' });
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceSupabase();
     
     const { error } = await supabase
       .from('students')
@@ -464,12 +447,7 @@ router.post('/manage/bulk-delete-slots', async (req, res) => {
   if (!slotIds || !Array.isArray(slotIds)) return res.status(400).json({ error: 'Slot IDs array is required' });
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceSupabase();
     
     const { error } = await supabase
       .from('appointment_slots')
@@ -486,12 +464,7 @@ router.post('/manage/bulk-delete-slots', async (req, res) => {
 
 router.post('/manage/renew-session', async (req, res) => {
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceSupabase();
     
     console.log('>>> Proceeding with session renewal...');
 
@@ -531,13 +504,7 @@ router.post('/enroll/register', async (req, res) => {
   if (!slotId || !studentData) return res.status(400).json({ error: 'Slot ID and student data are required' });
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-
-    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceSupabase();
 
     // 0. Pre-validate gender registration window against app_settings
     const { data: settingsData } = await supabase.from('app_settings').select('*').eq('id', 1).single();
@@ -670,12 +637,7 @@ router.get('/auth/is-confirmed', async (req, res) => {
   if (!email) return res.status(400).json({ error: 'Email is required' });
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    const supabase = getServiceSupabase();
     let page = 1;
     let found = false;
     let confirmed = false;
@@ -707,12 +669,7 @@ router.get('/auth/is-verified', async (req, res) => {
   if (!email) return res.status(400).json({ error: 'Email is required' });
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Server configuration error' });
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceSupabase();
     const { data, error } = await supabase.from('pre_registrations').select('email').eq('email', email.toLowerCase()).maybeSingle();
     if (error) throw error;
     res.json({ verified: !!data });
@@ -727,15 +684,7 @@ router.post('/manage/resend-confirmation', async (req, res) => {
         const { studentId } = req.body;
         if (!studentId) return res.status(400).json({ error: 'Student ID is required' });
 
-        const { createClient } = await import('@supabase/supabase-js');
-        const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-        
-        if (!supabaseUrl || !supabaseServiceKey) {
-            return res.status(500).json({ error: 'Server configuration error (Supabase)' });
-        }
-
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const supabase = getServiceSupabase();
 
         // 1. Fetch student info
         const { data: student, error: studentError } = await supabase
@@ -798,18 +747,8 @@ router.post('/admin/create-user', async (req, res) => {
   }
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return res.status(500).json({ error: 'Server configuration error (Supabase credentials missing)' });
-    }
-
-    // Create service client to bypass RLS and perform admin auth operations
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
+    // Service client to bypass RLS and perform admin auth operations
+    const supabase = getServiceSupabase();
 
     // 1. Verify that the requester is a valid logged-in administrator
     const { data: { user: requestUser }, error: requestUserError } = await supabase.auth.getUser(token);
@@ -945,13 +884,7 @@ router.post('/cron/reminders', async (req, res) => {
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-
-    if (!supabaseUrl || !supabaseServiceKey) return res.status(500).json({ error: 'Missing configuration' });
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceSupabase();
 
     // Fetch notification settings
     const { data: settingsData } = await supabase.from('notification_settings').select('settings').single();
