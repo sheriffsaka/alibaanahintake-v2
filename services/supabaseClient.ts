@@ -204,4 +204,23 @@ if (typeof window !== 'undefined') {
 
   window.addEventListener('online', handleWakeUp);
   document.addEventListener('visibilitychange', handleWakeUp);
+  //Added by Sheriff to fix the freezing effects - 17-09-2026
+  window.addEventListener('focus', handleWakeUp);
+  window.addEventListener('online', handleWakeUp);
+  document.addEventListener('visibilitychange', handleWakeUp);
+
+  // When Chrome freezes an inactive tab into the back-forward cache (bfcache),
+  // it force-closes any open WebSocket — including Supabase Realtime's socket.
+  // On restore, that socket is dead in a way the normal reconnect/backoff logic
+  // doesn't cleanly recover from (surfaces as CHANNEL_ERROR / TIMED_OUT loops).
+  // The standard fix is to detect the bfcache restore specifically and do a
+  // full reload for a guaranteed-fresh connection, rather than a soft reconnect.
+  window.addEventListener('pageshow', (event: PageTransitionEvent) => {
+    if (event.persisted) {
+      console.warn('[SupabaseClient] Page restored from back-forward cache — reloading for a fresh Realtime connection.');
+      window.location.reload();
+    }
+  });
+
+
 }
