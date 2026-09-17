@@ -206,8 +206,8 @@ if (typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', handleWakeUp);
   //Added by Sheriff to fix the freezing effects - 17-09-2026
   window.addEventListener('focus', handleWakeUp);
-  window.addEventListener('online', handleWakeUp);
-  document.addEventListener('visibilitychange', handleWakeUp);
+  // window.addEventListener('online', handleWakeUp);
+  // document.addEventListener('visibilitychange', handleWakeUp);
 
   // When Chrome freezes an inactive tab into the back-forward cache (bfcache),
   // it force-closes any open WebSocket — including Supabase Realtime's socket.
