@@ -64,6 +64,58 @@ const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries
   throw new Error('Network request failed after retries');
 };
 
+// Supabase's default auth lock uses the browser's native Web Locks API
+// (navigator.locks) to make sure only one tab refreshes the session at a
+// time, but that lock has NO timeout by default. If a tab is backgrounded
+// or frozen while it happens to be holding the lock (e.g. mid token-refresh),
+// it never releases it — and every OTHER tab or page on the site (admin
+// panel, a student mid-registration, anything) that then needs the lock
+// waits forever. This wraps the same native lock with an acquisition
+// timeout: a WAITING caller gives up after a few seconds and surfaces a
+// normal, recoverable error instead of hanging indefinitely. It does not
+// force a stuck tab to release the lock — nothing can do that — but it
+// stops every other tab in the app from freezing because of it.
+const LOCK_ACQUIRE_TIMEOUT_MS = 8000;
+
+const timeoutGuardedLock = async <R>(
+  name: string,
+  acquireTimeout: number,
+  fn: () => Promise<R>
+): Promise<R> => {
+  if (typeof navigator === 'undefined' || !('locks' in navigator)) {
+    // No Web Locks support (older browser) — just run the function directly,
+    // same as Supabase's own fallback behavior.
+    return fn();
+  }
+
+  const effectiveTimeout = acquireTimeout > 0 ? acquireTimeout : LOCK_ACQUIRE_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), effectiveTimeout);
+
+  try {
+    return await (navigator as any).locks.request(
+      name,
+      { signal: controller.signal },
+      async (lock: unknown) => {
+        if (!lock) {
+          throw new Error(`Could not acquire lock: ${name}`);
+        }
+        return await fn();
+      }
+    );
+  } catch (err: unknown) {
+    const e = err as { name?: string };
+    if (e?.name === 'AbortError') {
+      throw new Error(
+        `Lock acquisition timed out for: ${name}. Another tab of this site may be stuck — closing other tabs and reloading usually fixes this.`
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timerId);
+  }
+};
+
 // Check configuration
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error("Supabase configuration missing!");
@@ -77,7 +129,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    // Uses native Web Locks (navigator.locks) across all browser tabs and windows
+    // Still uses native Web Locks (navigator.locks) across all browser tabs
+    // and windows, but wrapped with an acquisition timeout — see
+    // timeoutGuardedLock above for why this matters.
+    lock: timeoutGuardedLock,
   },
   global: {
     fetch: fetchWithRetry,
@@ -204,10 +259,7 @@ if (typeof window !== 'undefined') {
 
   window.addEventListener('online', handleWakeUp);
   document.addEventListener('visibilitychange', handleWakeUp);
-  //Added by Sheriff to fix the freezing effects - 17-09-2026
   window.addEventListener('focus', handleWakeUp);
-  // window.addEventListener('online', handleWakeUp);
-  // document.addEventListener('visibilitychange', handleWakeUp);
 
   // When Chrome freezes an inactive tab into the back-forward cache (bfcache),
   // it force-closes any open WebSocket — including Supabase Realtime's socket.
