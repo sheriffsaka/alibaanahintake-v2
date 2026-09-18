@@ -157,7 +157,8 @@ const Dashboard: React.FC = () => {
 
       if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
       syncDebounceTimer = setTimeout(async () => {
-        if (isDisposed || document.visibilityState !== 'visible') return;
+        if (isDisposed || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) return;
+        isFetchingRef.current = false;
         await safeRefreshSession();
         fetchDashboardDataRef.current();
 
@@ -170,12 +171,16 @@ const Dashboard: React.FC = () => {
     };
 
     document.addEventListener('visibilitychange', handleSyncAndReconnect);
+    window.addEventListener('focus', handleSyncAndReconnect);
+    window.addEventListener('online', handleSyncAndReconnect);
 
     return () => {
       isDisposed = true;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
       document.removeEventListener('visibilitychange', handleSyncAndReconnect);
+      window.removeEventListener('focus', handleSyncAndReconnect);
+      window.removeEventListener('online', handleSyncAndReconnect);
       
       if (activeChannel) {
         const chanToCleanup = activeChannel;

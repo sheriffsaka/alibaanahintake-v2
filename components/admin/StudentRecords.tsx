@@ -110,6 +110,7 @@ const StudentRecords: React.FC = () => {
       );
       setStudents(data);
       setTotalStudents(count);
+      setError(null);
       setErrorDetails(null);
     } catch (err: unknown) {
       console.error("Failed to fetch students", err);
@@ -279,11 +280,12 @@ const StudentRecords: React.FC = () => {
 
     const handleSyncAndReconnect = () => {
       if (isDisposed) return;
-      if (document.visibilityState !== 'visible') return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
 
       if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
       syncDebounceTimer = setTimeout(async () => {
-        if (isDisposed || document.visibilityState !== 'visible') return;
+        if (isDisposed || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) return;
+        isFetchingRef.current = false;
         await safeRefreshSession();
         fetchStudentsRef.current();
 
@@ -296,12 +298,16 @@ const StudentRecords: React.FC = () => {
     };
 
     document.addEventListener('visibilitychange', handleSyncAndReconnect);
+    window.addEventListener('focus', handleSyncAndReconnect);
+    window.addEventListener('online', handleSyncAndReconnect);
 
     return () => {
       isDisposed = true;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
       document.removeEventListener('visibilitychange', handleSyncAndReconnect);
+      window.removeEventListener('focus', handleSyncAndReconnect);
+      window.removeEventListener('online', handleSyncAndReconnect);
       
       if (activeChannel) {
         const chanToCleanup = activeChannel;

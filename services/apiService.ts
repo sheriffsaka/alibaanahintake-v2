@@ -22,14 +22,14 @@ const setSessionStorageItem = <T>(key: string, value: T): void => {
 };
 
 /**
- * Automatically catches expired JWT / 401 errors from PostgREST/Supabase queries,
+ * Automatically catches expired JWT / 401 errors and transient wake-up network errors from PostgREST/Supabase queries,
  * safely refreshes the authentication session, and re-attempts the operation once.
  */
 export const withAutoReauth = async <T>(queryFn: () => Promise<T>): Promise<T> => {
   try {
     return await queryFn();
   } catch (err: unknown) {
-    const error = err as { code?: string; message?: string; status?: number };
+    const error = err as { code?: string; message?: string; status?: number; name?: string };
     const isAuthExpired = 
       error?.code === 'PGRST301' || 
       error?.status === 401 ||
@@ -40,10 +40,22 @@ export const withAutoReauth = async <T>(queryFn: () => Promise<T>): Promise<T> =
         error.message.includes('sub claim and user id do not match')
       ));
 
-    if (isAuthExpired) {
-      console.log('[ApiService] Encountered expired token. Refreshing session and retrying query...');
-      const session = await safeRefreshSession(true);
-      if (session) {
+    const isTransientNetworkError =
+      error?.name === 'AbortError' ||
+      (typeof error?.message === 'string' && (
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('NetworkError') ||
+        error.message.includes('network error') ||
+        error.message.includes('signal is aborted') ||
+        error.message.includes('Network request failed')
+      ));
+
+    if (isAuthExpired || isTransientNetworkError) {
+      console.log('[ApiService] Encountered auth expiration or transient connection error. Refreshing session and retrying...', error?.message || error?.code);
+      // Brief pause to allow socket and auth state to settle on tab wake-up
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const session = await safeRefreshSession(isAuthExpired);
+      if (session || isTransientNetworkError) {
         return await queryFn();
       }
     }
@@ -381,21 +393,30 @@ const fetchStudentsFromApi = async (
         }
         if (filters?.gender) params.set('gender', filters.gender);
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
         let response = await fetch(`${window.location.origin}/api/admin/students?${params.toString()}`, {
             headers: {
                 Authorization: `Bearer ${token}`
-            }
+            },
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         // Auto-refresh token if 401
         if (response.status === 401) {
             const freshSession = await safeRefreshSession(true);
             if (freshSession?.access_token) {
+                const retryController = new AbortController();
+                const retryTimeoutId = setTimeout(() => retryController.abort(), 6000);
                 response = await fetch(`${window.location.origin}/api/admin/students?${params.toString()}`, {
                     headers: {
                         Authorization: `Bearer ${freshSession.access_token}`
-                    }
+                    },
+                    signal: retryController.signal
                 });
+                clearTimeout(retryTimeoutId);
             }
         }
 
@@ -448,20 +469,29 @@ const fetchStudentsExportFromApi = async (
         }
         if (filters?.gender) params.set('gender', filters.gender);
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
         let response = await fetch(`${window.location.origin}/api/admin/students/export?${params.toString()}`, {
             headers: {
                 Authorization: `Bearer ${token}`
-            }
+            },
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (response.status === 401) {
             const freshSession = await safeRefreshSession(true);
             if (freshSession?.access_token) {
+                const retryController = new AbortController();
+                const retryTimeoutId = setTimeout(() => retryController.abort(), 6000);
                 response = await fetch(`${window.location.origin}/api/admin/students/export?${params.toString()}`, {
                     headers: {
                         Authorization: `Bearer ${freshSession.access_token}`
-                    }
+                    },
+                    signal: retryController.signal
                 });
+                clearTimeout(retryTimeoutId);
             }
         }
 
@@ -643,6 +673,12 @@ export const getDashboardData = async (genderFilter?: Gender) => {
                 booked: Number(s.booked) || 0,
                 capacity: Number(s.capacity) || 0
             }));
+
+            const todayExpected = todayRes.count || 0;
+            const checkedIn = (todayRes.data || []).filter(s => {
+                const status = (s as { status?: string }).status;
+                return status === 'Checked-in' || status === 'Completed';
+            }).length;
 
             return {
                 totalRegistered: totalRes.count || 0,
@@ -839,36 +875,40 @@ export const deleteStudent = async (studentId: string): Promise<void> => {
 };
 
 export const getAdminFilterOptions = async (): Promise<{ dates: string[] }> => {
-    const { data, error } = await supabase
-        .from('appointment_slots')
-        .select('date');
-    
-    if (error) {
-        console.error('Error fetching filter dates:', error);
-        return { dates: [] };
-    }
-    
-    const uniqueDates = [...new Set(data.map(d => d.date))].sort();
-    return { dates: uniqueDates };
+    return withAutoReauth(async () => {
+        const { data, error } = await supabase
+            .from('appointment_slots')
+            .select('date');
+        
+        if (error) {
+            console.error('Error fetching filter dates:', error);
+            return { dates: [] };
+        }
+        
+        const uniqueDates = [...new Set(data.map(d => d.date))].sort();
+        return { dates: uniqueDates };
+    });
 };
 
 export const getAdminSlotsForDate = async (date: string, gender?: Gender): Promise<AppointmentSlot[]> => {
-    let query = supabase
-        .from('appointment_slots')
-        .select('*, levels(name)')
-        .eq('date', date);
+    return withAutoReauth(async () => {
+        let query = supabase
+            .from('appointment_slots')
+            .select('*, levels(name)')
+            .eq('date', date);
 
-    if (gender) {
-        query = query.eq('gender', gender);
-    }
+        if (gender) {
+            query = query.eq('gender', gender);
+        }
 
-    const { data, error } = await query;
+        const { data, error } = await query;
 
-    if (error) {
-        console.error('Error fetching admin slots for date:', error);
-        return [];
-    }
-    return data.map(slotFromSupabase);
+        if (error) {
+            console.error('Error fetching admin slots for date:', error);
+            return [];
+        }
+        return data.map(slotFromSupabase);
+    });
 };
 
 export const bulkDeleteStudents = async (studentIds: string[]): Promise<void> => {
@@ -885,16 +925,18 @@ export const bulkDeleteStudents = async (studentIds: string[]): Promise<void> =>
 };
 
 export const checkInStudent = async (studentId: string): Promise<Student> => {
-    const { data, error } = await supabase.rpc('check_in_student_rpc', {
-        target_student_id: studentId
-    });
+    return withAutoReauth(async () => {
+        const { data, error } = await supabase.rpc('check_in_student_rpc', {
+            target_student_id: studentId
+        });
 
-    if (error) {
-        console.error("Check-in error:", error);
-        throw new Error(error.message || "Failed to check in student.");
-    }
-    
-    return studentFromSupabase(data);
+        if (error) {
+            console.error("Check-in error:", error);
+            throw new Error(error.message || "Failed to check in student.");
+        }
+        
+        return studentFromSupabase(data);
+    });
 };
 
 
@@ -925,78 +967,88 @@ export const getSchedules = async (page: number, pageSize: number, gender?: Gend
 
 
 export const getScheduleById = async (slotId: string): Promise<AppointmentSlot | null> => {
-    const { data, error } = await supabase
-        .from('appointment_slots')
-        .select('*, levels(id, name)')
-        .eq('id', slotId)
-        .single();
+    return withAutoReauth(async () => {
+        const { data, error } = await supabase
+            .from('appointment_slots')
+            .select('*, levels(id, name)')
+            .eq('id', slotId)
+            .single();
 
-    if (error) {
-        console.error("Error fetching schedule by ID:", error);
-        return null;
-    }
-    
-    return data ? slotFromSupabase(data) : null;
+        if (error) {
+            console.error("Error fetching schedule by ID:", error);
+            return null;
+        }
+        
+        return data ? slotFromSupabase(data) : null;
+    });
 };
 
 export const createSchedule = async(slot: Omit<AppointmentSlot, 'id' | 'booked' | 'level'>): Promise<AppointmentSlot> => {
-    const { startTime, endTime, levelId, gender, date, capacity } = slot;
-    const { data, error } = await supabase
-        .from('appointment_slots')
-        .insert({
-            start_time: startTime,
-            end_time: endTime,
-            level_id: levelId,
-            gender,
-            date,
-            capacity
-        })
-        .select('*, levels(id, name)')
-        .single();
-    if (error) throw error;
-    return slotFromSupabase(data);
+    return withAutoReauth(async () => {
+        const { startTime, endTime, levelId, gender, date, capacity } = slot;
+        const { data, error } = await supabase
+            .from('appointment_slots')
+            .insert({
+                start_time: startTime,
+                end_time: endTime,
+                level_id: levelId,
+                gender,
+                date,
+                capacity
+            })
+            .select('*, levels(id, name)')
+            .single();
+        if (error) throw error;
+        return slotFromSupabase(data);
+    });
 };
 
 export const createSchedulesBulk = async(slots: Omit<AppointmentSlot, 'id' | 'booked' | 'level'>[]): Promise<void> => {
-    const dataToInsert = slots.map(slot => {
-        const { startTime, endTime, levelId, gender, date, capacity } = slot;
-        return {
-            start_time: startTime,
-            end_time: endTime,
-            level_id: levelId,
-            gender,
-            date,
-            capacity
-        };
+    return withAutoReauth(async () => {
+        const dataToInsert = slots.map(slot => {
+            const { startTime, endTime, levelId, gender, date, capacity } = slot;
+            return {
+                start_time: startTime,
+                end_time: endTime,
+                level_id: levelId,
+                gender,
+                date,
+                capacity
+            };
+        });
+        
+        const { error } = await supabase.from('appointment_slots').insert(dataToInsert);
+        if (error) throw error;
     });
-    
-    const { error } = await supabase.from('appointment_slots').insert(dataToInsert);
-    if (error) throw error;
 };
 
 export const updateSchedule = async(slot: Omit<AppointmentSlot, 'level'>): Promise<AppointmentSlot> => {
-    const { id, startTime, endTime, levelId, gender, date, capacity } = slot;
-    const { data, error } = await supabase
-        .from('appointment_slots')
-        .update({
-            start_time: startTime,
-            end_time: endTime,
-            level_id: levelId,
-            gender,
-            date,
-            capacity
-        })
-        .eq('id', id)
-        .select('*, levels(id, name)')
-        .single();
-    if (error) throw error;
-    return slotFromSupabase(data);
+    return withAutoReauth(async () => {
+        const { id, startTime, endTime, levelId, gender, date, capacity } = slot;
+        const { data, error } = await supabase
+            .from('appointment_slots')
+            .update({
+                start_time: startTime,
+                end_time: endTime,
+                level_id: levelId,
+                gender,
+                date,
+                capacity
+            })
+            .eq('id', id)
+            .select('*, levels(id, name)')
+            .single();
+        if (error) throw error;
+        return slotFromSupabase(data);
+    });
 };
 
 export const deleteSchedule = async(slotId: string): Promise<{ success: boolean }> => {
-    const { error } = await supabase.from('appointment_slots').delete().eq('id', slotId);
-    if (error) throw error;
-    return { success: true };
+    return withAutoReauth(async () => {
+        const { error } = await supabase.from('appointment_slots').delete().eq('id', slotId);
+        if (error) throw error;
+        return { success: true };
+    });
 };
 
 export const bulkDeleteSchedules = async(slotIds: string[]): Promise<void> => {
@@ -1167,32 +1219,41 @@ export const getSiteContent = async (): Promise<SiteContent> => {
 };
 
 export const updateSiteContent = async (key: keyof SiteContent, value: unknown): Promise<void> => {
-    const { error } = await supabase
-        .from('asset_settings')
-        .update({ value: value })
-        .eq('key', key);
+    return withAutoReauth(async () => {
+        const { error } = await supabase
+            .from('asset_settings')
+            .update({ value: value })
+            .eq('key', key);
 
-    if (error) throw error;
+        if (error) throw error;
+    });
 };
 
 
 // --- User Management ---
 export const getAdminUsers = async (): Promise<AdminUser[]> => {
-    const { data, error } = await supabase.from('profiles').select('*');
-    if (error) throw error;
-    return data.map(u => {
-        const user = { ...u, isActive: u.is_active };
-        if (user.name && typeof user.name === 'string' && user.name.endsWith(' [co_Admin]')) {
-            user.name = user.name.replace(' [co_Admin]', '');
-            user.role = Role.CoAdmin;
-        }
-        return user;
+    return withAutoReauth(async () => {
+        const { data, error } = await supabase.from('profiles').select('*');
+        if (error) throw error;
+        return data.map(u => {
+            const user = { ...u, isActive: u.is_active };
+            if (user.name && typeof user.name === 'string' && user.name.endsWith(' [co_Admin]')) {
+                user.name = user.name.replace(' [co_Admin]', '');
+                user.role = Role.CoAdmin;
+            }
+            return user;
+        });
     });
 };
 
 export const createAdminUser = async(user: Omit<AdminUser, 'id'>, password: string): Promise<AdminUser> => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
+    let session = (await supabase.auth.getSession()).data?.session;
+    let token = session?.access_token;
+
+    if (!token) {
+        session = await safeRefreshSession(true);
+        token = session?.access_token;
+    }
 
     if (!token) {
         throw new Error("You must be logged in to create admin users.");
@@ -1223,34 +1284,38 @@ export const createAdminUser = async(user: Omit<AdminUser, 'id'>, password: stri
 };
 
 export const updateAdminUser = async(user: AdminUser): Promise<AdminUser> => {
-    const { isActive, ...rest } = user;
-    
-    // Map co_Admin to Super Admin for database storage and append suffix to name
-    const dbRole = rest.role === 'co_Admin' ? 'Super Admin' : rest.role;
-    let dbName = rest.name;
-    if (rest.role === 'co_Admin') {
-        if (!dbName.endsWith(' [co_Admin]')) {
-            dbName = `${dbName} [co_Admin]`;
+    return withAutoReauth(async () => {
+        const { isActive, ...rest } = user;
+        
+        // Map co_Admin to Super Admin for database storage and append suffix to name
+        const dbRole = rest.role === 'co_Admin' ? 'Super Admin' : rest.role;
+        let dbName = rest.name;
+        if (rest.role === 'co_Admin') {
+            if (!dbName.endsWith(' [co_Admin]')) {
+                dbName = `${dbName} [co_Admin]`;
+            }
+        } else {
+            dbName = dbName.replace(' [co_Admin]', '');
         }
-    } else {
-        dbName = dbName.replace(' [co_Admin]', '');
-    }
 
-    const { data, error } = await supabase.from('profiles').update({ ...rest, name: dbName, role: dbRole, is_active: isActive }).eq('id', user.id).select().single();
-    if (error) throw error;
-    
-    const clientUser = { ...data, isActive: data.is_active };
-    if (clientUser.name && typeof clientUser.name === 'string' && clientUser.name.endsWith(' [co_Admin]')) {
-        clientUser.name = clientUser.name.replace(' [co_Admin]', '');
-        clientUser.role = Role.CoAdmin;
-    }
-    return clientUser;
+        const { data, error } = await supabase.from('profiles').update({ ...rest, name: dbName, role: dbRole, is_active: isActive }).eq('id', user.id).select().single();
+        if (error) throw error;
+        
+        const clientUser = { ...data, isActive: data.is_active };
+        if (clientUser.name && typeof clientUser.name === 'string' && clientUser.name.endsWith(' [co_Admin]')) {
+            clientUser.name = clientUser.name.replace(' [co_Admin]', '');
+            clientUser.role = Role.CoAdmin;
+        }
+        return clientUser;
+    });
 };
 
 export const deleteAdminUser = async(userId: string): Promise<{ success: boolean }> => {
-    const { error } = await supabase.from('profiles').delete().eq('id', userId);
-    if (error) throw error;
-    return { success: true };
+    return withAutoReauth(async () => {
+        const { error } = await supabase.from('profiles').delete().eq('id', userId);
+        if (error) throw error;
+        return { success: true };
+    });
 };
 
 

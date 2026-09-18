@@ -100,10 +100,12 @@ const ScheduleManager: React.FC = () => {
 
     let timer: NodeJS.Timeout | null = null;
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         if (timer) clearTimeout(timer);
-        timer = setTimeout(() => {
-          if (document.visibilityState === 'visible') {
+        timer = setTimeout(async () => {
+          if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+            isFetchingRef.current = false;
+            await safeRefreshSession();
             fetchInitialData();
           }
         }, 300);
@@ -112,10 +114,12 @@ const ScheduleManager: React.FC = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
     return () => {
       if (timer) clearTimeout(timer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
     };
   }, [currentPage, adminGenderFilter, fetchInitialData]);
 

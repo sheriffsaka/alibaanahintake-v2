@@ -55,8 +55,8 @@ export const usePolling = (callback: () => Promise<void>, delay: number | null) 
           window.clearTimeout(timeoutId);
           timeoutId = undefined;
         }
-        // Immediately refresh when switching back to tab
-        tick();
+        // Give session and network wake-up listeners 400ms to complete before polling
+        timeoutId = window.setTimeout(tick, 400);
       } else {
         // Pause timer when tab is hidden
         if (timeoutId) {
