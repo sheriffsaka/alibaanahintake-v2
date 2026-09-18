@@ -6,7 +6,7 @@ import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Input from '../common/Input';
 import Button from '../common/Button';
-import { Download, Search, ArrowUpDown, Trash2, Edit3, CheckSquare, Square, Send, ChevronDown, Check, X, AlertCircle, RefreshCw } from 'lucide-react';
+import { Download, Search, ArrowUpDown, Trash2, Edit3, CheckSquare, Square, Send, ChevronDown, Check, X, AlertCircle, RefreshCw, KeyRound } from 'lucide-react';
 import useDebounce from '../../hooks/useDebounce';
 import { deleteStudent, updateStudentDetails, getLevels, bulkDeleteStudents, resendConfirmationEmail } from '../../services/apiService';
 import { useAuth } from '../../hooks/useAuth';
@@ -51,6 +51,17 @@ const StudentRecords: React.FC = () => {
   const [availableSlots, setAvailableSlots] = useState<AppointmentSlot[]>([]);
   const [isSlotDropdownOpen, setIsSlotDropdownOpen] = useState(false);
 
+  // Diagnostic state for surfacing root cause of errors
+  const [errorDetails, setErrorDetails] = useState<{
+    message: string;
+    code?: string;
+    details?: string;
+    hint?: string;
+    timestamp: string;
+    operation?: string;
+  } | null>(null);
+  const [isRefreshingAuth, setIsRefreshingAuth] = useState(false);
+
   const handleResendConfirmation = async (student: Student) => {
     if (!student.email) return;
     if (!confirm(`Resend confirmation email to ${student.email}?`)) return;
@@ -94,17 +105,60 @@ const StudentRecords: React.FC = () => {
             gender: adminGenderFilter
           }
         ),
-        15000,
+        25000,
         "Fetching student records"
       );
       setStudents(data);
       setTotalStudents(count);
-    } catch (err) {
+      setErrorDetails(null);
+    } catch (err: unknown) {
       console.error("Failed to fetch students", err);
+      const timestamp = new Date().toLocaleTimeString();
+
       if (isHardTimeoutError(err)) {
         setError(HARD_TIMEOUT_USER_MESSAGE);
+        setErrorDetails({
+          message: `The operation "${err.operationName || 'Fetching student records'}" timed out after ${err.timeoutMs}ms. The server or network took too long to respond.`,
+          code: 'TIMEOUT',
+          details: 'A timeout occurred waiting for the database response. This can happen during network latency or if authentication tokens are being refreshed.',
+          hint: 'Click "Refresh Session & Retry" to force an immediate auth refresh and reconnection.',
+          operation: err.operationName || 'Fetching student records',
+          timestamp,
+        });
+      } else if (err instanceof Error) {
+        const anyErr = err as Record<string, unknown>;
+        const code = anyErr.code ? String(anyErr.code) : (err.name && err.name !== 'Error' ? err.name : undefined);
+        const details = anyErr.details ? String(anyErr.details) : undefined;
+        const hint = anyErr.hint ? String(anyErr.hint) : undefined;
+        
+        setError(err.message || "Failed to load student records. Please try again.");
+        setErrorDetails({
+          message: err.message,
+          code,
+          details,
+          hint,
+          operation: 'Fetching student records',
+          timestamp,
+        });
+      } else if (typeof err === 'object' && err !== null) {
+        const e = err as Record<string, unknown>;
+        const msg = String(e.message || e.error_description || "Database error");
+        setError(msg);
+        setErrorDetails({
+          message: msg,
+          code: e.code ? String(e.code) : (e.status ? String(e.status) : undefined),
+          details: e.details ? String(e.details) : undefined,
+          hint: e.hint ? String(e.hint) : undefined,
+          operation: 'Fetching student records',
+          timestamp,
+        });
       } else {
         setError("Failed to load student records. Please try again.");
+        setErrorDetails({
+          message: String(err),
+          operation: 'Fetching student records',
+          timestamp,
+        });
       }
     } finally {
       isFetchingRef.current = false;
@@ -114,7 +168,24 @@ const StudentRecords: React.FC = () => {
 
   const handleRetry = React.useCallback(() => {
     isFetchingRef.current = false;
+    setError(null);
+    setErrorDetails(null);
     fetchStudents();
+  }, [fetchStudents]);
+
+  const handleRefreshAuthAndRetry = React.useCallback(async () => {
+    setIsRefreshingAuth(true);
+    try {
+      await safeRefreshSession(true);
+    } catch (authErr) {
+      console.warn("Session refresh attempt warning:", authErr);
+    } finally {
+      setIsRefreshingAuth(false);
+      isFetchingRef.current = false;
+      setError(null);
+      setErrorDetails(null);
+      fetchStudents();
+    }
   }, [fetchStudents]);
 
   useEffect(() => {
@@ -449,16 +520,78 @@ const StudentRecords: React.FC = () => {
   if (error && students.length === 0) {
     return (
       <Card title="Student Records">
-        <div className="p-12 text-center max-w-md mx-auto">
+        <div className="p-8 sm:p-12 text-center max-w-lg mx-auto">
           <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="h-6 w-6" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Records</h3>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <Button onClick={handleRetry} className="inline-flex items-center">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry
-          </Button>
+          <p className="text-gray-600 mb-4">{error}</p>
+
+          {/* Root Cause & Diagnostic Information */}
+          {errorDetails && (
+            <div className="mb-6 text-left bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs">
+              <div className="flex items-center justify-between font-semibold text-gray-800 mb-2">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+                  Diagnostic Cause
+                </span>
+                <span className="text-gray-400 font-normal">{errorDetails.timestamp}</span>
+              </div>
+              
+              <div className="space-y-1.5 font-mono">
+                {errorDetails.code && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500">Error Code:</span>
+                    <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-800 font-bold">{errorDetails.code}</span>
+                  </div>
+                )}
+                {errorDetails.operation && (
+                  <div className="text-gray-600">
+                    <span className="text-gray-500">Operation: </span>
+                    {errorDetails.operation}
+                  </div>
+                )}
+                <div className="p-2 bg-red-50 text-red-700 rounded border border-red-100 break-words mt-1">
+                  {errorDetails.message}
+                </div>
+                {errorDetails.details && (
+                  <div className="text-gray-500 italic mt-1">
+                    Details: {errorDetails.details}
+                  </div>
+                )}
+                {errorDetails.hint && (
+                  <div className="text-blue-600 mt-1">
+                    Tip: {errorDetails.hint}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button onClick={handleRetry} className="w-full sm:w-auto inline-flex items-center justify-center">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry Query
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={isRefreshingAuth}
+              onClick={handleRefreshAuthAndRetry}
+              className="w-full sm:w-auto inline-flex items-center justify-center"
+            >
+              {isRefreshingAuth ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Refreshing Auth...
+                </>
+              ) : (
+                <>
+                  <KeyRound className="h-4 w-4 mr-2 text-indigo-500" />
+                  Refresh Session & Retry
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </Card>
     );
@@ -467,15 +600,36 @@ const StudentRecords: React.FC = () => {
   return (
     <Card title="Student Records">
       {error && students.length > 0 && (
-        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-800">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0" />
-            <span className="text-sm font-medium">{error}</span>
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="text-sm font-medium">{error}</div>
+                {errorDetails && (
+                  <div className="text-xs text-amber-900 font-mono mt-1">
+                    [{errorDetails.code || 'ERROR'}] {errorDetails.message}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button size="sm" variant="secondary" onClick={handleRetry} className="flex-shrink-0">
+                <RefreshCw className="h-4 w-4 mr-1.5" />
+                Retry
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isRefreshingAuth}
+                onClick={handleRefreshAuthAndRetry}
+                className="flex-shrink-0"
+              >
+                <KeyRound className="h-3.5 w-3.5 mr-1 text-indigo-500" />
+                {isRefreshingAuth ? "Refreshing..." : "Re-Auth"}
+              </Button>
+            </div>
           </div>
-          <Button size="sm" variant="secondary" onClick={handleRetry} className="flex-shrink-0">
-            <RefreshCw className="h-4 w-4 mr-1.5" />
-            Retry
-          </Button>
         </div>
       )}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">

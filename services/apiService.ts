@@ -385,7 +385,9 @@ export const getAllStudents = async (
             query = query.eq('gender', filters.gender);
         }
 
-        if (sortKey) {
+        if (sortKey === 'level' || sortKey === 'levels(name)') {
+            query = query.order('name', { foreignTable: 'levels', ascending: sortDirection === 'asc' });
+        } else if (sortKey) {
             const dbSortKey = sortKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
             query = query.order(dbSortKey, { ascending: sortDirection === 'asc' });
         } else {
@@ -440,7 +442,9 @@ export const getAllStudentsForExport = async (
             query = query.eq('gender', filters.gender);
         }
 
-        if (sortKey) {
+        if (sortKey === 'level' || sortKey === 'levels(name)') {
+            query = query.order('name', { foreignTable: 'levels', ascending: sortDirection === 'asc' });
+        } else if (sortKey) {
             const dbSortKey = sortKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
             query = query.order(dbSortKey, { ascending: sortDirection === 'asc' });
         } else {

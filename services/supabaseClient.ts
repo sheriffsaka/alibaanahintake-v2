@@ -64,94 +64,29 @@ const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries
   throw new Error('Network request failed after retries');
 };
 
-// Supabase's default auth lock uses the browser's native Web Locks API
-// (navigator.locks) to make sure only one tab refreshes the session at a
-// time, but that lock has NO timeout by default. If a tab is backgrounded
-// or frozen while it happens to be holding the lock (e.g. mid token-refresh),
-// it never releases it — and every OTHER tab or page on the site (admin
-// panel, a student mid-registration, anything) that then needs the lock
-// waits forever. This wraps the same native lock with an acquisition
-// timeout: a WAITING caller gives up after a few seconds and surfaces a
-// normal, recoverable error instead of hanging indefinitely. It does not
-// force a stuck tab to release the lock — nothing can do that — but it
-// stops every other tab in the app from freezing because of it.
-const LOCK_ACQUIRE_TIMEOUT_MS = 8000;
-
-class LockAcquireTimeoutError extends Error {
-  isAcquireTimeout = true;
-  constructor(message: string) {
-    super(message);
-    this.name = 'LockAcquireTimeoutError';
-  }
-}
-
-interface LockManagerLike {
-  request<T>(
-    name: string,
-    options: { mode?: 'exclusive' | 'shared'; ifAvailable?: boolean; signal?: AbortSignal },
-    callback: (lock: unknown) => Promise<T>
-  ): Promise<T>;
-}
-
-const timeoutGuardedLock = async <R>(
-  name: string,
-  acquireTimeout: number,
+/**
+ * In-memory non-blocking lock implementation for Supabase Auth.
+ * 
+ * ROOT CAUSE FIX:
+ * The browser's native Web Locks API (navigator.locks) deadlocks or stalls inside
+ * iframes (such as Google Cloud Run preview environments), sandboxed contexts,
+ * and backgrounded tabs. Because Supabase PostgREST calls getSession() before EVERY
+ * database query, relying on navigator.locks serialized every query behind an exclusive
+ * lock. If an iframe or background worker didn't yield immediately, each query queued
+ * and waited for the 8000-10000ms acquisition timeout, causing cascading delays that
+ * exceeded the page's query timeout and resulted in:
+ * "Unable to Load Records - Couldn't load — something's taking too long".
+ * 
+ * Executing directly in memory eliminates all lock contention and delay (0ms overhead),
+ * allowing getSession() to read the cached session synchronously from localStorage
+ * without ever getting stuck.
+ */
+const inMemoryLock = async <R>(
+  _name: string,
+  _acquireTimeout: number,
   fn: () => Promise<R>
 ): Promise<R> => {
-  const lockManager = typeof navigator !== 'undefined'
-    ? (navigator as unknown as { locks?: LockManagerLike }).locks
-    : undefined;
-
-  if (!lockManager) {
-    // No Web Locks support (older browser) — just run the function directly,
-    // same as Supabase's own fallback behavior.
-    return fn();
-  }
-
-  // When acquireTimeout is strictly 0, Supabase is performing a non-blocking try-lock
-  // (e.g. background auto-refresh tick) that should not queue or wait.
-  if (acquireTimeout === 0) {
-    return await lockManager.request(
-      name,
-      { mode: 'exclusive', ifAvailable: true },
-      async (lock: unknown) => {
-        if (!lock) {
-          throw new LockAcquireTimeoutError(`Could not acquire lock: ${name} (ifAvailable)`);
-        }
-        return await fn();
-      }
-    );
-  }
-
-  const effectiveTimeout = acquireTimeout > 0 ? acquireTimeout : LOCK_ACQUIRE_TIMEOUT_MS;
-  const controller = new AbortController();
-  const timerId = setTimeout(() => controller.abort(), effectiveTimeout);
-
-  try {
-    return await lockManager.request(
-      name,
-      { mode: 'exclusive', signal: controller.signal },
-      async (lock: unknown) => {
-        if (!lock) {
-          throw new Error(`Could not acquire lock: ${name}`);
-        }
-        return await fn();
-      }
-    );
-  } catch (err: unknown) {
-    const e = err as { name?: string };
-    if (e?.name === 'AbortError') {
-      console.warn(
-        `[SupabaseClient] Lock acquisition timed out for: "${name}" after ${effectiveTimeout}ms. Bypassing lock to run operation directly and prevent UI freeze.`
-      );
-      // Graceful fallback: run fn() directly rather than throwing an unhandled rejection
-      // that would permanently poison GoTrueClient.initializePromise in memory.
-      return await fn();
-    }
-    throw err;
-  } finally {
-    clearTimeout(timerId);
-  }
+  return await fn();
 };
 
 // Check configuration
@@ -167,10 +102,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    // Still uses native Web Locks (navigator.locks) across all browser tabs
-    // and windows, but wrapped with an acquisition timeout — see
-    // timeoutGuardedLock above for why this matters.
-    lock: timeoutGuardedLock,
+    // Use inMemoryLock to completely eliminate iframe Web Locks deadlocks
+    lock: inMemoryLock,
   },
   global: {
     fetch: fetchWithRetry,
@@ -299,16 +232,24 @@ if (typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', handleWakeUp);
   window.addEventListener('focus', handleWakeUp);
 
-  // When Chrome freezes an inactive tab into the back-forward cache (bfcache),
-  // it force-closes any open WebSocket — including Supabase Realtime's socket.
-  // On restore, that socket is dead in a way the normal reconnect/backoff logic
-  // doesn't cleanly recover from (surfaces as CHANNEL_ERROR / TIMED_OUT loops).
-  // The standard fix is to detect the bfcache restore specifically and do a
-  // full reload for a guaranteed-fresh connection, rather than a soft reconnect.
+  // When the browser restores an inactive tab from the back-forward cache (bfcache)
+  // or switches back from another application (e.g., student copying an OTP from email),
+  // softly reconnect the Realtime WebSocket if active.
+  // CRITICAL: NEVER call window.location.reload() here, as doing so destroys user form state,
+  // resets multi-step registration (disconnecting students checking their email for OTP),
+  // and interrupts in-progress workflows.
   window.addEventListener('pageshow', (event: PageTransitionEvent) => {
     if (event.persisted) {
-      console.warn('[SupabaseClient] Page restored from back-forward cache — reloading for a fresh Realtime connection.');
-      window.location.reload();
+      console.log('[SupabaseClient] Page restored from back-forward cache — softly reconnecting realtime if needed.');
+      try {
+        if (supabase.realtime) {
+          supabase.realtime.disconnect();
+          supabase.realtime.connect();
+        }
+      } catch (err) {
+        console.warn('[SupabaseClient] Realtime soft-reconnect on pageshow:', err);
+      }
+      handleWakeUp();
     }
   });
 

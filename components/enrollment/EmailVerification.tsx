@@ -17,11 +17,15 @@ const EmailVerification: React.FC = () => {
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
+  const email = state.formData.email?.toLowerCase().trim();
+  const otpStorageKey = `al_ibaanah_otp_sent_${email}`;
+
   const handleSendOTP = useCallback(async () => {
     setResending(true);
     setError(null);
     try {
       await sendOTP(state.formData.email);
+      sessionStorage.setItem(otpStorageKey, Date.now().toString());
       setCountdown(60); // 60 seconds cooldown
     } catch (err: unknown) {
       const error = err as { status?: number; code?: string; message?: string };
@@ -42,10 +46,21 @@ const EmailVerification: React.FC = () => {
     } finally {
       setResending(false);
     }
-  }, [state.formData.email]);
+  }, [state.formData.email, otpStorageKey]);
 
   useEffect(() => {
-    // Automatically send OTP when component mounts
+    // Check if an OTP was recently sent (e.g. within 60s) before sending a new one
+    // This protects students switching away to check their email from having their code invalidated
+    const lastSentStr = sessionStorage.getItem(otpStorageKey);
+    if (lastSentStr) {
+      const elapsedSeconds = Math.floor((Date.now() - parseInt(lastSentStr, 10)) / 1000);
+      if (elapsedSeconds < 60) {
+        setCountdown(60 - elapsedSeconds);
+        return;
+      }
+    }
+
+    // Otherwise automatically send OTP when component mounts
     handleSendOTP();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -69,6 +84,7 @@ const EmailVerification: React.FC = () => {
     setError(null);
     try {
       await verifyOTP(state.formData.email, otp);
+      sessionStorage.removeItem(otpStorageKey);
       
       // Save pre-registration data as requested
       await savePreRegistration(state.formData);
