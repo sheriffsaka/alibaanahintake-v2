@@ -28,7 +28,7 @@ import { useAuth } from './hooks/useAuth';
 const AdminIndexRedirect = () => {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  return <Navigate to="dashboard" replace />;
+  return <Navigate to="/admin/dashboard" replace />;
 };
 
 function App() {

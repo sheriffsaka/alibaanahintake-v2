@@ -5,9 +5,10 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   icon?: React.ReactNode;
+  rightElement?: React.ReactNode;
 }
 
-const Input: React.FC<InputProps> = ({ label, id, error, icon, className, ...props }) => {
+const Input: React.FC<InputProps> = ({ label, id, error, icon, rightElement, className = '', ...props }) => {
   return (
     <div>
       {label && <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
@@ -21,10 +22,16 @@ const Input: React.FC<InputProps> = ({ label, id, error, icon, className, ...pro
             sm:text-sm
             ${error ? 'border-red-500' : 'border-gray-300'}
             ${icon ? 'pl-10' : ''}
+            ${rightElement ? 'pr-10' : ''}
             ${className}
           `}
           {...props}
         />
+        {rightElement && (
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+            {rightElement}
+          </div>
+        )}
       </div>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>

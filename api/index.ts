@@ -148,6 +148,172 @@ router.get('/test', (req, res) => {
   });
 });
 
+// In-memory store for admin password reset verification codes (15-minute TTL)
+interface AdminResetEntry {
+  code: string;
+  userId: string;
+  expiresAt: number;
+}
+const adminResetCodes = new Map<string, AdminResetEntry>();
+
+router.post('/auth/request-password-reset', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Valid email is required.' });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const supabase = getServiceSupabase();
+
+    // Check if user exists in profiles and is active
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('id, name, email, is_active')
+      .eq('email', cleanEmail)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[Auth API] Error querying profile for password reset:', error);
+    }
+
+    if (!profile || !profile.is_active) {
+      return res.status(404).json({
+        error: 'No active administrator account was found with this email address.'
+      });
+    }
+
+    // Generate secure 6-digit numeric verification code
+    const crypto = await import('crypto');
+    const code = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 mins
+
+    adminResetCodes.set(cleanEmail, { code, userId: profile.id, expiresAt });
+
+    // Also persist in Supabase user_metadata for multi-container/restart resilience
+    try {
+      const { data: userRes } = await supabase.auth.admin.getUserById(profile.id);
+      const existingMeta = userRes?.user?.user_metadata || {};
+      await supabase.auth.admin.updateUserById(profile.id, {
+        user_metadata: {
+          ...existingMeta,
+          admin_reset_code: code,
+          admin_reset_expires_at: expiresAt,
+        }
+      });
+    } catch (metaErr) {
+      console.warn('[Auth API] Could not persist reset code to user_metadata:', metaErr);
+    }
+
+    // Send email to admin
+    await sendEmail({
+      to: cleanEmail,
+      subject: 'Al-Ibaanah Admin Portal - Password Reset Code',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+          <h2 style="color: #047857; text-align: center; margin-bottom: 8px;">Al-Ibaanah Admin Portal</h2>
+          <p style="font-size: 16px; color: #1f2937; margin-top: 16px;">As-salamu alaykum ${profile.name || 'Admin'},</p>
+          <p style="font-size: 14px; color: #4b5563; line-height: 1.5;">You requested to reset your admin password. Use the verification code below to set your new password:</p>
+          <div style="background-color: #f0fdf4; border: 2px dashed #059669; padding: 20px; text-align: center; border-radius: 8px; margin: 24px 0;">
+            <span style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #047857;">${code}</span>
+          </div>
+          <p style="font-size: 13px; color: #6b7280; line-height: 1.4;">This verification code is valid for 15 minutes. Enter this code on the login screen to set your new password.</p>
+          <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
+          <p style="font-size: 12px; color: #9ca3af; text-align: center;">Al-Ibaanah Arabic Center Administration</p>
+        </div>
+      `,
+    });
+
+    console.log(`>>> [Auth API] Sent password reset code to ${cleanEmail}`);
+    return res.json({
+      success: true,
+      message: `A 6-digit verification code has been sent to ${cleanEmail}.`
+    });
+  } catch (err: unknown) {
+    const error = err as { message?: string };
+    console.error('[Auth API] request-password-reset error:', err);
+    return res.status(500).json({ error: error?.message || 'Failed to send reset code.' });
+  }
+});
+
+router.post('/auth/confirm-password-reset', async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ error: 'Email, verification code, and new password are required.' });
+    }
+
+    if (typeof newPassword !== 'string' || newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const supabase = getServiceSupabase();
+    let entry = adminResetCodes.get(cleanEmail);
+    let targetUserId = entry?.userId;
+
+    if (!entry) {
+      // Fallback: check Supabase user metadata for active reset code
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, email, is_active')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (profile) {
+        const { data: userRes } = await supabase.auth.admin.getUserById(profile.id);
+        const meta = userRes?.user?.user_metadata || {};
+        if (meta.admin_reset_code && meta.admin_reset_expires_at) {
+          entry = {
+            code: String(meta.admin_reset_code),
+            userId: profile.id,
+            expiresAt: Number(meta.admin_reset_expires_at),
+          };
+          targetUserId = profile.id;
+        }
+      }
+    }
+
+    if (!entry || !targetUserId) {
+      return res.status(400).json({ error: 'No active reset request found for this email. Please request a new code.' });
+    }
+
+    if (Date.now() > entry.expiresAt) {
+      adminResetCodes.delete(cleanEmail);
+      return res.status(400).json({ error: 'Verification code has expired. Please request a new code.' });
+    }
+
+    if (entry.code !== code.trim()) {
+      return res.status(400).json({ error: 'Invalid verification code. Please check the code in your email.' });
+    }
+
+    const { error: updateError } = await supabase.auth.admin.updateUserById(targetUserId, {
+      password: newPassword,
+      email_confirm: true,
+      user_metadata: {
+        admin_reset_code: null,
+        admin_reset_expires_at: null,
+      }
+    });
+
+    if (updateError) {
+      console.error('[Auth API] Supabase updateUserById error:', updateError);
+      return res.status(500).json({ error: updateError.message || 'Failed to update password in authentication service.' });
+    }
+
+    adminResetCodes.delete(cleanEmail);
+    console.log(`>>> [Auth API] Successfully reset password for admin ${cleanEmail}`);
+
+    return res.json({
+      success: true,
+      message: 'Password has been successfully updated! You can now log in with your new password.'
+    });
+  } catch (err: unknown) {
+    const error = err as { message?: string };
+    console.error('[Auth API] confirm-password-reset error:', err);
+    return res.status(500).json({ error: error?.message || 'Failed to reset password.' });
+  }
+});
+
 router.post('/auth/send-otp', async (req, res) => {
   const { email } = req.body;
   if (!email || typeof email !== 'string') return res.status(400).json({ error: 'Email is required' });

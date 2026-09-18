@@ -277,7 +277,12 @@ export const login = async (email: string, password: string): Promise<AdminUser>
     if (error) throw error;
     if (!data?.user) throw new Error("No user returned from login.");
 
-    const profile = await getAdminUserProfile(data.user.id);
+    let profile = await getAdminUserProfile(data.user.id);
+    if (!profile) {
+        // Fallback: brief delay and retry in case auth session is still propagating
+        await new Promise(res => setTimeout(res, 350));
+        profile = await getAdminUserProfile(data.user.id);
+    }
     if (!profile) {
         throw new Error("Admin profile not found. Please contact the system administrator.");
     }
@@ -289,7 +294,34 @@ export const login = async (email: string, password: string): Promise<AdminUser>
 };
 
 
-// --- Student Public API ---
+export const requestAdminPasswordReset = async (email: string): Promise<{ success: boolean; message: string }> => {
+    const cleanEmail = email.trim().toLowerCase();
+    const res = await fetch(`${window.location.origin}/api/auth/request-password-reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.error || 'Failed to request password reset.');
+    }
+    return data;
+};
+
+export const confirmAdminPasswordReset = async (email: string, code: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+    const cleanEmail = email.trim().toLowerCase();
+    const res = await fetch(`${window.location.origin}/api/auth/confirm-password-reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, code: code.trim(), newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.error || 'Failed to update password.');
+    }
+    return data;
+};
+
 export const getAvailableDatesForLevel = async(levelId: string, gender: Gender): Promise<string[]> => {
     console.log('>>> Fetching dates for level:', levelId, 'gender:', gender);
     const settings = await getAppSettings();

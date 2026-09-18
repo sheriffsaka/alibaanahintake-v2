@@ -26,6 +26,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   });
   const [session, setSession] = useState<Session | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [loading, setLoading] = useState(true);
 
   const updateUser = useCallback((profile: AdminUser | null) => {
@@ -65,6 +66,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const currentSession = data?.session;
         if (mounted) setSession(currentSession);
 
+        if (!currentSession) {
+          // No active auth session in Supabase - clear stale cached profile so user is not stuck in limbo
+          if (mounted) {
+            updateUser(null);
+          }
+          return;
+        }
+
         if (currentSession?.access_token) {
           withHardTimeout(
             () => syncRealtimeAuth(currentSession.access_token),
@@ -99,7 +108,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } catch (e) {
         console.error("Critical error in getInitialSession:", e);
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setIsInitializing(false);
+          setLoading(false);
+        }
       }
     };
     
@@ -138,7 +150,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (mounted) updateUser(null);
         }
         
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setIsInitializing(false);
+          setLoading(false);
+        }
       }
     );
 
@@ -187,7 +202,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {isInitializing ? (
+        <div className="flex items-center justify-center min-h-screen bg-gray-50">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+        </div>
+      ) : children}
     </AuthContext.Provider>
   );
 };
