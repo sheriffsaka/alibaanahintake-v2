@@ -1,6 +1,25 @@
 
-import { supabase, safeRefreshSession } from './supabaseClient';
+import { supabase, safeRefreshSession, supabaseUrl, supabaseAnonKey } from './supabaseClient';
 import { Student, AppointmentSlot, Level, AdminUser, NotificationSettings, AppSettings, SiteContent, Gender, Role, isGenderRegistrationOpen } from '../types';
+
+const getSessionStorageItem = <T>(key: string): T | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const item = window.sessionStorage.getItem(key);
+    return item ? JSON.parse(item) : null;
+  } catch {
+    return null;
+  }
+};
+
+const setSessionStorageItem = <T>(key: string, value: T): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Ignore storage quota or disabled errors
+  }
+};
 
 /**
  * Automatically catches expired JWT / 401 errors from PostgREST/Supabase queries,
@@ -907,7 +926,7 @@ export const deleteLevel = async(levelId: string): Promise<{ success: boolean }>
 };
 
 
-let cachedSiteContent: SiteContent | null = null;
+let cachedSiteContent: SiteContent | null = getSessionStorageItem<SiteContent>('ib_cached_site_content');
 
 // --- Site Content Management ---
 export const getSiteContent = async (): Promise<SiteContent> => {
@@ -922,6 +941,35 @@ export const getSiteContent = async (): Promise<SiteContent> => {
             campusHours: ''
         };
 
+        const fallbackDirectFetch = async (): Promise<SiteContent | null> => {
+            try {
+                const res = await fetchWithTimeout(`${supabaseUrl}/rest/v1/asset_settings?select=key,value`, {
+                    headers: {
+                        apikey: supabaseAnonKey,
+                        Authorization: `Bearer ${supabaseAnonKey}`,
+                        Accept: 'application/json'
+                    },
+                    timeout: 4000
+                });
+                if (res.ok) {
+                    const rows = await res.json();
+                    if (Array.isArray(rows) && rows.length > 0) {
+                        const fetchedContent = rows.reduce((acc: Record<string, unknown>, { key, value }: { key: string; value: unknown }) => {
+                            acc[key] = value;
+                            return acc;
+                        }, {});
+                        const resolved = { ...defaultContent, ...fetchedContent };
+                        cachedSiteContent = resolved;
+                        setSessionStorageItem('ib_cached_site_content', resolved);
+                        return resolved;
+                    }
+                }
+            } catch (fallbackErr) {
+                console.warn("[ApiService] Direct fallback fetch for asset_settings failed:", fallbackErr);
+            }
+            return null;
+        };
+
         try {
             const { data, error } = await supabase
                 .from('asset_settings')
@@ -932,11 +980,15 @@ export const getSiteContent = async (): Promise<SiteContent> => {
                 if (err?.code === 'PGRST301' || err?.message?.includes('JWT expired')) {
                     throw error;
                 }
-                console.error("Error fetching site content, returning cached or default.", error);
+                console.error("Error fetching site content, trying direct fallback:", error);
+                const directFallback = await fallbackDirectFetch();
+                if (directFallback) return directFallback;
                 return cachedSiteContent || defaultContent;
             }
 
-            if (!data) {
+            if (!data || data.length === 0) {
+                const directFallback = await fallbackDirectFetch();
+                if (directFallback) return directFallback;
                 return cachedSiteContent || defaultContent;
             }
             
@@ -947,13 +999,16 @@ export const getSiteContent = async (): Promise<SiteContent> => {
 
             const resolvedContent = { ...defaultContent, ...fetchedContent };
             cachedSiteContent = resolvedContent;
+            setSessionStorageItem('ib_cached_site_content', resolvedContent);
             return resolvedContent;
         } catch (err) {
             const error = err as { code?: string; message?: string };
             if (error?.code === 'PGRST301' || error?.message?.includes('JWT expired')) {
                 throw err;
             }
-            console.error("Exception fetching site content:", err);
+            console.error("Exception fetching site content, trying direct fallback:", err);
+            const directFallback = await fallbackDirectFetch();
+            if (directFallback) return directFallback;
             return cachedSiteContent || defaultContent;
         }
     });
@@ -1064,11 +1119,59 @@ export const updateNotificationSettings = async(settings: NotificationSettings):
 };
 
 
-let cachedAppSettings: AppSettings | null = null;
+let cachedAppSettings: AppSettings | null = getSessionStorageItem<AppSettings>('ib_cached_app_settings');
 
 // --- App Settings ---
 export const getAppSettings = async(): Promise<AppSettings> => {
     return withAutoReauth(async () => {
+        const fallbackDefaults: AppSettings = {
+            isRegistrationOpen: false, 
+            isMaleRegistrationOpen: false,
+            isFemaleRegistrationOpen: false,
+            maxDailyCapacity: 50,
+            closedReasons: {},
+            bookingStartTime: undefined,
+            bookingEndTime: undefined,
+            femaleBookingStartTime: undefined,
+            femaleBookingEndTime: undefined
+        };
+
+        const fallbackDirectFetch = async (): Promise<AppSettings | null> => {
+            try {
+                const res = await fetchWithTimeout(`${supabaseUrl}/rest/v1/app_settings?id=eq.1&select=*`, {
+                    headers: {
+                        apikey: supabaseAnonKey,
+                        Authorization: `Bearer ${supabaseAnonKey}`,
+                        Accept: 'application/json'
+                    },
+                    timeout: 4000
+                });
+                if (res.ok) {
+                    const rows = await res.json();
+                    if (Array.isArray(rows) && rows.length > 0) {
+                        const data = rows[0];
+                        const settings: AppSettings = {
+                            isRegistrationOpen: data.registration_open,
+                            isMaleRegistrationOpen: data.male_registration_open,
+                            isFemaleRegistrationOpen: data.female_registration_open,
+                            maxDailyCapacity: data.max_daily_capacity,
+                            closedReasons: data.closed_reasons || {},
+                            bookingStartTime: data.booking_start_time,
+                            bookingEndTime: data.booking_end_time,
+                            femaleBookingStartTime: data.female_booking_start_time,
+                            femaleBookingEndTime: data.female_booking_end_time
+                        };
+                        cachedAppSettings = settings;
+                        setSessionStorageItem('ib_cached_app_settings', settings);
+                        return settings;
+                    }
+                }
+            } catch (fallbackErr) {
+                console.warn("[ApiService] Direct fallback fetch for app_settings failed:", fallbackErr);
+            }
+            return null;
+        };
+
         try {
             const { data, error } = await supabase
                 .from('app_settings')
@@ -1081,18 +1184,10 @@ export const getAppSettings = async(): Promise<AppSettings> => {
                 if (err?.code === 'PGRST301' || err?.message?.includes('JWT expired')) {
                     throw error;
                 }
-                console.error("Failed to fetch app settings, using cached or defaults.", error);
-                return cachedAppSettings || { 
-                    isRegistrationOpen: false, 
-                    isMaleRegistrationOpen: false,
-                    isFemaleRegistrationOpen: false,
-                    maxDailyCapacity: 50,
-                    closedReasons: {},
-                    bookingStartTime: undefined,
-                    bookingEndTime: undefined,
-                    femaleBookingStartTime: undefined,
-                    femaleBookingEndTime: undefined
-                };
+                console.error("Failed to fetch app settings, trying direct fallback:", error);
+                const directFallback = await fallbackDirectFetch();
+                if (directFallback) return directFallback;
+                return cachedAppSettings || fallbackDefaults;
             }
             const settings: AppSettings = { 
                 isRegistrationOpen: data.registration_open, 
@@ -1106,24 +1201,17 @@ export const getAppSettings = async(): Promise<AppSettings> => {
                 femaleBookingEndTime: data.female_booking_end_time
             };
             cachedAppSettings = settings;
+            setSessionStorageItem('ib_cached_app_settings', settings);
             return settings;
         } catch (err) {
             const error = err as { code?: string; message?: string };
             if (error?.code === 'PGRST301' || error?.message?.includes('JWT expired')) {
                 throw err;
             }
-            console.error("Failed to fetch app settings, using cached or defaults.", err);
-            return cachedAppSettings || { 
-                isRegistrationOpen: false, 
-                isMaleRegistrationOpen: false,
-                isFemaleRegistrationOpen: false,
-                maxDailyCapacity: 50,
-                closedReasons: {},
-                bookingStartTime: undefined,
-                bookingEndTime: undefined,
-                femaleBookingStartTime: undefined,
-                femaleBookingEndTime: undefined
-            };
+            console.error("Failed to fetch app settings, trying direct fallback:", err);
+            const directFallback = await fallbackDirectFetch();
+            if (directFallback) return directFallback;
+            return cachedAppSettings || fallbackDefaults;
         }
     });
 };

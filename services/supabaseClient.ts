@@ -4,8 +4,8 @@ import { createClient, Session } from '@supabase/supabase-js';
 // Use environment variables for production, but provide fallback values for local development.
 // This allows the app to run in environments where .env files aren't configured,
 // while still using the secure environment variable approach for deployments.
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://snytpzughzqdhouqjoyh.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueXRwenVnaHpxZGhvdXFqb3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMDg4OTYsImV4cCI6MjA4Njg4NDg5Nn0.CGKjooJkDFm2VVyz3QXiZ5ksK5tZfo3FG56D5zlF6w8';
+export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://snytpzughzqdhouqjoyh.supabase.co';
+export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueXRwenVnaHpxZGhvdXFqb3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMDg4OTYsImV4cCI6MjA4Njg4NDg5Nn0.CGKjooJkDFm2VVyz3QXiZ5ksK5tZfo3FG56D5zlF6w8';
 
 // Custom fetch with timeout, caller signal preservation, and safe retry for idempotent read requests
 const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries = 2): Promise<Response> => {
@@ -77,15 +77,50 @@ const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries
 // stops every other tab in the app from freezing because of it.
 const LOCK_ACQUIRE_TIMEOUT_MS = 8000;
 
+class LockAcquireTimeoutError extends Error {
+  isAcquireTimeout = true;
+  constructor(message: string) {
+    super(message);
+    this.name = 'LockAcquireTimeoutError';
+  }
+}
+
+interface LockManagerLike {
+  request<T>(
+    name: string,
+    options: { mode?: 'exclusive' | 'shared'; ifAvailable?: boolean; signal?: AbortSignal },
+    callback: (lock: unknown) => Promise<T>
+  ): Promise<T>;
+}
+
 const timeoutGuardedLock = async <R>(
   name: string,
   acquireTimeout: number,
   fn: () => Promise<R>
 ): Promise<R> => {
-  if (typeof navigator === 'undefined' || !('locks' in navigator)) {
+  const lockManager = typeof navigator !== 'undefined'
+    ? (navigator as unknown as { locks?: LockManagerLike }).locks
+    : undefined;
+
+  if (!lockManager) {
     // No Web Locks support (older browser) — just run the function directly,
     // same as Supabase's own fallback behavior.
     return fn();
+  }
+
+  // When acquireTimeout is strictly 0, Supabase is performing a non-blocking try-lock
+  // (e.g. background auto-refresh tick) that should not queue or wait.
+  if (acquireTimeout === 0) {
+    return await lockManager.request(
+      name,
+      { mode: 'exclusive', ifAvailable: true },
+      async (lock: unknown) => {
+        if (!lock) {
+          throw new LockAcquireTimeoutError(`Could not acquire lock: ${name} (ifAvailable)`);
+        }
+        return await fn();
+      }
+    );
   }
 
   const effectiveTimeout = acquireTimeout > 0 ? acquireTimeout : LOCK_ACQUIRE_TIMEOUT_MS;
@@ -93,9 +128,9 @@ const timeoutGuardedLock = async <R>(
   const timerId = setTimeout(() => controller.abort(), effectiveTimeout);
 
   try {
-    return await (navigator as any).locks.request(
+    return await lockManager.request(
       name,
-      { signal: controller.signal },
+      { mode: 'exclusive', signal: controller.signal },
       async (lock: unknown) => {
         if (!lock) {
           throw new Error(`Could not acquire lock: ${name}`);
@@ -106,9 +141,12 @@ const timeoutGuardedLock = async <R>(
   } catch (err: unknown) {
     const e = err as { name?: string };
     if (e?.name === 'AbortError') {
-      throw new Error(
-        `Lock acquisition timed out for: ${name}. Another tab of this site may be stuck — closing other tabs and reloading usually fixes this.`
+      console.warn(
+        `[SupabaseClient] Lock acquisition timed out for: "${name}" after ${effectiveTimeout}ms. Bypassing lock to run operation directly and prevent UI freeze.`
       );
+      // Graceful fallback: run fn() directly rather than throwing an unhandled rejection
+      // that would permanently poison GoTrueClient.initializePromise in memory.
+      return await fn();
     }
     throw err;
   } finally {
