@@ -73,7 +73,7 @@ function App() {
                   </ProtectedRoute>
                 } />
                 <Route path="content" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin]}>
                     <SiteContentManager />
                   </ProtectedRoute>
                 } />
@@ -88,17 +88,17 @@ function App() {
                   </ProtectedRoute>
                 } />
                 <Route path="users" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin]}>
                     <UserManagement />
                   </ProtectedRoute>
                 } />
                 <Route path="notifications" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin]}>
                     <NotificationSettings />
                   </ProtectedRoute>
                 } />
                 <Route path="settings" element={
-                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin]}>
+                  <ProtectedRoute allowedRoles={[Role.SuperAdmin, Role.MaleAdmin, Role.FemaleAdmin, Role.CoAdmin, Role.MaleCoAdmin, Role.FemaleCoAdmin]}>
                     <Settings />
                   </ProtectedRoute>
                 } />

@@ -29,10 +29,15 @@ const LoginPage: React.FC = () => {
     }
     setLoading(true);
     try {
-      await login(email, password);
-      navigate('/admin');
-    } catch (err) {
-      setError(err.message || 'An unknown error occurred.');
+      const loggedUser = await login(email, password);
+      if (loggedUser) {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate('/admin', { replace: true });
+      }
+    } catch (err: unknown) {
+      const errorObj = err as { message?: string };
+      setError(errorObj?.message || 'An unknown error occurred.');
     } finally {
       setLoading(false);
     }

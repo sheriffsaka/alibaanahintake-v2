@@ -766,8 +766,10 @@ router.post('/admin/create-user', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden: Requester profile not found' });
     }
 
-    const adminRoles = ['Super Admin', 'male_section_Admin', 'female_section_Admin'];
-    if (!adminRoles.includes(profile.role)) {
+    const adminRoles = ['Super Admin', 'male_section_Admin', 'female_section_Admin', 'co_Admin', 'male_co_Admin', 'female_co_Admin'];
+    const requesterRole = (profile.role || '').toString().trim().toLowerCase();
+    const hasPrivilege = adminRoles.some(r => r.toLowerCase() === requesterRole);
+    if (!hasPrivilege) {
       return res.status(403).json({ error: 'Forbidden: Insufficient privileges' });
     }
 
@@ -830,8 +832,9 @@ router.post('/admin/create-user', async (req, res) => {
     }
 
     // 3. Upsert the profile record (handling cases where a row already exists in profiles)
-    const dbRole = role === 'co_Admin' ? 'Super Admin' : role;
-    const dbName = role === 'co_Admin' && !name.endsWith(' [co_Admin]') ? `${name} [co_Admin]` : name;
+    const isCoAdmin = role === 'co_Admin' || role === 'male_co_Admin' || role === 'female_co_Admin';
+    const dbRole = isCoAdmin ? 'Super Admin' : role;
+    const dbName = isCoAdmin && !name.endsWith(' [co_Admin]') ? `${name} [co_Admin]` : name;
 
     const { data: profileData, error: upsertError } = await supabase
       .from('profiles')
@@ -875,6 +878,115 @@ router.post('/admin/create-user', async (req, res) => {
     console.error('>>> Admin user creation error:', error);
     const err = error as { message?: string };
     res.status(500).json({ error: err?.message || 'Failed to complete admin user creation' });
+  }
+});
+
+router.post('/admin/update-user', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: No token provided' });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { id, name, email, role, isActive, password } = req.body;
+
+    if (!id || !name || !role) {
+      return res.status(400).json({ error: 'Missing required user fields' });
+    }
+
+    // 1. Verify caller privileges
+    const { data: { user: requestUser }, error: tokenError } = await supabase.auth.getUser(token);
+    if (tokenError || !requestUser) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', requestUser.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(403).json({ error: 'Forbidden: Requester profile not found' });
+    }
+
+    const adminRoles = ['Super Admin', 'male_section_Admin', 'female_section_Admin', 'co_Admin', 'male_co_Admin', 'female_co_Admin'];
+    const requesterRole = (profile.role || '').toString().trim().toLowerCase();
+    const hasPrivilege = adminRoles.some(r => r.toLowerCase() === requesterRole);
+    if (!hasPrivilege) {
+      return res.status(403).json({ error: 'Forbidden: Insufficient privileges' });
+    }
+
+    // 2. If password is provided, update password in Supabase Auth
+    if (password && typeof password === 'string' && password.trim().length > 0) {
+      console.log(`>>> Updating password for user ${id}...`);
+      const { error: passwordError } = await supabase.auth.admin.updateUserById(id, {
+        password: password.trim(),
+        email_confirm: true,
+      });
+
+      if (passwordError) {
+        console.error('>>> Error updating password for user:', passwordError);
+        return res.status(400).json({ error: passwordError.message });
+      }
+    }
+
+    // 3. Update profile record
+    const isCoAdmin = role === 'co_Admin' || role === 'male_co_Admin' || role === 'female_co_Admin';
+    const dbRole = isCoAdmin ? 'Super Admin' : role;
+    let dbName = name;
+    if (isCoAdmin) {
+      if (!dbName.endsWith(' [co_Admin]')) {
+        dbName = `${dbName} [co_Admin]`;
+      }
+    } else {
+      dbName = dbName.replace(' [co_Admin]', '');
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      name: dbName,
+      role: dbRole,
+      is_active: isActive !== undefined ? isActive : true,
+    };
+    if (email) {
+      updatePayload.email = email.toLowerCase();
+    }
+
+    const { data: profileData, error: updateError } = await supabase
+      .from('profiles')
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('>>> Error updating profile for user:', updateError);
+      return res.status(400).json({ error: updateError.message });
+    }
+
+    const clientUser = {
+      id: profileData.id,
+      name: profileData.name,
+      email: profileData.email,
+      role: profileData.role,
+      isActive: profileData.is_active,
+    };
+
+    if (clientUser.name.endsWith(' [co_Admin]')) {
+      clientUser.name = clientUser.name.replace(' [co_Admin]', '');
+      clientUser.role = 'co_Admin';
+    }
+
+    res.json({
+      success: true,
+      user: clientUser,
+    });
+  } catch (error: unknown) {
+    console.error('>>> Admin user update error:', error);
+    const err = error as { message?: string };
+    res.status(500).json({ error: err?.message || 'Failed to update admin user' });
   }
 });
 

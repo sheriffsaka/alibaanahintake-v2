@@ -10,7 +10,7 @@ interface AuthContextType {
   user: AdminUser | null;
   session: Session | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AdminUser>;
   logout: () => void;
 }
 
@@ -149,10 +149,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateUser]);
 
-  const login = useCallback(async (email: string, password: string): Promise<void> => {
-    await apiLogin(email, password);
-    // The onAuthStateChange listener will handle setting the user state.
-  }, []);
+  const login = useCallback(async (email: string, password: string): Promise<AdminUser> => {
+    setLoading(true);
+    try {
+      const profile = await apiLogin(email, password);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentSession = sessionData?.session || null;
+      setSession(currentSession);
+      updateUser(profile);
+      if (currentSession?.access_token) {
+        syncRealtimeAuth(currentSession.access_token).catch(() => {});
+      }
+      return profile;
+    } finally {
+      setLoading(false);
+    }
+  }, [updateUser]);
 
   const logout = useCallback(async () => {
     try {

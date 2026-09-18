@@ -121,11 +121,7 @@ const slotFromSupabase = (d: Record<string, unknown>): AppointmentSlot => ({ // 
 
 
 // --- Authentication ---
-export const login = async (email: string, password: string): Promise<void> => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-};
-
+// export const login is defined below after getAdminUserProfile
 export const logout = async (): Promise<void> => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -273,6 +269,23 @@ export const getAdminUserProfile = async (userId: string): Promise<AdminUser | n
             return null;
         }
     });
+};
+
+export const login = async (email: string, password: string): Promise<AdminUser> => {
+    const cleanEmail = email.trim().toLowerCase();
+    const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+    if (error) throw error;
+    if (!data?.user) throw new Error("No user returned from login.");
+
+    const profile = await getAdminUserProfile(data.user.id);
+    if (!profile) {
+        throw new Error("Admin profile not found. Please contact the system administrator.");
+    }
+    if (!profile.isActive) {
+        await supabase.auth.signOut();
+        throw new Error("Your account has been deactivated. Please contact the administrator.");
+    }
+    return profile;
 };
 
 
@@ -1283,31 +1296,42 @@ export const createAdminUser = async(user: Omit<AdminUser, 'id'>, password: stri
     return data.user;
 };
 
-export const updateAdminUser = async(user: AdminUser): Promise<AdminUser> => {
-    return withAutoReauth(async () => {
-        const { isActive, ...rest } = user;
-        
-        // Map co_Admin to Super Admin for database storage and append suffix to name
-        const dbRole = rest.role === 'co_Admin' ? 'Super Admin' : rest.role;
-        let dbName = rest.name;
-        if (rest.role === 'co_Admin') {
-            if (!dbName.endsWith(' [co_Admin]')) {
-                dbName = `${dbName} [co_Admin]`;
-            }
-        } else {
-            dbName = dbName.replace(' [co_Admin]', '');
-        }
+export const updateAdminUser = async(user: AdminUser, password?: string): Promise<AdminUser> => {
+    let session = (await supabase.auth.getSession()).data?.session;
+    let token = session?.access_token;
 
-        const { data, error } = await supabase.from('profiles').update({ ...rest, name: dbName, role: dbRole, is_active: isActive }).eq('id', user.id).select().single();
-        if (error) throw error;
-        
-        const clientUser = { ...data, isActive: data.is_active };
-        if (clientUser.name && typeof clientUser.name === 'string' && clientUser.name.endsWith(' [co_Admin]')) {
-            clientUser.name = clientUser.name.replace(' [co_Admin]', '');
-            clientUser.role = Role.CoAdmin;
-        }
-        return clientUser;
+    if (!token) {
+        session = await safeRefreshSession(true);
+        token = session?.access_token;
+    }
+
+    if (!token) {
+        throw new Error("You must be logged in to update admin users.");
+    }
+
+    const response = await fetch(`${window.location.origin}/api/admin/update-user`, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            isActive: user.isActive,
+            password: password ? password : undefined
+        }),
     });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        throw new Error(data.error || 'Failed to update admin user');
+    }
+
+    return data.user;
 };
 
 export const deleteAdminUser = async(userId: string): Promise<{ success: boolean }> => {

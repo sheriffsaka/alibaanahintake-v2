@@ -26,7 +26,20 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!allowedRoles.includes(user.role)) {
+  const userRoleStr = (user.role || '').toString().trim().toLowerCase();
+  const hasAccess = allowedRoles.some((r) => {
+    const roleStr = r.toString().trim().toLowerCase();
+    if (roleStr === userRoleStr) return true;
+    if (
+      (roleStr === 'co_admin' || roleStr === 'male_co_admin' || roleStr === 'female_co_admin') &&
+      (userRoleStr === 'co_admin' || userRoleStr === 'male_co_admin' || userRoleStr === 'female_co_admin')
+    ) {
+      return true;
+    }
+    return false;
+  });
+
+  if (!hasAccess) {
     return (
         <div className="flex items-center justify-center h-full">
             <div className="text-center">

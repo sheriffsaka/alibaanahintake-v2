@@ -81,7 +81,7 @@ const UserManagement: React.FC = () => {
 
     try {
         if (editingUser.id) { // Update
-            await updateAdminUser(editingUser as AdminUser);
+            await updateAdminUser(editingUser as AdminUser, password ? password : undefined);
         } else { // Create
             if (!password) {
                 alert("Password is required for new users.");
@@ -91,8 +91,9 @@ const UserManagement: React.FC = () => {
         }
         handleCloseModal();
         fetchUsers();
-    } catch (error) {
-        alert(`Failed to save user: ${error.message}`);
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        alert(`Failed to save user: ${err?.message || 'Unknown error'}`);
     }
   };
 
@@ -166,9 +167,13 @@ const UserManagement: React.FC = () => {
                     <Input label="Full Name" name="name" value={editingUser.name} onChange={handleInputChange} />
                     <Input label="Email" name="email" type="email" value={editingUser.email} onChange={handleInputChange} />
                     <Select label="Role" name="role" value={editingUser.role} onChange={handleInputChange} options={ROLES.map(r => ({value: r, label: ROLE_LABELS[r] || r}))} />
-                    {!editingUser.id && (
-                        <Input label="Password" name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-                    )}
+                    <Input 
+                      label={editingUser.id ? "New Password (leave blank to keep current)" : "Password"} 
+                      name="password" 
+                      type="password" 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)} 
+                    />
                 </div>
                 <div className="mt-6 flex justify-end space-x-2">
                     <Button variant="secondary" onClick={handleCloseModal}>Cancel</Button>

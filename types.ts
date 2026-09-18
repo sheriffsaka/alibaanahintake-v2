@@ -44,23 +44,28 @@ export enum Role {
 
 export const getAdminGenderFilter = (role?: Role | string, name?: string): Gender | undefined => {
   if (!role) return undefined;
+  const r = role.toString().trim().toLowerCase();
   if (
-    role === Role.MaleAdmin ||
-    role === Role.MaleFrontDesk ||
-    role === Role.MaleCoAdmin ||
-    role === 'male_co_Admin'
+    r === Role.MaleAdmin.toLowerCase() ||
+    r === Role.MaleFrontDesk.toLowerCase() ||
+    r === Role.MaleCoAdmin.toLowerCase() ||
+    r === 'male_section_admin' ||
+    r === 'male_front desk' ||
+    r === 'male_co_admin'
   ) {
     return Gender.Male;
   }
   if (
-    role === Role.FemaleAdmin ||
-    role === Role.FemaleFrontDesk ||
-    role === Role.FemaleCoAdmin ||
-    role === 'female_co_Admin'
+    r === Role.FemaleAdmin.toLowerCase() ||
+    r === Role.FemaleFrontDesk.toLowerCase() ||
+    r === Role.FemaleCoAdmin.toLowerCase() ||
+    r === 'female_section_admin' ||
+    r === 'female_front desk' ||
+    r === 'female_co_admin'
   ) {
     return Gender.Female;
   }
-  if (role === Role.CoAdmin || role === 'co_Admin') {
+  if (r === Role.CoAdmin.toLowerCase() || r === 'co_admin') {
     const lowerName = (name || '').toLowerCase();
     if (lowerName.includes('female')) return Gender.Female;
     if (lowerName.includes('male')) return Gender.Male;
