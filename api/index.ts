@@ -878,6 +878,197 @@ router.post('/admin/create-user', async (req, res) => {
   }
 });
 
+router.get('/admin/students', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: No token provided' });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const supabase = getServiceSupabase();
+
+    // 1. Verify caller is a valid authenticated admin
+    const { data: { user: requestUser }, error: requestUserError } = await supabase.auth.getUser(token);
+    if (requestUserError || !requestUser) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', requestUser.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(403).json({ error: 'Forbidden: Profile not found' });
+    }
+
+    const validRoles = ['Super Admin', 'co_Admin', 'male_section_Admin', 'female_section_Admin', 'male_Front Desk', 'female_Front Desk'];
+    if (!validRoles.includes(profile.role)) {
+      return res.status(403).json({ error: 'Forbidden: Insufficient privileges' });
+    }
+
+    // Role-based gender restriction
+    let enforcedGender: string | undefined = undefined;
+    if (profile.role === 'male_section_Admin' || profile.role === 'male_Front Desk') {
+      enforcedGender = 'Male';
+    } else if (profile.role === 'female_section_Admin' || profile.role === 'female_Front Desk') {
+      enforcedGender = 'Female';
+    }
+
+    // Query parameters
+    const page = Math.max(1, parseInt(String(req.query.page || '1'), 10));
+    const pageSize = Math.max(1, Math.min(100, parseInt(String(req.query.pageSize || '15'), 10)));
+    const searchTerm = typeof req.query.searchTerm === 'string' ? req.query.searchTerm.trim() : '';
+    const sortKey = typeof req.query.sortKey === 'string' ? req.query.sortKey : 'created_at';
+    const sortDirection = req.query.sortDirection === 'asc' ? 'asc' : 'desc';
+    const intakeDate = typeof req.query.intakeDate === 'string' ? req.query.intakeDate : '';
+    const appointmentSlotId = typeof req.query.appointmentSlotId === 'string' ? req.query.appointmentSlotId : '';
+    const requestedGender = typeof req.query.gender === 'string' ? req.query.gender : '';
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
+      .from('students')
+      .select('*, levels(name)', { count: 'exact' });
+
+    if (searchTerm) {
+      const searchIlike = `%${searchTerm}%`;
+      query = query.or(`firstname.ilike.${searchIlike},surname.ilike.${searchIlike},email.ilike.${searchIlike},registration_code.ilike.${searchIlike}`);
+    }
+
+    if (intakeDate) {
+      query = query.eq('intake_date', intakeDate);
+    }
+
+    if (appointmentSlotId) {
+      const slotIds = appointmentSlotId.includes(',') ? appointmentSlotId.split(',') : [appointmentSlotId];
+      query = query.in('appointment_slot_id', slotIds);
+    }
+
+    const effectiveGender = enforcedGender || requestedGender;
+    if (effectiveGender) {
+      query = query.eq('gender', effectiveGender);
+    }
+
+    if (sortKey === 'level' || sortKey === 'levels(name)') {
+      query = query.order('name', { foreignTable: 'levels', ascending: sortDirection === 'asc' });
+    } else if (sortKey) {
+      const dbSortKey = sortKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+      query = query.order(dbSortKey, { ascending: sortDirection === 'asc' });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    query = query.range(from, to);
+
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    res.json({
+      students: data || [],
+      count: count ?? 0
+    });
+  } catch (error: unknown) {
+    console.error('>>> Fetch students error in /api/admin/students:', error);
+    const err = error as { message?: string };
+    res.status(500).json({ error: err?.message || 'Failed to fetch student records' });
+  }
+});
+
+router.get('/admin/students/export', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: No token provided' });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const supabase = getServiceSupabase();
+
+    const { data: { user: requestUser }, error: requestUserError } = await supabase.auth.getUser(token);
+    if (requestUserError || !requestUser) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', requestUser.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(403).json({ error: 'Forbidden: Profile not found' });
+    }
+
+    const validRoles = ['Super Admin', 'co_Admin', 'male_section_Admin', 'female_section_Admin', 'male_Front Desk', 'female_Front Desk'];
+    if (!validRoles.includes(profile.role)) {
+      return res.status(403).json({ error: 'Forbidden: Insufficient privileges' });
+    }
+
+    let enforcedGender: string | undefined = undefined;
+    if (profile.role === 'male_section_Admin' || profile.role === 'male_Front Desk') {
+      enforcedGender = 'Male';
+    } else if (profile.role === 'female_section_Admin' || profile.role === 'female_Front Desk') {
+      enforcedGender = 'Female';
+    }
+
+    const searchTerm = typeof req.query.searchTerm === 'string' ? req.query.searchTerm.trim() : '';
+    const sortKey = typeof req.query.sortKey === 'string' ? req.query.sortKey : 'created_at';
+    const sortDirection = req.query.sortDirection === 'asc' ? 'asc' : 'desc';
+    const intakeDate = typeof req.query.intakeDate === 'string' ? req.query.intakeDate : '';
+    const appointmentSlotId = typeof req.query.appointmentSlotId === 'string' ? req.query.appointmentSlotId : '';
+    const requestedGender = typeof req.query.gender === 'string' ? req.query.gender : '';
+
+    let query = supabase
+      .from('students')
+      .select('*, levels(name)');
+
+    if (searchTerm) {
+      const searchIlike = `%${searchTerm}%`;
+      query = query.or(`firstname.ilike.${searchIlike},surname.ilike.${searchIlike},email.ilike.${searchIlike},registration_code.ilike.${searchIlike}`);
+    }
+
+    if (intakeDate) {
+      query = query.eq('intake_date', intakeDate);
+    }
+
+    if (appointmentSlotId) {
+      const slotIds = appointmentSlotId.includes(',') ? appointmentSlotId.split(',') : [appointmentSlotId];
+      query = query.in('appointment_slot_id', slotIds);
+    }
+
+    const effectiveGender = enforcedGender || requestedGender;
+    if (effectiveGender) {
+      query = query.eq('gender', effectiveGender);
+    }
+
+    if (sortKey === 'level' || sortKey === 'levels(name)') {
+      query = query.order('name', { foreignTable: 'levels', ascending: sortDirection === 'asc' });
+    } else if (sortKey) {
+      const dbSortKey = sortKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+      query = query.order(dbSortKey, { ascending: sortDirection === 'asc' });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    res.json({
+      students: data || []
+    });
+  } catch (error: unknown) {
+    console.error('>>> Export students error in /api/admin/students/export:', error);
+    const err = error as { message?: string };
+    res.status(500).json({ error: err?.message || 'Failed to export student records' });
+  }
+});
+
 router.post('/cron/reminders', async (req, res) => {
   const authHeader = req.headers.authorization;
   const cronSecret = process.env.CRON_SECRET;

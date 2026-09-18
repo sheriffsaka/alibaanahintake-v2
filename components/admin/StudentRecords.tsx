@@ -176,7 +176,11 @@ const StudentRecords: React.FC = () => {
   const handleRefreshAuthAndRetry = React.useCallback(async () => {
     setIsRefreshingAuth(true);
     try {
-      await safeRefreshSession(true);
+      // Guard session refresh with a 5000ms max wait to prevent UI hangs
+      await Promise.race([
+        safeRefreshSession(true),
+        new Promise((resolve) => setTimeout(resolve, 5000))
+      ]);
     } catch (authErr) {
       console.warn("Session refresh attempt warning:", authErr);
     } finally {

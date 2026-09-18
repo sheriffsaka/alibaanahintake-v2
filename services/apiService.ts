@@ -344,6 +344,140 @@ export const submitRegistration = async (
 };
 
 // --- Admin API ---
+const fetchStudentsFromApi = async (
+    page: number,
+    pageSize: number,
+    searchTerm: string,
+    sortKey: string,
+    sortDirection: string,
+    filters?: {
+        intakeDate?: string;
+        appointmentSlotId?: string | string[];
+        gender?: Gender;
+    }
+): Promise<{ students: Student[]; count: number } | null> => {
+    try {
+        let session = (await supabase.auth.getSession()).data?.session;
+        let token = session?.access_token;
+        if (!token) {
+            session = await safeRefreshSession(true);
+            token = session?.access_token;
+        }
+        if (!token) return null;
+
+        const params = new URLSearchParams({
+            page: page.toString(),
+            pageSize: pageSize.toString(),
+            sortKey: sortKey || 'created_at',
+            sortDirection: sortDirection || 'desc',
+        });
+        if (searchTerm) params.set('searchTerm', searchTerm);
+        if (filters?.intakeDate) params.set('intakeDate', filters.intakeDate);
+        if (filters?.appointmentSlotId) {
+            const slotIdStr = Array.isArray(filters.appointmentSlotId)
+                ? filters.appointmentSlotId.join(',')
+                : filters.appointmentSlotId;
+            params.set('appointmentSlotId', slotIdStr);
+        }
+        if (filters?.gender) params.set('gender', filters.gender);
+
+        let response = await fetch(`${window.location.origin}/api/admin/students?${params.toString()}`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+
+        // Auto-refresh token if 401
+        if (response.status === 401) {
+            const freshSession = await safeRefreshSession(true);
+            if (freshSession?.access_token) {
+                response = await fetch(`${window.location.origin}/api/admin/students?${params.toString()}`, {
+                    headers: {
+                        Authorization: `Bearer ${freshSession.access_token}`
+                    }
+                });
+            }
+        }
+
+        if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.error || `HTTP ${response.status}: Failed to fetch student records`);
+        }
+
+        const data = await response.json();
+        return {
+            students: (data.students || []).map(studentFromSupabase),
+            count: data.count ?? 0
+        };
+    } catch (apiErr) {
+        console.warn('API /api/admin/students failed or unavailable, falling back to direct query:', apiErr);
+        return null;
+    }
+};
+
+const fetchStudentsExportFromApi = async (
+    searchTerm: string,
+    sortKey: string,
+    sortDirection: string,
+    filters?: {
+        intakeDate?: string;
+        appointmentSlotId?: string | string[];
+        gender?: Gender;
+    }
+): Promise<Student[] | null> => {
+    try {
+        let session = (await supabase.auth.getSession()).data?.session;
+        let token = session?.access_token;
+        if (!token) {
+            session = await safeRefreshSession(true);
+            token = session?.access_token;
+        }
+        if (!token) return null;
+
+        const params = new URLSearchParams({
+            sortKey: sortKey || 'created_at',
+            sortDirection: sortDirection || 'desc',
+        });
+        if (searchTerm) params.set('searchTerm', searchTerm);
+        if (filters?.intakeDate) params.set('intakeDate', filters.intakeDate);
+        if (filters?.appointmentSlotId) {
+            const slotIdStr = Array.isArray(filters.appointmentSlotId)
+                ? filters.appointmentSlotId.join(',')
+                : filters.appointmentSlotId;
+            params.set('appointmentSlotId', slotIdStr);
+        }
+        if (filters?.gender) params.set('gender', filters.gender);
+
+        let response = await fetch(`${window.location.origin}/api/admin/students/export?${params.toString()}`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+
+        if (response.status === 401) {
+            const freshSession = await safeRefreshSession(true);
+            if (freshSession?.access_token) {
+                response = await fetch(`${window.location.origin}/api/admin/students/export?${params.toString()}`, {
+                    headers: {
+                        Authorization: `Bearer ${freshSession.access_token}`
+                    }
+                });
+            }
+        }
+
+        if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.error || `HTTP ${response.status}: Failed to export student records`);
+        }
+
+        const data = await response.json();
+        return (data.students || []).map(studentFromSupabase);
+    } catch (apiErr) {
+        console.warn('API /api/admin/students/export failed, falling back to direct query:', apiErr);
+        return null;
+    }
+};
+
 export const getAllStudents = async (
     page: number,
     pageSize: number,
@@ -356,6 +490,13 @@ export const getAllStudents = async (
         gender?: Gender;
     }
 ): Promise<{ students: Student[], count: number }> => {
+    // 1. High performance server-side route (immune to iframe latency, CORS and lock deadlocks)
+    const apiResult = await fetchStudentsFromApi(page, pageSize, searchTerm, sortKey, sortDirection, filters);
+    if (apiResult) {
+        return apiResult;
+    }
+
+    // 2. Resilient fallback to direct Supabase PostgREST
     return withAutoReauth(async () => {
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
@@ -416,6 +557,13 @@ export const getAllStudentsForExport = async (
         gender?: Gender;
     }
 ): Promise<Student[]> => {
+    // 1. High performance server-side route
+    const apiResult = await fetchStudentsExportFromApi(searchTerm, sortKey, sortDirection, filters);
+    if (apiResult) {
+        return apiResult;
+    }
+
+    // 2. Fallback to direct client-side query
     return withAutoReauth(async () => {
         let query = supabase
             .from('students')

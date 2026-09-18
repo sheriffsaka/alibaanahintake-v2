@@ -19,7 +19,7 @@ const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries
   const retries = allowRetry ? maxRetries : 0;
 
   while (attempt <= retries) {
-    const timeout = 25000; // 25 seconds timeout for cold starts and sleep recovery
+    const timeout = 12000; // 12 seconds per attempt prevents UI deadlocks
     const timeoutController = new AbortController();
     const timerId = setTimeout(() => timeoutController.abort(), timeout);
 
@@ -114,12 +114,17 @@ let lastSyncedRealtimeToken: string | null = null;
 
 /**
  * Synchronize the current access token to Supabase Realtime so WebSockets remain authenticated.
+ * Guaranteed non-blocking: won't delay session refreshes or database queries.
  */
 export const syncRealtimeAuth = async (token?: string): Promise<void> => {
   try {
     if (token && token !== lastSyncedRealtimeToken) {
       lastSyncedRealtimeToken = token;
-      await supabase.realtime.setAuth(token);
+      // Cap at 2000ms so a disconnected or reconnecting WebSocket cannot hang callers
+      await Promise.race([
+        supabase.realtime.setAuth(token),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('realtime setAuth timeout')), 2000))
+      ]);
     }
   } catch (err) {
     console.warn('[SupabaseClient] Failed to sync Realtime auth token:', err);
@@ -176,7 +181,25 @@ export const safeRefreshSession = async (force = false): Promise<Session | null>
 
       if (isExpiringSoon || force) {
         console.log('[SupabaseClient] Session expiring or refresh requested. Executing session refresh...');
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        // Wrap refreshSession in an 8-second timeout race to prevent UI hangs
+        const refreshPromise = supabase.auth.refreshSession();
+        const timeoutPromise = new Promise<{ data: { session: null }; error: Error }>((_, reject) =>
+          setTimeout(() => reject(new Error('Session refresh timed out after 8000ms')), 8000)
+        );
+
+        let refreshData: { session: Session | null } | null = null;
+        let refreshError: { message?: string } | null = null;
+
+        try {
+          const result = await Promise.race([refreshPromise, timeoutPromise]);
+          refreshData = result.data;
+          refreshError = result.error;
+        } catch (raceErr) {
+          console.warn('[SupabaseClient] refreshSession timeout or exception:', raceErr);
+          return session; // Retain current session on timeout
+        }
+
         if (refreshError) {
           console.warn('[SupabaseClient] refreshSession result:', refreshError.message);
           if (refreshError.message?.includes('invalid_grant') || refreshError.message?.includes('Already Used')) {
@@ -187,14 +210,14 @@ export const safeRefreshSession = async (force = false): Promise<Session | null>
         const updatedSession = refreshData?.session || session;
         lastRefreshSuccessTime = Date.now();
         if (updatedSession?.access_token) {
-          await syncRealtimeAuth(updatedSession.access_token);
+          syncRealtimeAuth(updatedSession.access_token).catch(() => {});
         }
         return updatedSession;
       }
 
       lastRefreshSuccessTime = Date.now();
       if (session.access_token) {
-        await syncRealtimeAuth(session.access_token);
+        syncRealtimeAuth(session.access_token).catch(() => {});
       }
       return session;
     } catch (err) {
