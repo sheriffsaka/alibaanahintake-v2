@@ -4,6 +4,7 @@ import { AdminUser } from '../types';
 import { login as apiLogin, logout as apiLogout, getAdminUserProfile } from '../services/apiService';
 import { supabase, syncRealtimeAuth } from '../services/supabaseClient';
 import { Session } from '@supabase/supabase-js';
+import { withHardTimeout } from '../utils/withHardTimeout';
 
 interface AuthContextType {
   user: AdminUser | null;
@@ -45,7 +46,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const getInitialSession = async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error } = await withHardTimeout(
+          () => supabase.auth.getSession(),
+          10000,
+          "Initial auth session"
+        );
 
         if (error) {
           console.error('Error fetching initial session:', error);
@@ -61,12 +66,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (mounted) setSession(currentSession);
 
         if (currentSession?.access_token) {
-          await syncRealtimeAuth(currentSession.access_token);
+          withHardTimeout(
+            () => syncRealtimeAuth(currentSession.access_token),
+            5000,
+            "Sync realtime auth"
+          ).catch((e) => console.warn("Realtime auth sync timeout/fail:", e));
         }
 
         if (currentSession?.user) {
           try {
-            const profile = await getAdminUserProfile(currentSession.user.id);
+            const profile = await withHardTimeout(
+              () => getAdminUserProfile(currentSession.user.id),
+              10000,
+              "Fetch admin profile"
+            );
             if (mounted) {
               if (profile) {
                 if (profile.isActive) {

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { findStudent, checkInStudent, getScheduleById } from '../../services/apiService';
 import { Student, getAdminGenderFilter } from '../../types';
 import Card from '../common/Card';
@@ -12,6 +12,7 @@ import { useAuth } from '../../hooks/useAuth';
 import * as htmlToImage from 'html-to-image';
 import { saveAs } from 'file-saver';
 import AdmissionSlip from '../enrollment/AdmissionSlip';
+import { withHardTimeout, isHardTimeoutError, HARD_TIMEOUT_USER_MESSAGE } from '../../utils/withHardTimeout';
 
 const CheckIn: React.FC = () => {
   const { user } = useAuth();
@@ -23,6 +24,7 @@ const CheckIn: React.FC = () => {
   const [appointmentTime, setAppointmentTime] = useState('');
   const [appointmentDate, setAppointmentDate] = useState<Date | null>(null);
   const slipRef = React.useRef<HTMLDivElement>(null);
+  const isActionRef = useRef(false);
 
   const adminGenderFilter = React.useMemo(() => {
     return getAdminGenderFilter(user?.role, user?.name);
@@ -30,13 +32,18 @@ const CheckIn: React.FC = () => {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query) return;
+    if (!query || isActionRef.current) return;
 
+    isActionRef.current = true;
     setLoading(true);
     setStudent(null);
     setMessage(null);
     try {
-      const foundStudent = await findStudent(query);
+      const foundStudent = await withHardTimeout(
+        () => findStudent(query),
+        15000,
+        "Searching for student"
+      );
       if (foundStudent) {
         if (adminGenderFilter && foundStudent.gender !== adminGenderFilter) {
           setMessage({ type: 'error', text: `Access restricted: You only have access to ${adminGenderFilter} section student records.` });
@@ -45,10 +52,18 @@ const CheckIn: React.FC = () => {
           setStudent(foundStudent);
           const fetchSlotTime = async () => {
               if (foundStudent.appointmentSlotId) {
-                  const studentSlot = await getScheduleById(foundStudent.appointmentSlotId);
-                  if (studentSlot) {
-                      setAppointmentTime(`${studentSlot.date} @ ${studentSlot.startTime} - ${studentSlot.endTime}`);
-                      setAppointmentDate(new Date(studentSlot.date));
+                  try {
+                    const studentSlot = await withHardTimeout(
+                      () => getScheduleById(foundStudent.appointmentSlotId!),
+                      15000,
+                      "Fetching student slot"
+                    );
+                    if (studentSlot) {
+                        setAppointmentTime(`${studentSlot.date} @ ${studentSlot.startTime} - ${studentSlot.endTime}`);
+                        setAppointmentDate(new Date(studentSlot.date));
+                    }
+                  } catch (err) {
+                    console.error("Failed to fetch appointment time", err);
                   }
               }
           };
@@ -60,9 +75,14 @@ const CheckIn: React.FC = () => {
       } else {
         setMessage({ type: 'error', text: 'No student found with the provided details.' });
       }
-    } catch {
-      setMessage({ type: 'error', text: 'An error occurred during search.' });
+    } catch (err) {
+      if (isHardTimeoutError(err)) {
+        setMessage({ type: 'error', text: HARD_TIMEOUT_USER_MESSAGE });
+      } else {
+        setMessage({ type: 'error', text: 'An error occurred during search. Please try again.' });
+      }
     } finally {
+      isActionRef.current = false;
       setLoading(false);
     }
   };
@@ -89,16 +109,27 @@ const CheckIn: React.FC = () => {
   };
   
   const handleCheckIn = async () => {
-    if (!student) return;
+    if (!student || isActionRef.current) return;
 
+    isActionRef.current = true;
     setLoading(true);
     try {
-      const updatedStudent = await checkInStudent(student.id);
+      const updatedStudent = await withHardTimeout(
+        () => checkInStudent(student.id),
+        15000,
+        "Checking in student"
+      );
       setStudent(updatedStudent);
       setMessage({ type: 'success', text: 'Student checked in successfully!' });
-    } catch (error) {
-        setMessage({ type: 'error', text: error.message || 'Failed to check in.' });
+    } catch (error: unknown) {
+      if (isHardTimeoutError(error)) {
+        setMessage({ type: 'error', text: HARD_TIMEOUT_USER_MESSAGE });
+      } else {
+        const errorMsg = error instanceof Error ? error.message : 'Failed to check in.';
+        setMessage({ type: 'error', text: errorMsg });
+      }
     } finally {
+      isActionRef.current = false;
       setLoading(false);
     }
   };

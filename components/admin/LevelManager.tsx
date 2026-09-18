@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { getLevels, updateLevel, createLevel, deleteLevel } from '../../services/apiService';
 import { Level } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Input from '../common/Input';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
+import { withHardTimeout, isHardTimeoutError, HARD_TIMEOUT_USER_MESSAGE } from '../../utils/withHardTimeout';
 
 const LevelManager: React.FC = () => {
   const [levels, setLevels] = useState<Level[]>([]);
@@ -15,20 +16,37 @@ const LevelManager: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLevel, setEditingLevel] = useState<Partial<Level> | null>(null);
   const { t } = useTranslation();
+  const isFetchingRef = useRef(false);
 
   const fetchLevels = async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
-      const data = await getLevels(true); // Fetch all levels, including inactive
+      const data = await withHardTimeout(
+        () => getLevels(true), // Fetch all levels, including inactive
+        15000,
+        "Fetching levels"
+      );
       setLevels(data);
     } catch (error) {
       console.error("Failed to fetch levels", error);
-      setError("Failed to load levels. Please try again.");
+      if (isHardTimeoutError(error)) {
+        setError(HARD_TIMEOUT_USER_MESSAGE);
+      } else {
+        setError("Failed to load levels. Please try again.");
+      }
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    isFetchingRef.current = false;
+    fetchLevels();
   };
 
   useEffect(() => {
@@ -99,7 +117,7 @@ const LevelManager: React.FC = () => {
     setEditingLevel({ ...editingLevel, [name]: val });
   };
   
-  if (loading) {
+  if (loading && levels.length === 0) {
     return (
         <div className="flex items-center justify-center h-64">
             <Spinner />
@@ -107,19 +125,38 @@ const LevelManager: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (error && levels.length === 0) {
     return (
-        <div className="flex flex-col items-center justify-center h-64 space-y-4">
-            <p className="text-red-600 font-medium">{error}</p>
-            <Button onClick={fetchLevels}>
-                Retry
-            </Button>
+      <Card title={t('levelManagerTitle')}>
+        <div className="p-12 text-center max-w-md mx-auto">
+          <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Levels</h3>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <Button onClick={handleRetry} className="inline-flex items-center">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
         </div>
+      </Card>
     );
   }
 
   return (
     <Card title={t('levelManagerTitle')}>
+      {error && levels.length > 0 && (
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-800">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+            <span className="text-sm font-medium">{error}</span>
+          </div>
+          <Button size="sm" variant="secondary" onClick={handleRetry} className="flex-shrink-0">
+            <RefreshCw className="h-4 w-4 mr-1.5" />
+            Retry
+          </Button>
+        </div>
+      )}
       <div className="flex justify-end mb-4">
         <Button onClick={() => handleOpenModal()} className="flex items-center">
             <PlusCircle className="h-4 w-4 mr-2" /> {t('createNewLevel')}

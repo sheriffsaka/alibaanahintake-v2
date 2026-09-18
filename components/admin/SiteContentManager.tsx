@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { getSiteContent, updateSiteContent } from '../../services/apiService';
 import { SiteContent } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Input from '../common/Input';
-import { CheckCircle, PlusCircle, Trash2 } from 'lucide-react';
+import { CheckCircle, PlusCircle, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import { langs } from '../../i18n/locales';
+import { withHardTimeout, isHardTimeoutError, HARD_TIMEOUT_USER_MESSAGE } from '../../utils/withHardTimeout';
 
 type LangKey = keyof typeof langs;
 
@@ -26,36 +27,57 @@ const defaultBenefits = {
 const SiteContentManager: React.FC = () => {
     const [content, setContent] = useState<SiteContent | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [activeFaqLang, setActiveFaqLang] = useState<LangKey>('en');
     const [activeBenefitLang, setActiveBenefitLang] = useState<LangKey>('en');
+    const isFetchingRef = useRef(false);
+
+    const fetchContent = useCallback(async () => {
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await withHardTimeout(
+                () => getSiteContent(),
+                15000,
+                "Fetching site content"
+            );
+            // Ensure all lang keys exist for FAQs
+            const faqItemsWithAllLangs = { ...data.faqItems };
+            const benefitItemsWithAllLangs = { ...data.benefitItems };
+            for (const langKey in langs) {
+                if (!faqItemsWithAllLangs[langKey]) {
+                    faqItemsWithAllLangs[langKey] = [];
+                }
+                if (!benefitItemsWithAllLangs[langKey] || benefitItemsWithAllLangs[langKey].length === 0) {
+                    benefitItemsWithAllLangs[langKey] = defaultBenefits[langKey as keyof typeof defaultBenefits] || [];
+                }
+            }
+            setContent({ ...data, faqItems: faqItemsWithAllLangs, benefitItems: benefitItemsWithAllLangs });
+        } catch (err) {
+            console.error("Failed to fetch site content", err);
+            if (isHardTimeoutError(err)) {
+                setError(HARD_TIMEOUT_USER_MESSAGE);
+            } else {
+                setError("Failed to load site content. Please try again.");
+            }
+        } finally {
+            isFetchingRef.current = false;
+            setLoading(false);
+        }
+    }, []);
+
+    const handleRetry = useCallback(() => {
+        isFetchingRef.current = false;
+        fetchContent();
+    }, [fetchContent]);
 
     useEffect(() => {
-        const fetchContent = async () => {
-            setLoading(true);
-            try {
-                const data = await getSiteContent();
-                // Ensure all lang keys exist for FAQs
-                const faqItemsWithAllLangs = { ...data.faqItems };
-                const benefitItemsWithAllLangs = { ...data.benefitItems };
-                for (const langKey in langs) {
-                    if (!faqItemsWithAllLangs[langKey]) {
-                        faqItemsWithAllLangs[langKey] = [];
-                    }
-                    if (!benefitItemsWithAllLangs[langKey] || benefitItemsWithAllLangs[langKey].length === 0) {
-                        benefitItemsWithAllLangs[langKey] = defaultBenefits[langKey as keyof typeof defaultBenefits] || [];
-                    }
-                }
-                setContent({ ...data, faqItems: faqItemsWithAllLangs, benefitItems: benefitItemsWithAllLangs });
-            } catch (error) {
-                console.error("Failed to fetch site content", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchContent();
-    }, []);
+    }, [fetchContent]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!content) return;
@@ -141,8 +163,36 @@ const SiteContentManager: React.FC = () => {
         }
     };
 
-    if (loading) return <Spinner />;
-    if (!content) return <p>Could not load site content.</p>;
+    if (loading && !content) return <Spinner />;
+
+    if (error && !content) {
+        return (
+            <Card title="Site Content Management">
+                <div className="p-12 text-center max-w-md mx-auto">
+                    <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
+                        <AlertCircle className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Site Content</h3>
+                    <p className="text-gray-600 mb-6">{error}</p>
+                    <Button onClick={handleRetry} className="inline-flex items-center">
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Retry
+                    </Button>
+                </div>
+            </Card>
+        );
+    }
+
+    if (!content) {
+        return (
+            <Card title="Site Content Management">
+                <div className="p-8 text-center text-gray-500">
+                    <p className="mb-4">Could not load site content.</p>
+                    <Button onClick={handleRetry} variant="secondary">Retry</Button>
+                </div>
+            </Card>
+        );
+    }
 
     return (
         <Card title="Site Content Management">

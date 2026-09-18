@@ -1,12 +1,13 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { getNotificationSettings, updateNotificationSettings, sendTestEmail, triggerReminders } from '../../services/apiService';
 import { NotificationSettings as TNotificationSettings } from '../../types';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Input from '../common/Input';
-import { CheckCircle, Send, Play, ShieldCheck } from 'lucide-react';
+import { CheckCircle, Send, Play, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
+import { withHardTimeout, isHardTimeoutError, HARD_TIMEOUT_USER_MESSAGE } from '../../utils/withHardTimeout';
 
 const NotificationSettings: React.FC = () => {
     const [settings, setSettings] = useState<TNotificationSettings | null>(null);
@@ -20,6 +21,7 @@ const NotificationSettings: React.FC = () => {
     const [cronSecret, setCronSecret] = useState('');
     const [runningReminders, setRunningReminders] = useState(false);
     const [cronResult, setCronResult] = useState<unknown>(null);
+    const isFetchingRef = useRef(false);
 
     const languages = [
         { code: 'en', name: 'English' },
@@ -31,18 +33,34 @@ const NotificationSettings: React.FC = () => {
     ];
 
     const fetchSettings = async () => {
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
         setLoading(true);
         setError(null);
         
         try {
-            const data = await getNotificationSettings();
+            const data = await withHardTimeout(
+                () => getNotificationSettings(),
+                15000,
+                "Fetching notification settings"
+            );
             setSettings(data);
-        } catch (error) {
-            console.error("Failed to fetch notification settings", error);
-            setError("Failed to load settings. Please try again.");
+        } catch (err) {
+            console.error("Failed to fetch notification settings", err);
+            if (isHardTimeoutError(err)) {
+                setError(HARD_TIMEOUT_USER_MESSAGE);
+            } else {
+                setError("Failed to load settings. Please try again.");
+            }
         } finally {
+            isFetchingRef.current = false;
             setLoading(false);
         }
+    };
+
+    const handleRetry = () => {
+        isFetchingRef.current = false;
+        fetchSettings();
     };
 
     useEffect(() => {
@@ -134,7 +152,7 @@ const NotificationSettings: React.FC = () => {
         }
     };
 
-    if (loading) {
+    if (loading && !settings) {
         return (
             <div className="flex items-center justify-center h-64">
                 <Spinner />
@@ -142,18 +160,25 @@ const NotificationSettings: React.FC = () => {
         );
     }
 
-    if (error) {
+    if (error && !settings) {
         return (
-            <div className="flex flex-col items-center justify-center h-64 space-y-4">
-                <p className="text-red-600 font-medium">{error}</p>
-                <Button onClick={fetchSettings}>
-                    Retry
-                </Button>
-            </div>
+            <Card title="Notification Settings">
+                <div className="p-12 text-center max-w-md mx-auto">
+                    <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
+                        <AlertCircle className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Notification Settings</h3>
+                    <p className="text-gray-600 mb-6">{error}</p>
+                    <Button onClick={handleRetry} className="inline-flex items-center">
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Retry
+                    </Button>
+                </div>
+            </Card>
         );
     }
 
-    if (!settings) return <p>Could not load settings.</p>;
+    if (!settings) return <p className="p-8 text-center text-gray-500">Could not load settings.</p>;
 
     const currentLangSettings = settings[selectedLang] || {
         confirmation: { enabled: true, subject: '', body: '' },

@@ -3,12 +3,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { getDashboardData } from '../../services/apiService';
 import Spinner from '../common/Spinner';
 import Card from '../common/Card';
-import { Users, BookCheck, UserCheck, CalendarDays } from 'lucide-react';
+import Button from '../common/Button';
+import { Users, BookCheck, UserCheck, CalendarDays, AlertCircle, RefreshCw } from 'lucide-react';
 import { usePolling } from '../../hooks/usePolling';
 import { useAuth } from '../../hooks/useAuth';
 import { getAdminGenderFilter } from '../../types';
 import { supabase, safeRefreshSession, syncRealtimeAuth } from '../../services/supabaseClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { withHardTimeout, isHardTimeoutError, HARD_TIMEOUT_USER_MESSAGE } from '../../utils/withHardTimeout';
 
 interface DashboardData {
     totalRegistered: number;
@@ -41,16 +43,30 @@ const Dashboard: React.FC = () => {
     setError(null);
 
     try {
-      const dashboardData = await getDashboardData(adminGenderFilter);
+      const dashboardData = await withHardTimeout(
+        () => getDashboardData(adminGenderFilter),
+        15000,
+        "Fetching dashboard data"
+      );
       setData(dashboardData);
     } catch (err) {
       console.error("Failed to fetch dashboard data", err);
-      setError("Could not load dashboard data. Retrying in background...");
+      if (isHardTimeoutError(err)) {
+        setError(HARD_TIMEOUT_USER_MESSAGE);
+      } else {
+        setError("Could not load dashboard data. Retrying in background...");
+      }
     } finally {
       isFetchingRef.current = false;
       setLoading(false);
     }
   }, [adminGenderFilter]);
+
+  const handleRetry = useCallback(() => {
+    isFetchingRef.current = false;
+    setLoading(true);
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   useEffect(() => {
     fetchDashboardDataRef.current = fetchDashboardData;
@@ -176,13 +192,29 @@ const Dashboard: React.FC = () => {
 
   if (loading && !data) return <div className="flex justify-center items-center h-64"><Spinner /></div>;
   
-  if (error && !data) return <p className="text-center text-red-500">{error.replace(" Retrying in background...", "")}</p>;
+  if (error && !data) {
+    return (
+      <Card title="Live Enrollment Dashboard">
+        <div className="p-12 text-center max-w-md mx-auto">
+          <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Dashboard</h3>
+          <p className="text-gray-600 mb-6">{error.replace(" Retrying in background...", "")}</p>
+          <Button onClick={handleRetry} className="inline-flex items-center">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </Card>
+    );
+  }
 
   if (!data) return <p>No dashboard data available.</p>;
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Live Enrollment Dashboard</h1>
           {adminGenderFilter && (
@@ -191,7 +223,18 @@ const Dashboard: React.FC = () => {
             </p>
           )}
         </div>
-        {error && <div className="text-xs text-yellow-600 animate-pulse">Connection issue. Retrying...</div>}
+        {error && (
+          <div className="flex items-center gap-2 p-2 px-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs">
+            <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+            <span>{error}</span>
+            <button
+              onClick={handleRetry}
+              className="ml-2 font-semibold underline hover:text-amber-900 focus:outline-none"
+            >
+              Retry
+            </button>
+          </div>
+        )}
       </div>
       
       {/* Summary Cards */}

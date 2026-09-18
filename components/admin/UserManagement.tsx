@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { getAdminUsers, updateAdminUser, createAdminUser, deleteAdminUser } from '../../services/apiService';
 import { AdminUser, Role } from '../../types';
 import Spinner from '../common/Spinner';
@@ -8,7 +8,8 @@ import Button from '../common/Button';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import { ROLES } from '../../constants';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
+import { withHardTimeout, isHardTimeoutError, HARD_TIMEOUT_USER_MESSAGE } from '../../utils/withHardTimeout';
 
 const ROLE_LABELS: Record<string, string> = {
   [Role.SuperAdmin]: 'Super Admin',
@@ -24,20 +25,40 @@ const ROLE_LABELS: Record<string, string> = {
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Partial<AdminUser> | null>(null);
   const [password, setPassword] = useState('');
+  const isFetchingRef = useRef(false);
 
   const fetchUsers = async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setLoading(true);
+    setError(null);
     try {
-      const data = await getAdminUsers();
+      const data = await withHardTimeout(
+        () => getAdminUsers(),
+        15000,
+        "Fetching users"
+      );
       setUsers(data);
-    } catch (error) {
-      console.error("Failed to fetch users", error);
+    } catch (err) {
+      console.error("Failed to fetch users", err);
+      if (isHardTimeoutError(err)) {
+        setError(HARD_TIMEOUT_USER_MESSAGE);
+      } else {
+        setError("Failed to load users. Please try again.");
+      }
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    isFetchingRef.current = false;
+    fetchUsers();
   };
 
   useEffect(() => {
@@ -97,10 +118,40 @@ const UserManagement: React.FC = () => {
     setEditingUser({ ...editingUser, [e.target.name]: e.target.value });
   };
   
-  if (loading) return <Spinner />;
+  if (loading && users.length === 0) return <Spinner />;
+
+  if (error && users.length === 0) {
+    return (
+      <Card title="Admin User Management">
+        <div className="p-12 text-center max-w-md mx-auto">
+          <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Users</h3>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <Button onClick={handleRetry} className="inline-flex items-center">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card title="Admin User Management">
+      {error && users.length > 0 && (
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-800">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+            <span className="text-sm font-medium">{error}</span>
+          </div>
+          <Button size="sm" variant="secondary" onClick={handleRetry} className="flex-shrink-0">
+            <RefreshCw className="h-4 w-4 mr-1.5" />
+            Retry
+          </Button>
+        </div>
+      )}
       <div className="flex justify-end mb-4">
         <Button onClick={() => handleOpenModal()} className="flex items-center">
             <PlusCircle className="h-4 w-4 mr-2" /> Create New User

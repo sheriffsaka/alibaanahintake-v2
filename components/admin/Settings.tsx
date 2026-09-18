@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { getAppSettings, updateAppSettings, renewSession } from '../../services/apiService';
 import { AppSettings as TAppSettings, Role } from '../../types';
 import Spinner from '../common/Spinner';
@@ -8,7 +8,8 @@ import Card from '../common/Card';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import Toggle from '../common/Toggle';
-import { CheckCircle, Info, RefreshCw } from 'lucide-react';
+import { CheckCircle, Info, RefreshCw, AlertCircle } from 'lucide-react';
+import { withHardTimeout, isHardTimeoutError, HARD_TIMEOUT_USER_MESSAGE } from '../../utils/withHardTimeout';
 
 const toDatetimeLocal = (isoString?: string) => {
     if (!isoString) return '';
@@ -43,22 +44,41 @@ const Settings: React.FC = () => {
 
     const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
     const [renewConfirmText, setRenewConfirmText] = useState('');
+    const isFetchingRef = useRef(false);
+
+    const fetchSettings = useCallback(async () => {
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await withHardTimeout(
+                () => getAppSettings(),
+                15000,
+                "Fetching app settings"
+            );
+            setSettings(data);
+        } catch (err) {
+            console.error("Failed to fetch app settings", err);
+            if (isHardTimeoutError(err)) {
+                setError(HARD_TIMEOUT_USER_MESSAGE);
+            } else {
+                setError("Failed to load settings. Please try again.");
+            }
+        } finally {
+            isFetchingRef.current = false;
+            setLoading(false);
+        }
+    }, []);
+
+    const handleRetry = useCallback(() => {
+        isFetchingRef.current = false;
+        fetchSettings();
+    }, [fetchSettings]);
 
     useEffect(() => {
-        const fetchSettings = async () => {
-            setLoading(true);
-            try {
-                const data = await getAppSettings();
-                setSettings(data);
-            } catch (error) {
-                console.error("Failed to fetch app settings", error);
-                setError("Failed to load settings. Please refresh the page.");
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchSettings();
-    }, []);
+    }, [fetchSettings]);
 
     const handleChange = (field: keyof TAppSettings, value: TAppSettings[keyof TAppSettings]) => {
         if (!settings) return;
@@ -116,12 +136,21 @@ const Settings: React.FC = () => {
         }
     };
 
-    if (loading) return <div className="flex justify-center p-12"><Spinner /></div>;
+    if (loading && !settings) return <div className="flex justify-center p-12"><Spinner /></div>;
     if (error && !settings) return (
-        <div className="p-8 text-center">
-            <p className="text-red-500 mb-4">{error}</p>
-            <Button onClick={() => window.location.reload()}>Retry</Button>
-        </div>
+        <Card title="Application Settings">
+            <div className="p-12 text-center max-w-md mx-auto">
+                <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="h-6 w-6" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Settings</h3>
+                <p className="text-gray-600 mb-6">{error}</p>
+                <Button onClick={handleRetry} className="inline-flex items-center">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Retry
+                </Button>
+            </div>
+        </Card>
     );
     if (!settings) return <p className="p-8 text-center text-gray-500">No settings found.</p>;
 

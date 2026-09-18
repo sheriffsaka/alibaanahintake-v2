@@ -6,13 +6,14 @@ import Spinner from '../common/Spinner';
 import Card from '../common/Card';
 import Input from '../common/Input';
 import Button from '../common/Button';
-import { Download, Search, ArrowUpDown, Trash2, Edit3, CheckSquare, Square, Send, ChevronDown, Check, X } from 'lucide-react';
+import { Download, Search, ArrowUpDown, Trash2, Edit3, CheckSquare, Square, Send, ChevronDown, Check, X, AlertCircle, RefreshCw } from 'lucide-react';
 import useDebounce from '../../hooks/useDebounce';
 import { deleteStudent, updateStudentDetails, getLevels, bulkDeleteStudents, resendConfirmationEmail } from '../../services/apiService';
 import { useAuth } from '../../hooks/useAuth';
 import Select from '../common/Select';
 import { supabase, safeRefreshSession, syncRealtimeAuth } from '../../services/supabaseClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { withHardTimeout, isHardTimeoutError, HARD_TIMEOUT_USER_MESSAGE } from '../../utils/withHardTimeout';
 
 type SortKey = 'firstname' | 'email' | 'level' | 'intakeDate' | 'status' | 'createdAt' | 'gender' | '';
 type SortDirection = 'asc' | 'desc';
@@ -80,7 +81,8 @@ const StudentRecords: React.FC = () => {
       let dbSortKey = sortKey === 'level' ? 'levels(name)' : sortKey;
       if (!dbSortKey) dbSortKey = 'created_at';
       
-      const { students: data, count } = await getAllStudents(
+      const { students: data, count } = await withHardTimeout(
+        () => getAllStudents(
           currentPage,
           PAGE_SIZE,
           debouncedSearchTerm,
@@ -91,17 +93,29 @@ const StudentRecords: React.FC = () => {
             appointmentSlotId: filterSlotIds.length > 0 ? filterSlotIds : undefined,
             gender: adminGenderFilter
           }
+        ),
+        15000,
+        "Fetching student records"
       );
       setStudents(data);
       setTotalStudents(count);
     } catch (err) {
       console.error("Failed to fetch students", err);
-      setError("Failed to load student records. Please try again.");
+      if (isHardTimeoutError(err)) {
+        setError(HARD_TIMEOUT_USER_MESSAGE);
+      } else {
+        setError("Failed to load student records. Please try again.");
+      }
     } finally {
       isFetchingRef.current = false;
       setLoading(false);
     }
   }, [currentPage, debouncedSearchTerm, sortKey, sortDirection, filterDate, filterSlotIds, adminGenderFilter]);
+
+  const handleRetry = React.useCallback(() => {
+    isFetchingRef.current = false;
+    fetchStudents();
+  }, [fetchStudents]);
 
   useEffect(() => {
     fetchStudentsRef.current = fetchStudents;
@@ -224,8 +238,12 @@ const StudentRecords: React.FC = () => {
 
   useEffect(() => {
     const fetchDates = async () => {
-      const { dates } = await getAdminFilterOptions();
-      setAvailableDates(dates);
+      try {
+        const { dates } = await withHardTimeout(() => getAdminFilterOptions(), 10000, "Fetching filter dates");
+        setAvailableDates(dates);
+      } catch (err) {
+        console.warn("Failed to fetch filter dates", err);
+      }
     };
     fetchDates();
   }, []);
@@ -233,8 +251,12 @@ const StudentRecords: React.FC = () => {
   useEffect(() => {
     const fetchSlots = async () => {
       if (filterDate) {
-        const slots = await getAdminSlotsForDate(filterDate, adminGenderFilter);
-        setAvailableSlots(slots);
+        try {
+          const slots = await withHardTimeout(() => getAdminSlotsForDate(filterDate, adminGenderFilter), 10000, "Fetching slots for date");
+          setAvailableSlots(slots);
+        } catch (err) {
+          console.warn("Failed to fetch slots for date", err);
+        }
       } else {
         setAvailableSlots([]);
         setFilterSlotIds([]);
@@ -245,7 +267,7 @@ const StudentRecords: React.FC = () => {
 
   const loadLevels = async () => {
     try {
-      const data = await getLevels(true);
+      const data = await withHardTimeout(() => getLevels(true), 10000, "Fetching levels");
       setLevels(data);
     } catch (err) {
       console.error("Failed to load levels", err);
@@ -427,9 +449,16 @@ const StudentRecords: React.FC = () => {
   if (error && students.length === 0) {
     return (
       <Card title="Student Records">
-        <div className="p-8 text-center">
-          <p className="text-red-500 mb-4">{error}</p>
-          <Button onClick={fetchStudents}>Retry</Button>
+        <div className="p-12 text-center max-w-md mx-auto">
+          <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Records</h3>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <Button onClick={handleRetry} className="inline-flex items-center">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
         </div>
       </Card>
     );
@@ -437,6 +466,18 @@ const StudentRecords: React.FC = () => {
 
   return (
     <Card title="Student Records">
+      {error && students.length > 0 && (
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-800">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+            <span className="text-sm font-medium">{error}</span>
+          </div>
+          <Button size="sm" variant="secondary" onClick={handleRetry} className="flex-shrink-0">
+            <RefreshCw className="h-4 w-4 mr-1.5" />
+            Retry
+          </Button>
+        </div>
+      )}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
         <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-2/3">
           <div className="flex-1 min-w-[200px]">

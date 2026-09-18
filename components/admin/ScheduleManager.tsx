@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { getSchedules, updateSchedule, createSchedule, deleteSchedule, getLevels, createSchedulesBulk, bulkDeleteSchedules } from '../../services/apiService';
 import { AppointmentSlot, Level, Gender, getAdminGenderFilter } from '../../types';
 import Spinner from '../common/Spinner';
@@ -7,8 +7,9 @@ import Card from '../common/Card';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import Select from '../common/Select';
-import { PlusCircle, Trash2, CheckSquare, Square } from 'lucide-react';
+import { PlusCircle, Trash2, CheckSquare, Square, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { withHardTimeout, isHardTimeoutError, HARD_TIMEOUT_USER_MESSAGE } from '../../utils/withHardTimeout';
 
 const PAGE_SIZE = 25;
 
@@ -23,6 +24,8 @@ const ScheduleManager: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalSlots, setTotalSlots] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const isFetchingRef = useRef(false);
 
   // Determine gender filter based on admin role
   const adminGenderFilter = useMemo(() => {
@@ -30,37 +33,69 @@ const ScheduleManager: React.FC = () => {
   }, [user]);
 
   const fetchSlots = React.useCallback(async (page: number) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setLoading(true);
+    setError(null);
     setSelectedIds(new Set());
     try {
-      const { slots: data, count } = await getSchedules(page, PAGE_SIZE, adminGenderFilter);
+      const { slots: data, count } = await withHardTimeout(
+        () => getSchedules(page, PAGE_SIZE, adminGenderFilter),
+        15000,
+        "Fetching schedules"
+      );
       setSlots(data);
       setTotalSlots(count ?? 0);
-    } catch (error) {
-      console.error("Failed to fetch schedules", error);
+    } catch (err) {
+      console.error("Failed to fetch schedules", err);
+      if (isHardTimeoutError(err)) {
+        setError(HARD_TIMEOUT_USER_MESSAGE);
+      } else {
+        setError("Failed to load schedules. Please try again.");
+      }
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
   }, [adminGenderFilter]);
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      setLoading(true);
-      setSelectedIds(new Set());
-      try {
-        const [schedulesData, levelsData] = await Promise.all([
+  const fetchInitialData = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    setLoading(true);
+    setError(null);
+    setSelectedIds(new Set());
+    try {
+      const [schedulesData, levelsData] = await withHardTimeout(
+        () => Promise.all([
           getSchedules(currentPage, PAGE_SIZE, adminGenderFilter),
           getLevels(true), // Fetch all levels for the dropdown
-        ]);
-        setSlots(schedulesData.slots);
-        setTotalSlots(schedulesData.count ?? 0);
-        setLevels(levelsData);
-      } catch (error) {
-        console.error("Failed to fetch initial data", error);
-      } finally {
-        setLoading(false);
+        ]),
+        15000,
+        "Fetching schedules and levels"
+      );
+      setSlots(schedulesData.slots);
+      setTotalSlots(schedulesData.count ?? 0);
+      setLevels(levelsData);
+    } catch (err) {
+      console.error("Failed to fetch initial data", err);
+      if (isHardTimeoutError(err)) {
+        setError(HARD_TIMEOUT_USER_MESSAGE);
+      } else {
+        setError("Failed to load schedules. Please try again.");
       }
-    };
+    } finally {
+      isFetchingRef.current = false;
+      setLoading(false);
+    }
+  }, [adminGenderFilter, currentPage]);
+
+  const handleRetry = useCallback(() => {
+    isFetchingRef.current = false;
+    fetchInitialData();
+  }, [fetchInitialData]);
+
+  useEffect(() => {
     fetchInitialData();
 
     let timer: NodeJS.Timeout | null = null;
@@ -82,7 +117,7 @@ const ScheduleManager: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleVisibilityChange);
     };
-  }, [currentPage, adminGenderFilter]);
+  }, [currentPage, adminGenderFilter, fetchInitialData]);
 
   const handleOpenModal = (slot?: AppointmentSlot) => {
     if (slot) {
@@ -205,11 +240,41 @@ const ScheduleManager: React.FC = () => {
 
   const totalPages = Math.ceil(totalSlots / PAGE_SIZE);
 
-  if (loading && !isModalOpen) return <Spinner />;
+  if (loading && !isModalOpen && slots.length === 0) return <Spinner />;
+
+  if (error && slots.length === 0) {
+    return (
+      <Card title="Schedule Management">
+        <div className="p-12 text-center max-w-md mx-auto">
+          <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Schedules</h3>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <Button onClick={handleRetry} className="inline-flex items-center">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card title="Schedule Management">
-        <div className="flex justify-between items-center mb-4">
+      {error && slots.length > 0 && (
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-800">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+            <span className="text-sm font-medium">{error}</span>
+          </div>
+          <Button size="sm" variant="secondary" onClick={handleRetry} className="flex-shrink-0">
+            <RefreshCw className="h-4 w-4 mr-1.5" />
+            Retry
+          </Button>
+        </div>
+      )}
+      <div className="flex justify-between items-center mb-4">
             <div>
               {selectedIds.size > 0 && (
                 <div className="flex items-center space-x-3">
