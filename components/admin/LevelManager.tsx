@@ -18,6 +18,9 @@ const LevelManager: React.FC = () => {
   const { t } = useTranslation();
   const isFetchingRef = useRef(false);
 
+  const lastFetchTimeRef = useRef(0);
+  const fetchLevelsRef = useRef<() => Promise<void>>(() => Promise.resolve());
+
   const fetchLevels = async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -31,6 +34,7 @@ const LevelManager: React.FC = () => {
         "Fetching levels"
       );
       setLevels(data);
+      lastFetchTimeRef.current = Date.now();
     } catch (error) {
       console.error("Failed to fetch levels", error);
       if (isHardTimeoutError(error)) {
@@ -50,6 +54,10 @@ const LevelManager: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchLevelsRef.current = fetchLevels;
+  });
+
+  useEffect(() => {
     fetchLevels();
 
     let timer: NodeJS.Timeout | null = null;
@@ -58,21 +66,22 @@ const LevelManager: React.FC = () => {
         if (timer) clearTimeout(timer);
         timer = setTimeout(async () => {
           if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-            await safeRefreshSession();
-            fetchLevels();
+            const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+            if (timeSinceLastFetch > 15000 && !isFetchingRef.current) {
+              await safeRefreshSession();
+              fetchLevelsRef.current();
+            }
           }
-        }, 300);
+        }, 500);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', handleVisibilityChange);
-    window.addEventListener('focus', handleVisibilityChange);
     return () => {
       if (timer) clearTimeout(timer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleVisibilityChange);
-      window.removeEventListener('focus', handleVisibilityChange);
     };
   }, []);
 

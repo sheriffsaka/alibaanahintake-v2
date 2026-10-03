@@ -79,6 +79,8 @@ const StudentRecords: React.FC = () => {
   };
 
   const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
+  const hasDataRef = useRef(false);
   const fetchStudentsRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const fetchStudents = React.useCallback(async () => {
@@ -110,6 +112,8 @@ const StudentRecords: React.FC = () => {
       );
       setStudents(data);
       setTotalStudents(count);
+      lastFetchTimeRef.current = Date.now();
+      hasDataRef.current = true;
       setError(null);
       setErrorDetails(null);
     } catch (err: unknown) {
@@ -199,8 +203,11 @@ const StudentRecords: React.FC = () => {
 
   useEffect(() => {
     fetchStudents();
-    loadLevels();
   }, [fetchStudents]);
+
+  useEffect(() => {
+    loadLevels();
+  }, []);
 
   // Set up Realtime subscription with stable channel naming and lifecycle cleanup
   useEffect(() => {
@@ -254,7 +261,10 @@ const StudentRecords: React.FC = () => {
 
             if (status === 'SUBSCRIBED') {
               isConnecting = false;
-              fetchStudentsRef.current();
+              // Only trigger initial fetch if data hasn't been loaded yet
+              if (!hasDataRef.current) {
+                fetchStudentsRef.current();
+              }
             } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
               isConnecting = false;
               console.warn(`[StudentRecords] Realtime status: ${status}`);
@@ -279,26 +289,28 @@ const StudentRecords: React.FC = () => {
     setupRealtimeChannel();
 
     const handleSyncAndReconnect = () => {
-      if (isDisposed) return;
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      if (isDisposed || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) return;
 
       if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
       syncDebounceTimer = setTimeout(async () => {
         if (isDisposed || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) return;
-        isFetchingRef.current = false;
-        await safeRefreshSession();
-        fetchStudentsRef.current();
+
+        // Cooldown: only re-fetch if last fetch was > 15s ago
+        const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+        if (timeSinceLastFetch > 15000 && !isFetchingRef.current) {
+          await safeRefreshSession();
+          fetchStudentsRef.current();
+        }
 
         const isChannelActive = activeChannel && (activeChannel.state === 'joining' || activeChannel.state === 'joined');
         if (!isConnecting && !isChannelActive) {
           if (reconnectTimeout) clearTimeout(reconnectTimeout);
           setupRealtimeChannel();
         }
-      }, 300);
+      }, 500);
     };
 
     document.addEventListener('visibilitychange', handleSyncAndReconnect);
-    window.addEventListener('focus', handleSyncAndReconnect);
     window.addEventListener('online', handleSyncAndReconnect);
 
     return () => {
@@ -306,7 +318,6 @@ const StudentRecords: React.FC = () => {
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
       document.removeEventListener('visibilitychange', handleSyncAndReconnect);
-      window.removeEventListener('focus', handleSyncAndReconnect);
       window.removeEventListener('online', handleSyncAndReconnect);
       
       if (activeChannel) {

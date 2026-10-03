@@ -30,7 +30,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   const updateUser = useCallback((profile: AdminUser | null) => {
-    setUser(profile);
+    setUser((prevUser) => {
+      if (prevUser === profile) return prevUser;
+      if (
+        prevUser &&
+        profile &&
+        prevUser.id === profile.id &&
+        prevUser.role === profile.role &&
+        prevUser.name === profile.name &&
+        prevUser.email === profile.email &&
+        prevUser.isActive === profile.isActive
+      ) {
+        return prevUser;
+      }
+      return profile;
+    });
+
     if (profile) {
       try {
         localStorage.setItem('al_ibaanah_cached_profile', JSON.stringify(profile));
@@ -121,7 +136,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       async (event, session) => {
         if (!mounted) return;
         
-        setSession(session);
+        setSession((prevSession) => {
+          if (
+            prevSession?.access_token === session?.access_token &&
+            prevSession?.expires_at === session?.expires_at
+          ) {
+            return prevSession;
+          }
+          return session;
+        });
 
         if (session?.access_token) {
           await syncRealtimeAuth(session.access_token);

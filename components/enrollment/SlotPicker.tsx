@@ -42,11 +42,13 @@ const SlotPicker: React.FC = () => {
   const fetchSlots = useCallback(async () => {
     if (!selectedDate || !levelId || !gender) return;
     setLoadingSlots(true);
-    setSelectedSlotId(null);
     setError(null);
     try {
       const availableSlots = await getAvailableSlots(selectedDate, levelId, gender);
       setSlots(availableSlots);
+      // Preserve student selection if still available in fresh list
+      setSelectedSlotId((prev) => (prev && availableSlots.some((s) => s.id === prev) ? prev : null));
+      lastFetchTimeRef.current = Date.now();
     } catch (err) {
       console.error("Failed to fetch slots", err);
       setError("Failed to load available slots. Please try again.");
@@ -54,6 +56,15 @@ const SlotPicker: React.FC = () => {
       setLoadingSlots(false);
     }
   }, [selectedDate, levelId, gender]);
+
+  const lastFetchTimeRef = useRef(0);
+  const fetchDatesRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const fetchSlotsRef = useRef<() => Promise<void>>(() => Promise.resolve());
+
+  useEffect(() => {
+    fetchDatesRef.current = fetchDates;
+    fetchSlotsRef.current = fetchSlots;
+  });
 
   useEffect(() => {
     const fetchLevelInfo = async () => {
@@ -80,7 +91,7 @@ const SlotPicker: React.FC = () => {
     fetchSlots();
   }, [fetchSlots]);
 
-  // Refresh dates and slots when student returns to the tab after inactivity
+  // Refresh dates and slots when student returns to the tab after inactivity (with cooldown)
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
     const handleVisibilityChange = () => {
@@ -88,10 +99,13 @@ const SlotPicker: React.FC = () => {
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => {
           if (document.visibilityState === 'visible') {
-            fetchDates();
-            fetchSlots();
+            const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+            if (timeSinceLastFetch > 15000) {
+              fetchDatesRef.current();
+              fetchSlotsRef.current();
+            }
           }
-        }, 300);
+        }, 500);
       }
     };
 
@@ -102,7 +116,7 @@ const SlotPicker: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleVisibilityChange);
     };
-  }, [fetchDates, fetchSlots]);
+  }, []);
 
   const handleConfirm = () => {
       if (selectedSlotId) {

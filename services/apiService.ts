@@ -30,6 +30,19 @@ export const withAutoReauth = async <T>(queryFn: () => Promise<T>): Promise<T> =
     return await queryFn();
   } catch (err: unknown) {
     const error = err as { code?: string; message?: string; status?: number; name?: string };
+
+    const isCallerAbort = 
+      error?.name === 'AbortError' || 
+      (typeof error?.message === 'string' && (
+        error.message.includes('signal is aborted') ||
+        error.message.includes('The user aborted a request') ||
+        error.message.includes('AbortError')
+      ));
+
+    if (isCallerAbort) {
+      throw err;
+    }
+
     const isAuthExpired = 
       error?.code === 'PGRST301' || 
       error?.status === 401 ||
@@ -41,21 +54,19 @@ export const withAutoReauth = async <T>(queryFn: () => Promise<T>): Promise<T> =
       ));
 
     const isTransientNetworkError =
-      error?.name === 'AbortError' ||
-      (typeof error?.message === 'string' && (
+      typeof error?.message === 'string' && (
         error.message.includes('Failed to fetch') ||
         error.message.includes('NetworkError') ||
         error.message.includes('network error') ||
-        error.message.includes('signal is aborted') ||
         error.message.includes('Network request failed')
-      ));
+      );
 
     if (isAuthExpired || isTransientNetworkError) {
-      console.log('[ApiService] Encountered auth expiration or transient connection error. Refreshing session and retrying...', error?.message || error?.code);
+      console.log('[ApiService] Encountered auth expiration or transient connection error. Refreshing session and retrying once...', error?.message || error?.code);
       // Brief pause to allow socket and auth state to settle on tab wake-up
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 200));
       const session = await safeRefreshSession(isAuthExpired);
-      if (session || isTransientNetworkError) {
+      if (session || (!isAuthExpired && isTransientNetworkError)) {
         return await queryFn();
       }
     }

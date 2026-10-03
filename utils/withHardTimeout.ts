@@ -42,14 +42,25 @@ export const HARD_TIMEOUT_USER_MESSAGE = "Couldn't load — something's taking t
  * - The caller's catch/finally blocks execute immediately when the timeout expires.
  */
 export async function withHardTimeout<T>(
-  promiseOrFn: Promise<T> | (() => Promise<T>),
+  promiseOrFn: Promise<T> | ((signal?: AbortSignal) => Promise<T>),
   timeoutMs: number = 15000,
   operationName: string = "Operation"
 ): Promise<T> {
   let timerId: ReturnType<typeof setTimeout> | null = null;
+  const abortController = new AbortController();
 
   const timeoutPromise = new Promise<never>((_, reject) => {
     timerId = setTimeout(() => {
+      try {
+        abortController.abort(new HardTimeoutError(
+          `${operationName} timed out after ${timeoutMs}ms`,
+          timeoutMs,
+          operationName
+        ));
+      } catch {
+        // Ignore if abort reason is unsupported
+        abortController.abort();
+      }
       reject(
         new HardTimeoutError(
           `${operationName} timed out after ${timeoutMs}ms`,
@@ -60,7 +71,7 @@ export async function withHardTimeout<T>(
     }, timeoutMs);
   });
 
-  const executionPromise = typeof promiseOrFn === 'function' ? promiseOrFn() : promiseOrFn;
+  const executionPromise = typeof promiseOrFn === 'function' ? promiseOrFn(abortController.signal) : promiseOrFn;
 
   // Attach a noop catch handler to the underlying promise so that if it fails
   // later in the background after the timeout has fired, it will not trigger an

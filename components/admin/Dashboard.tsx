@@ -35,6 +35,8 @@ const Dashboard: React.FC = () => {
   }, [user]);
 
   const isFetchingRef = React.useRef(false);
+  const lastFetchTimeRef = React.useRef(0);
+  const hasDataRef = React.useRef(false);
   const fetchDashboardDataRef = React.useRef<() => Promise<void>>(() => Promise.resolve());
 
   const fetchDashboardData = useCallback(async () => {
@@ -49,6 +51,8 @@ const Dashboard: React.FC = () => {
         "Fetching dashboard data"
       );
       setData(dashboardData);
+      lastFetchTimeRef.current = Date.now();
+      hasDataRef.current = true;
     } catch (err) {
       console.error("Failed to fetch dashboard data", err);
       if (isHardTimeoutError(err)) {
@@ -127,7 +131,10 @@ const Dashboard: React.FC = () => {
 
             if (status === 'SUBSCRIBED') {
               isConnecting = false;
-              fetchDashboardDataRef.current();
+              // Only trigger initial fetch if data hasn't been loaded yet
+              if (!hasDataRef.current) {
+                fetchDashboardDataRef.current();
+              }
             } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
               isConnecting = false;
               console.warn(`[Dashboard] Realtime status: ${status}`);
@@ -152,26 +159,28 @@ const Dashboard: React.FC = () => {
     setupRealtimeChannel();
 
     const handleSyncAndReconnect = () => {
-      if (isDisposed) return;
-      if (document.visibilityState !== 'visible') return;
+      if (isDisposed || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) return;
 
       if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
       syncDebounceTimer = setTimeout(async () => {
         if (isDisposed || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) return;
-        isFetchingRef.current = false;
-        await safeRefreshSession();
-        fetchDashboardDataRef.current();
+        
+        // Cooldown: only re-fetch if last fetch was > 15s ago
+        const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+        if (timeSinceLastFetch > 15000 && !isFetchingRef.current) {
+          await safeRefreshSession();
+          fetchDashboardDataRef.current();
+        }
 
         const isChannelActive = activeChannel && (activeChannel.state === 'joining' || activeChannel.state === 'joined');
         if (!isConnecting && !isChannelActive) {
           if (reconnectTimeout) clearTimeout(reconnectTimeout);
           setupRealtimeChannel();
         }
-      }, 300);
+      }, 500);
     };
 
     document.addEventListener('visibilitychange', handleSyncAndReconnect);
-    window.addEventListener('focus', handleSyncAndReconnect);
     window.addEventListener('online', handleSyncAndReconnect);
 
     return () => {
@@ -179,7 +188,6 @@ const Dashboard: React.FC = () => {
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
       document.removeEventListener('visibilitychange', handleSyncAndReconnect);
-      window.removeEventListener('focus', handleSyncAndReconnect);
       window.removeEventListener('online', handleSyncAndReconnect);
       
       if (activeChannel) {

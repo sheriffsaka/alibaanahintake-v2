@@ -317,7 +317,7 @@ const RegistrationForm: React.FC = () => {
               className="w-32 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               {COUNTRY_CODES.map(c => (
-                <option key={c.code} value={c.code}>{c.label}</option>
+                <option key={`${c.code}-${c.label}`} value={c.code}>{c.label}</option>
               ))}
             </select>
             <input

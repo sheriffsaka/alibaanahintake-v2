@@ -59,6 +59,9 @@ const ScheduleManager: React.FC = () => {
     }
   }, [adminGenderFilter]);
 
+  const lastFetchTimeRef = useRef(0);
+  const fetchInitialDataRef = useRef<() => Promise<void>>(() => Promise.resolve());
+
   const fetchInitialData = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -77,6 +80,7 @@ const ScheduleManager: React.FC = () => {
       setSlots(schedulesData.slots);
       setTotalSlots(schedulesData.count ?? 0);
       setLevels(levelsData);
+      lastFetchTimeRef.current = Date.now();
     } catch (err) {
       console.error("Failed to fetch initial data", err);
       if (isHardTimeoutError(err)) {
@@ -96,32 +100,38 @@ const ScheduleManager: React.FC = () => {
   }, [fetchInitialData]);
 
   useEffect(() => {
-    fetchInitialData();
+    fetchInitialDataRef.current = fetchInitialData;
+  }, [fetchInitialData]);
 
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
+
+  useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
     const handleVisibilityChange = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         if (timer) clearTimeout(timer);
         timer = setTimeout(async () => {
           if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-            isFetchingRef.current = false;
-            await safeRefreshSession();
-            fetchInitialData();
+            const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+            if (timeSinceLastFetch > 15000 && !isFetchingRef.current) {
+              await safeRefreshSession();
+              fetchInitialDataRef.current();
+            }
           }
-        }, 300);
+        }, 500);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', handleVisibilityChange);
-    window.addEventListener('focus', handleVisibilityChange);
     return () => {
       if (timer) clearTimeout(timer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleVisibilityChange);
-      window.removeEventListener('focus', handleVisibilityChange);
     };
-  }, [currentPage, adminGenderFilter, fetchInitialData]);
+  }, []);
 
   const handleOpenModal = (slot?: AppointmentSlot) => {
     if (slot) {

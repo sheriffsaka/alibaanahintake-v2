@@ -8,7 +8,7 @@ export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://snytpzu
 export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueXRwenVnaHpxZGhvdXFqb3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMDg4OTYsImV4cCI6MjA4Njg4NDg5Nn0.CGKjooJkDFm2VVyz3QXiZ5ksK5tZfo3FG56D5zlF6w8';
 
 // Custom fetch with timeout, caller signal preservation, and safe retry for idempotent read requests
-const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries = 2): Promise<Response> => {
+const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries = 1): Promise<Response> => {
   const method = (options.method || 'GET').toUpperCase();
   const isSafeMethod = method === 'GET' || method === 'HEAD';
   // Do NOT retry token refreshes or non-idempotent mutations:
@@ -19,17 +19,18 @@ const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries
   const retries = allowRetry ? maxRetries : 0;
 
   while (attempt <= retries) {
-    const timeout = 12000; // 12 seconds per attempt prevents UI deadlocks
+    // If caller already aborted before attempt, exit immediately
+    if (options.signal?.aborted) {
+      throw options.signal.reason || new DOMException('Aborted', 'AbortError');
+    }
+
+    const timeout = 10000; // 10 seconds per attempt prevents UI deadlocks
     const timeoutController = new AbortController();
     const timerId = setTimeout(() => timeoutController.abort(), timeout);
 
     // Combine caller signal with our timeout signal
     let combinedSignal = timeoutController.signal;
     if (options.signal) {
-      if (options.signal.aborted) {
-        clearTimeout(timerId);
-        throw options.signal.reason || new DOMException('Aborted', 'AbortError');
-      }
       const callerSignal = options.signal;
       if (typeof AbortSignal.any === 'function') {
         combinedSignal = AbortSignal.any([callerSignal, timeoutController.signal]);
@@ -47,14 +48,18 @@ const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries
       return response;
     } catch (error: unknown) {
       clearTimeout(timerId);
+
+      // Never retry if caller aborted (component unmounted or operation cancelled)
+      if (options.signal?.aborted) {
+        throw options.signal.reason || error;
+      }
+
       const err = error as { name?: string; message?: string };
-      // Only retry if allowed and error is transient network error (not intentional caller abort)
-      const isCallerAbort = options.signal?.aborted;
-      const isTransient = !isCallerAbort && (err.name === 'AbortError' || err.name === 'TypeError' || err.message?.includes('fetch'));
+      const isTransient = err.name === 'AbortError' || err.name === 'TypeError' || err.message?.includes('fetch');
 
       if (attempt < retries && isTransient) {
         attempt++;
-        const delay = Math.pow(2, attempt) * 400; // 800ms, 1600ms
+        const delay = 600; // Single brief retry delay
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
         throw error;
@@ -133,7 +138,7 @@ export const syncRealtimeAuth = async (token?: string): Promise<void> => {
 
 let activeRefreshPromise: Promise<Session | null> | null = null;
 let lastRefreshSuccessTime = 0;
-const REFRESH_COOLDOWN_MS = 5000; // 5-second cooldown between non-forced refreshes
+const REFRESH_COOLDOWN_MS = 10000; // 10-second cooldown prevents request storms
 
 /**
  * Deduplicated, single-flight session fetch and refresh.
@@ -169,11 +174,15 @@ export const safeRefreshSession = async (force = false): Promise<Session | null>
       const { data, error } = await supabase.auth.getSession();
       if (error) {
         console.warn('[SupabaseClient] Error getting session:', error.message);
+        lastRefreshSuccessTime = Date.now();
         return null;
       }
 
       const session = data?.session;
-      if (!session) return null;
+      if (!session) {
+        lastRefreshSuccessTime = Date.now();
+        return null;
+      }
 
       const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
       // Refresh if token is expired, expires within 2 minutes, or refresh was explicitly forced
@@ -197,11 +206,13 @@ export const safeRefreshSession = async (force = false): Promise<Session | null>
           refreshError = result.error;
         } catch (raceErr) {
           console.warn('[SupabaseClient] refreshSession timeout or exception:', raceErr);
+          lastRefreshSuccessTime = Date.now();
           return session; // Retain current session on timeout
         }
 
         if (refreshError) {
           console.warn('[SupabaseClient] refreshSession result:', refreshError.message);
+          lastRefreshSuccessTime = Date.now();
           if (refreshError.message?.includes('invalid_grant') || refreshError.message?.includes('Already Used')) {
             return null;
           }
@@ -222,6 +233,7 @@ export const safeRefreshSession = async (force = false): Promise<Session | null>
       return session;
     } catch (err) {
       console.warn('[SupabaseClient] Exception in safeRefreshSession:', err);
+      lastRefreshSuccessTime = Date.now();
       return null;
     } finally {
       activeRefreshPromise = null;
@@ -248,33 +260,16 @@ if (typeof window !== 'undefined') {
       } catch (err) {
         console.warn('[SupabaseClient] Wake-up session refresh error:', err);
       }
-    }, 300);
+    }, 500);
   };
 
   window.addEventListener('online', handleWakeUp);
   document.addEventListener('visibilitychange', handleWakeUp);
-  window.addEventListener('focus', handleWakeUp);
 
   // When the browser restores an inactive tab from the back-forward cache (bfcache)
-  // or switches back from another application (e.g., student copying an OTP from email),
-  // softly reconnect the Realtime WebSocket if active.
-  // CRITICAL: NEVER call window.location.reload() here, as doing so destroys user form state,
-  // resets multi-step registration (disconnecting students checking their email for OTP),
-  // and interrupts in-progress workflows.
   window.addEventListener('pageshow', (event: PageTransitionEvent) => {
     if (event.persisted) {
-      console.log('[SupabaseClient] Page restored from back-forward cache — softly reconnecting realtime if needed.');
-      try {
-        if (supabase.realtime) {
-          supabase.realtime.disconnect();
-          supabase.realtime.connect();
-        }
-      } catch (err) {
-        console.warn('[SupabaseClient] Realtime soft-reconnect on pageshow:', err);
-      }
       handleWakeUp();
     }
   });
-
-
 }
