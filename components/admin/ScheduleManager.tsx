@@ -40,7 +40,7 @@ const ScheduleManager: React.FC = () => {
     setSelectedIds(new Set());
     try {
       const { slots: data, count } = await withHardTimeout(
-        () => getSchedules(page, PAGE_SIZE, adminGenderFilter),
+        (signal) => getSchedules(page, PAGE_SIZE, adminGenderFilter, signal),
         15000,
         "Fetching schedules"
       );
@@ -70,9 +70,9 @@ const ScheduleManager: React.FC = () => {
     setSelectedIds(new Set());
     try {
       const [schedulesData, levelsData] = await withHardTimeout(
-        () => Promise.all([
-          getSchedules(currentPage, PAGE_SIZE, adminGenderFilter),
-          getLevels(true), // Fetch all levels for the dropdown
+        (signal) => Promise.all([
+          getSchedules(currentPage, PAGE_SIZE, adminGenderFilter, signal),
+          getLevels(true, signal), // Fetch all levels for the dropdown
         ]),
         15000,
         "Fetching schedules and levels"
@@ -96,6 +96,8 @@ const ScheduleManager: React.FC = () => {
 
   const handleRetry = useCallback(() => {
     isFetchingRef.current = false;
+    setError(null);
+    setLoading(true);
     fetchInitialData();
   }, [fetchInitialData]);
 

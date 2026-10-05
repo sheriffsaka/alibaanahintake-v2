@@ -28,6 +28,25 @@ const getServiceSupabase = (): SupabaseClient => {
   return serviceSupabaseClient;
 };
 
+let anonSupabaseClient: SupabaseClient | null = null;
+
+const getAnonSupabase = (): SupabaseClient => {
+  if (anonSupabaseClient) return anonSupabaseClient;
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://snytpzughzqdhouqjoyh.supabase.co';
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueXRwenVnaHpxZGhvdXFqb3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMDg4OTYsImV4cCI6MjA4Njg4NDg5Nn0.CGKjooJkDFm2VVyz3QXiZ5ksK5tZfo3FG56D5zlF6w8';
+
+  anonSupabaseClient = createClient(supabaseUrl, anonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false
+    }
+  });
+
+  return anonSupabaseClient;
+};
+
 app.use(cors());
 app.use(express.json());
 
@@ -155,6 +174,94 @@ interface AdminResetEntry {
   expiresAt: number;
 }
 const adminResetCodes = new Map<string, AdminResetEntry>();
+
+// Fast server-side admin login endpoint
+router.post('/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanPassword = String(password).trim();
+    const supabase = getServiceSupabase();
+
+    // Check if user exists in profiles and is active
+    const { data: profile, error: profileErr } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', cleanEmail)
+      .maybeSingle();
+
+    if (profileErr) {
+      console.error('[Auth API] Profile lookup error:', profileErr);
+    }
+
+    if (!profile) {
+      return res.status(401).json({
+        error: 'Invalid email or password. If you forgot or need to set your password, click "Forgot / Set Password" below.'
+      });
+    }
+
+    if (!profile.is_active) {
+      return res.status(403).json({
+        error: 'Your account has been deactivated. Please contact the administrator.'
+      });
+    }
+
+    // Authenticate with Supabase Auth
+    const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password: cleanPassword,
+    });
+
+    if (authErr || !authData.session) {
+      return res.status(401).json({
+        error: 'Invalid email or password. If you forgot or need to set your password, click "Forgot / Set Password" below.'
+      });
+    }
+
+    const clientUser = { ...profile, isActive: profile.is_active };
+    if (clientUser.name && typeof clientUser.name === 'string' && clientUser.name.endsWith(' [co_Admin]')) {
+      clientUser.name = clientUser.name.replace(' [co_Admin]', '');
+      clientUser.role = 'co_Admin';
+    }
+
+    console.log(`>>> [Auth API] User ${cleanEmail} authenticated successfully via server API`);
+    res.json({
+      session: authData.session,
+      user: clientUser,
+    });
+  } catch (err: unknown) {
+    console.error('>>> [Auth API] Login exception:', err);
+    res.status(500).json({ error: 'Authentication service error. Please try again.' });
+  }
+});
+
+router.post('/auth/refresh', async (req, res) => {
+  try {
+    const { refresh_token } = req.body;
+    if (!refresh_token || typeof refresh_token !== 'string') {
+      return res.status(400).json({ error: 'Refresh token is required.' });
+    }
+
+    const anonSupabase = getAnonSupabase();
+    const { data, error } = await anonSupabase.auth.refreshSession({ refresh_token });
+
+    if (error || !data.session) {
+      console.warn('>>> [Auth API] Refresh session failed:', error?.message);
+      return res.status(401).json({ error: error?.message || 'Invalid or expired refresh token.' });
+    }
+
+    res.json({
+      session: data.session,
+      user: data.user,
+    });
+  } catch (err: unknown) {
+    console.error('>>> [Auth API] Refresh exception:', err);
+    res.status(500).json({ error: 'Authentication refresh failed.' });
+  }
+});
 
 router.post('/auth/request-password-reset', async (req, res) => {
   try {
@@ -1344,6 +1451,280 @@ router.get('/admin/students/export', async (req, res) => {
     console.error('>>> Export students error in /api/admin/students/export:', error);
     const err = error as { message?: string };
     res.status(500).json({ error: err?.message || 'Failed to export student records' });
+  }
+});
+
+// --- HELPER: Admin Request Verification ---
+interface VerifiedAdmin {
+  user: { id: string; email?: string };
+  profile: { id: string; role: string; email: string; is_active: boolean; name?: string };
+  enforcedGender?: 'Male' | 'Female';
+}
+
+const verifyAdminRequest = async (req: express.Request): Promise<VerifiedAdmin> => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw { status: 401, message: 'Unauthorized: No token provided' };
+  }
+
+  const token = authHeader.split(' ')[1];
+  const supabase = getServiceSupabase();
+
+  const { data: { user: requestUser }, error: requestUserError } = await supabase.auth.getUser(token);
+  if (requestUserError || !requestUser) {
+    throw { status: 401, message: 'Unauthorized: Invalid or expired token' };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', requestUser.id)
+    .single();
+
+  if (profileError || !profile) {
+    throw { status: 403, message: 'Forbidden: Profile not found' };
+  }
+
+  if (!profile.is_active) {
+    throw { status: 403, message: 'Forbidden: Account deactivated' };
+  }
+
+  const validRoles = ['Super Admin', 'co_Admin', 'male_section_Admin', 'female_section_Admin', 'male_Front Desk', 'female_Front Desk'];
+  if (!validRoles.includes(profile.role)) {
+    throw { status: 403, message: 'Forbidden: Insufficient privileges' };
+  }
+
+  let enforcedGender: 'Male' | 'Female' | undefined = undefined;
+  if (profile.role === 'male_section_Admin' || profile.role === 'male_Front Desk') {
+    enforcedGender = 'Male';
+  } else if (profile.role === 'female_section_Admin' || profile.role === 'female_Front Desk') {
+    enforcedGender = 'Female';
+  }
+
+  return { user: requestUser, profile, enforcedGender };
+};
+
+// --- ADMIN SCHEDULES ---
+router.get('/admin/schedules', async (req, res) => {
+  try {
+    const { enforcedGender } = await verifyAdminRequest(req);
+    const supabase = getServiceSupabase();
+
+    const page = Math.max(1, parseInt(String(req.query.page || '1'), 10));
+    const pageSize = Math.max(1, Math.min(100, parseInt(String(req.query.pageSize || '10'), 10)));
+    const requestedGender = typeof req.query.gender === 'string' ? req.query.gender : '';
+    const effectiveGender = enforcedGender || requestedGender;
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
+      .from('appointment_slots')
+      .select('*, levels(id, name)', { count: 'exact' });
+
+    if (effectiveGender) {
+      query = query.eq('gender', effectiveGender);
+    }
+
+    const { data, count, error } = await query
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
+      .range(from, to);
+
+    if (error) throw error;
+
+    res.json({
+      slots: data || [],
+      count: count ?? 0
+    });
+  } catch (err: unknown) {
+    const error = err as { status?: number; message?: string };
+    console.error('>>> Fetch schedules error in /api/admin/schedules:', error);
+    res.status(error.status || 500).json({ error: error.message || 'Failed to fetch schedules' });
+  }
+});
+
+// --- ADMIN / PUBLIC LEVELS ---
+router.get('/admin/levels', async (req, res) => {
+  try {
+    const supabase = getServiceSupabase();
+    const includeInactive = req.query.includeInactive === 'true';
+
+    let query = supabase.from('levels').select('*');
+    if (!includeInactive) {
+      query = query.eq('is_active', true);
+    }
+
+    const { data, error } = await query.order('sort_order', { ascending: true });
+    if (error) throw error;
+
+    res.json(data || []);
+  } catch (err: unknown) {
+    const error = err as { message?: string };
+    console.error('>>> Fetch levels error in /api/admin/levels:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch levels' });
+  }
+});
+
+// --- ADMIN DASHBOARD METRICS ---
+router.get('/admin/dashboard', async (req, res) => {
+  try {
+    const { enforcedGender } = await verifyAdminRequest(req);
+    const supabase = getServiceSupabase();
+    const requestedGender = typeof req.query.gender === 'string' ? req.query.gender : '';
+    const effectiveGender = enforcedGender || requestedGender;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    let studentsQuery = supabase.from('students').select('id, status, level_id, intake_date, gender');
+    let slotsQuery = supabase.from('appointment_slots').select('id, capacity, booked, date, levels(name)');
+    const levelsQuery = supabase.from('levels').select('id, name').eq('is_active', true).order('sort_order', { ascending: true });
+
+    if (effectiveGender) {
+      studentsQuery = studentsQuery.eq('gender', effectiveGender);
+      slotsQuery = slotsQuery.eq('gender', effectiveGender);
+    }
+
+    const [studentsRes, slotsRes, levelsRes] = await Promise.all([
+      studentsQuery,
+      slotsQuery,
+      levelsQuery
+    ]);
+
+    if (studentsRes.error) throw studentsRes.error;
+    if (slotsRes.error) throw slotsRes.error;
+    if (levelsRes.error) throw levelsRes.error;
+
+    const students = studentsRes.data || [];
+    const slots = slotsRes.data || [];
+    const levels = levelsRes.data || [];
+
+    const totalRegistered = students.length;
+    const checkedIn = students.filter(s => s.status === 'checked_in' || s.status === 'completed').length;
+    const todayExpected = students.filter(s => s.intake_date === todayStr && s.status !== 'cancelled').length;
+
+    // Breakdown by level
+    const levelCounts: Record<string, number> = {};
+    levels.forEach(l => { levelCounts[l.id] = 0; });
+    students.forEach(s => {
+      if (s.level_id && levelCounts[s.level_id] !== undefined) {
+        levelCounts[s.level_id]++;
+      }
+    });
+
+    const breakdownByLevel = levels.map(l => ({
+      name: l.name,
+      value: levelCounts[l.id] || 0
+    }));
+
+    // Slot utilization for upcoming/recent slots
+    const slotUtilizationMap: Record<string, { booked: number; capacity: number }> = {};
+    slots.forEach(slot => {
+      const levelName = (slot.levels as { name?: string })?.name || 'General';
+      if (!slotUtilizationMap[levelName]) {
+        slotUtilizationMap[levelName] = { booked: 0, capacity: 0 };
+      }
+      slotUtilizationMap[levelName].booked += (slot.booked || 0);
+      slotUtilizationMap[levelName].capacity += (slot.capacity || 0);
+    });
+
+    const slotUtilization = Object.entries(slotUtilizationMap).map(([name, stat]) => ({
+      name,
+      booked: stat.booked,
+      capacity: stat.capacity
+    }));
+
+    res.json({
+      totalRegistered,
+      checkedIn,
+      todayExpected,
+      breakdownByLevel,
+      slotUtilization
+    });
+  } catch (err: unknown) {
+    const error = err as { status?: number; message?: string };
+    console.error('>>> Fetch dashboard error in /api/admin/dashboard:', error);
+    res.status(error.status || 500).json({ error: error.message || 'Failed to fetch dashboard metrics' });
+  }
+});
+
+// --- PUBLIC APP SETTINGS ---
+router.get('/settings', async (_req, res) => {
+  try {
+    const supabase = getServiceSupabase();
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) {
+      return res.json({
+        registration_open: false,
+        male_registration_open: false,
+        female_registration_open: false,
+        max_daily_capacity: 50,
+        closed_reasons: {},
+      });
+    }
+
+    res.json(data);
+  } catch (err: unknown) {
+    const error = err as { message?: string };
+    console.error('>>> Fetch settings error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch settings' });
+  }
+});
+
+// --- PUBLIC ENROLLMENT AVAILABLE DATES ---
+router.get('/enroll/available-dates', async (req, res) => {
+  try {
+    const { levelId, gender } = req.query;
+    if (!levelId || !gender) {
+      return res.status(400).json({ error: 'levelId and gender are required' });
+    }
+    const supabase = getServiceSupabase();
+    const { data, error } = await supabase
+      .from('available_appointment_slots')
+      .select('date')
+      .eq('level_id', String(levelId))
+      .eq('gender', String(gender));
+
+    if (error) throw error;
+    const uniqueDates = [...new Set((data || []).map((s: { date: string }) => s.date))];
+    uniqueDates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+    res.json({ dates: uniqueDates });
+  } catch (err: unknown) {
+    const error = err as { message?: string };
+    console.error('>>> Fetch available-dates error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch available dates' });
+  }
+});
+
+// --- PUBLIC ENROLLMENT AVAILABLE SLOTS ---
+router.get('/enroll/available-slots', async (req, res) => {
+  try {
+    const { date, levelId, gender } = req.query;
+    if (!date || !levelId || !gender) {
+      return res.status(400).json({ error: 'date, levelId, and gender are required' });
+    }
+    const supabase = getServiceSupabase();
+    const { data, error } = await supabase
+      .from('appointment_slots')
+      .select('*, levels(name)')
+      .eq('date', String(date))
+      .eq('level_id', String(levelId))
+      .eq('gender', String(gender))
+      .order('start_time', { ascending: true });
+
+    if (error) throw error;
+    res.json({ slots: data || [] });
+  } catch (err: unknown) {
+    const error = err as { message?: string };
+    console.error('>>> Fetch available-slots error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch available slots' });
   }
 });
 

@@ -22,24 +22,29 @@ const setSessionStorageItem = <T>(key: string, value: T): void => {
 };
 
 /**
- * Automatically catches expired JWT / 401 errors and transient wake-up network errors from PostgREST/Supabase queries,
+ * Automatically catches expired JWT / 401 errors from PostgREST/Supabase queries,
  * safely refreshes the authentication session, and re-attempts the operation once.
+ * Never retries on AbortError to prevent stalled / phantom background tasks.
  */
-export const withAutoReauth = async <T>(queryFn: () => Promise<T>): Promise<T> => {
+export const withAutoReauth = async <T>(
+  queryFn: (signal?: AbortSignal) => Promise<T>,
+  callerSignal?: AbortSignal
+): Promise<T> => {
+  if (callerSignal?.aborted) {
+    throw callerSignal.reason || new DOMException('Aborted', 'AbortError');
+  }
+
   try {
-    return await queryFn();
+    return await queryFn(callerSignal);
   } catch (err: unknown) {
+    if (callerSignal?.aborted) {
+      throw callerSignal.reason || err;
+    }
+
     const error = err as { code?: string; message?: string; status?: number; name?: string };
 
-    const isCallerAbort = 
-      error?.name === 'AbortError' || 
-      (typeof error?.message === 'string' && (
-        error.message.includes('signal is aborted') ||
-        error.message.includes('The user aborted a request') ||
-        error.message.includes('AbortError')
-      ));
-
-    if (isCallerAbort) {
+    // NEVER retry if the operation or caller was aborted
+    if (error?.name === 'AbortError' || callerSignal?.aborted) {
       throw err;
     }
 
@@ -53,21 +58,11 @@ export const withAutoReauth = async <T>(queryFn: () => Promise<T>): Promise<T> =
         error.message.includes('sub claim and user id do not match')
       ));
 
-    const isTransientNetworkError =
-      typeof error?.message === 'string' && (
-        error.message.includes('Failed to fetch') ||
-        error.message.includes('NetworkError') ||
-        error.message.includes('network error') ||
-        error.message.includes('Network request failed')
-      );
-
-    if (isAuthExpired || isTransientNetworkError) {
-      console.log('[ApiService] Encountered auth expiration or transient connection error. Refreshing session and retrying once...', error?.message || error?.code);
-      // Brief pause to allow socket and auth state to settle on tab wake-up
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      const session = await safeRefreshSession(isAuthExpired);
-      if (session || (!isAuthExpired && isTransientNetworkError)) {
-        return await queryFn();
+    if (isAuthExpired) {
+      console.log('[ApiService] Auth token expired, attempting recovery...');
+      const session = await safeRefreshSession(true);
+      if (session?.access_token && !callerSignal?.aborted) {
+        return await queryFn(callerSignal);
       }
     }
     throw err;
@@ -284,7 +279,36 @@ export const getAdminUserProfile = async (userId: string): Promise<AdminUser | n
 
 export const login = async (email: string, password: string): Promise<AdminUser> => {
     const cleanEmail = email.trim().toLowerCase();
-    const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+    const cleanPassword = password.trim();
+
+    // 1. High-reliability server login (immune to browser auth lock races / CORS delays)
+    try {
+        const response = await fetch(`${window.location.origin}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.session && data.user) {
+            try {
+                await supabase.auth.setSession(data.session);
+            } catch (setErr) {
+                console.warn('[ApiService] Session sync warning:', setErr);
+            }
+            return data.user;
+        } else if (response.status === 401 || response.status === 403) {
+            throw new Error(data.error || 'Invalid email or password.');
+        }
+    } catch (serverErr: unknown) {
+        const sErr = serverErr as { message?: string };
+        if (sErr.message && (sErr.message.includes('Invalid') || sErr.message.includes('deactivated') || sErr.message.includes('password'))) {
+            throw serverErr;
+        }
+        console.warn('[ApiService] Server login fallback to direct Supabase auth:', serverErr);
+    }
+
+    // 2. Direct Supabase Auth client fallback
+    const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
     if (error) throw error;
     if (!data?.user) throw new Error("No user returned from login.");
 
@@ -333,9 +357,38 @@ export const confirmAdminPasswordReset = async (email: string, code: string, new
     return data;
 };
 
-export const getAvailableDatesForLevel = async(levelId: string, gender: Gender): Promise<string[]> => {
+export const getAvailableDatesForLevel = async (
+    levelId: string,
+    gender: Gender,
+    signal?: AbortSignal
+): Promise<string[]> => {
+    // 1. High performance server route
+    try {
+        const controller = new AbortController();
+        if (signal) {
+            if (signal.aborted) controller.abort(signal.reason);
+            else signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true });
+        }
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+        const params = new URLSearchParams({ levelId, gender });
+        const res = await fetch(`${window.location.origin}/api/enroll/available-dates?${params.toString()}`, {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+            const data = await res.json();
+            return data.dates || [];
+        }
+    } catch (apiErr) {
+        if (signal?.aborted) throw signal.reason || apiErr;
+        console.warn('Server /api/enroll/available-dates failed, falling back to direct query:', apiErr);
+    }
+
+    // 2. Direct fallback
     console.log('>>> Fetching dates for level:', levelId, 'gender:', gender);
-    const settings = await getAppSettings();
+    const settings = await getAppSettings(signal);
     console.log('>>> App settings:', settings);
     
     const regStatus = isGenderRegistrationOpen(settings, gender);
@@ -362,11 +415,41 @@ export const getAvailableDatesForLevel = async(levelId: string, gender: Gender):
     const uniqueDates = [...new Set(data.map(slot => slot.date))] as string[];
     uniqueDates.sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
     return uniqueDates;
-}
+};
 
 
-export const getAvailableSlots = async (date: string, levelId: string, gender: Gender): Promise<AppointmentSlot[]> => {
-    const settings = await getAppSettings();
+export const getAvailableSlots = async (
+    date: string,
+    levelId: string,
+    gender: Gender,
+    signal?: AbortSignal
+): Promise<AppointmentSlot[]> => {
+    // 1. High performance server route
+    try {
+        const controller = new AbortController();
+        if (signal) {
+            if (signal.aborted) controller.abort(signal.reason);
+            else signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true });
+        }
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+        const params = new URLSearchParams({ date, levelId, gender });
+        const res = await fetch(`${window.location.origin}/api/enroll/available-slots?${params.toString()}`, {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+            const data = await res.json();
+            return (data.slots || []).map(slotFromSupabase);
+        }
+    } catch (apiErr) {
+        if (signal?.aborted) throw signal.reason || apiErr;
+        console.warn('Server /api/enroll/available-slots failed, falling back to direct query:', apiErr);
+    }
+
+    // 2. Direct fallback
+    const settings = await getAppSettings(signal);
     const regStatus = isGenderRegistrationOpen(settings, gender);
     if (!regStatus.open) {
         console.warn('>>> Registration is CLOSED for gender:', gender, 'Reason:', regStatus.reason);
@@ -422,12 +505,15 @@ const fetchStudentsFromApi = async (
         intakeDate?: string;
         appointmentSlotId?: string | string[];
         gender?: Gender;
-    }
+    },
+    signal?: AbortSignal
 ): Promise<{ students: Student[]; count: number } | null> => {
     try {
         let session = (await supabase.auth.getSession()).data?.session;
         let token = session?.access_token;
-        if (!token) {
+        const expiresAt = session?.expires_at ? session.expires_at * 1000 : 0;
+        const isExpiringSoon = !token || (expiresAt > 0 && expiresAt - Date.now() < 60 * 1000);
+        if (isExpiringSoon) {
             session = await safeRefreshSession(true);
             token = session?.access_token;
         }
@@ -450,7 +536,11 @@ const fetchStudentsFromApi = async (
         if (filters?.gender) params.set('gender', filters.gender);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        if (signal) {
+            if (signal.aborted) controller.abort(signal.reason);
+            else signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true });
+        }
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         let response = await fetch(`${window.location.origin}/api/admin/students?${params.toString()}`, {
             headers: {
@@ -465,7 +555,11 @@ const fetchStudentsFromApi = async (
             const freshSession = await safeRefreshSession(true);
             if (freshSession?.access_token) {
                 const retryController = new AbortController();
-                const retryTimeoutId = setTimeout(() => retryController.abort(), 6000);
+                if (signal) {
+                    if (signal.aborted) retryController.abort(signal.reason);
+                    else signal.addEventListener('abort', () => retryController.abort(signal.reason), { once: true });
+                }
+                const retryTimeoutId = setTimeout(() => retryController.abort(), 10000);
                 response = await fetch(`${window.location.origin}/api/admin/students?${params.toString()}`, {
                     headers: {
                         Authorization: `Bearer ${freshSession.access_token}`
@@ -487,6 +581,7 @@ const fetchStudentsFromApi = async (
             count: data.count ?? 0
         };
     } catch (apiErr) {
+        if (signal?.aborted) throw signal.reason || apiErr;
         console.warn('API /api/admin/students failed or unavailable, falling back to direct query:', apiErr);
         return null;
     }
@@ -500,12 +595,15 @@ const fetchStudentsExportFromApi = async (
         intakeDate?: string;
         appointmentSlotId?: string | string[];
         gender?: Gender;
-    }
+    },
+    signal?: AbortSignal
 ): Promise<Student[] | null> => {
     try {
         let session = (await supabase.auth.getSession()).data?.session;
         let token = session?.access_token;
-        if (!token) {
+        const expiresAt = session?.expires_at ? session.expires_at * 1000 : 0;
+        const isExpiringSoon = !token || (expiresAt > 0 && expiresAt - Date.now() < 60 * 1000);
+        if (isExpiringSoon) {
             session = await safeRefreshSession(true);
             token = session?.access_token;
         }
@@ -526,7 +624,11 @@ const fetchStudentsExportFromApi = async (
         if (filters?.gender) params.set('gender', filters.gender);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        if (signal) {
+            if (signal.aborted) controller.abort(signal.reason);
+            else signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true });
+        }
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         let response = await fetch(`${window.location.origin}/api/admin/students/export?${params.toString()}`, {
             headers: {
@@ -540,7 +642,11 @@ const fetchStudentsExportFromApi = async (
             const freshSession = await safeRefreshSession(true);
             if (freshSession?.access_token) {
                 const retryController = new AbortController();
-                const retryTimeoutId = setTimeout(() => retryController.abort(), 6000);
+                if (signal) {
+                    if (signal.aborted) retryController.abort(signal.reason);
+                    else signal.addEventListener('abort', () => retryController.abort(signal.reason), { once: true });
+                }
+                const retryTimeoutId = setTimeout(() => retryController.abort(), 10000);
                 response = await fetch(`${window.location.origin}/api/admin/students/export?${params.toString()}`, {
                     headers: {
                         Authorization: `Bearer ${freshSession.access_token}`
@@ -559,6 +665,7 @@ const fetchStudentsExportFromApi = async (
         const data = await response.json();
         return (data.students || []).map(studentFromSupabase);
     } catch (apiErr) {
+        if (signal?.aborted) throw signal.reason || apiErr;
         console.warn('API /api/admin/students/export failed, falling back to direct query:', apiErr);
         return null;
     }
@@ -574,10 +681,11 @@ export const getAllStudents = async (
         intakeDate?: string;
         appointmentSlotId?: string | string[];
         gender?: Gender;
-    }
+    },
+    signal?: AbortSignal
 ): Promise<{ students: Student[], count: number }> => {
     // 1. High performance server-side route (immune to iframe latency, CORS and lock deadlocks)
-    const apiResult = await fetchStudentsFromApi(page, pageSize, searchTerm, sortKey, sortDirection, filters);
+    const apiResult = await fetchStudentsFromApi(page, pageSize, searchTerm, sortKey, sortDirection, filters, signal);
     if (apiResult) {
         return apiResult;
     }
@@ -590,6 +698,10 @@ export const getAllStudents = async (
         let query = supabase
             .from('students')
             .select('*, levels(name)', { count: 'exact' });
+
+        if (signal) {
+            query = query.abortSignal(signal);
+        }
 
         if (searchTerm) {
             const searchIlke = `%${searchTerm}%`;
@@ -630,7 +742,7 @@ export const getAllStudents = async (
             throw error;
         }
         return { students: (data || []).map(studentFromSupabase), count: count ?? 0 };
-    });
+    }, signal);
 };
 
 export const getAllStudentsForExport = async (
@@ -695,7 +807,61 @@ export const getAllStudentsForExport = async (
     });
 };
 
-export const getDashboardData = async (genderFilter?: Gender) => {
+export const getDashboardData = async (genderFilter?: Gender, signal?: AbortSignal) => {
+    // 1. High performance server route (instant response, single database roundtrip)
+    try {
+        let session = (await supabase.auth.getSession()).data?.session;
+        let token = session?.access_token;
+        const expiresAt = session?.expires_at ? session.expires_at * 1000 : 0;
+        const isExpiringSoon = !token || (expiresAt > 0 && expiresAt - Date.now() < 60 * 1000);
+        if (isExpiringSoon) {
+            session = await safeRefreshSession(true);
+            token = session?.access_token;
+        }
+        if (token) {
+            const params = new URLSearchParams();
+            if (genderFilter) params.set('gender', genderFilter);
+
+            const controller = new AbortController();
+            if (signal) {
+                if (signal.aborted) controller.abort(signal.reason);
+                else signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true });
+            }
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+            let res = await fetch(`${window.location.origin}/api/admin/dashboard?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (res.status === 401) {
+                const freshSession = await safeRefreshSession(true);
+                if (freshSession?.access_token) {
+                    const retryController = new AbortController();
+                    if (signal) {
+                        if (signal.aborted) retryController.abort(signal.reason);
+                        else signal.addEventListener('abort', () => retryController.abort(signal.reason), { once: true });
+                    }
+                    const retryTimeoutId = setTimeout(() => retryController.abort(), 10000);
+                    res = await fetch(`${window.location.origin}/api/admin/dashboard?${params.toString()}`, {
+                        headers: { Authorization: `Bearer ${freshSession.access_token}` },
+                        signal: retryController.signal
+                    });
+                    clearTimeout(retryTimeoutId);
+                }
+            }
+
+            if (res.ok) {
+                return await res.json();
+            }
+        }
+    } catch (apiErr) {
+        if (signal?.aborted) throw signal.reason || apiErr;
+        console.warn('Server /api/admin/dashboard failed, falling back to direct query:', apiErr);
+    }
+
+    // 2. Direct fallback
     return withAutoReauth(async () => {
         if (genderFilter) {
             const todayStr = new Date().toISOString().split('T')[0];
@@ -762,7 +928,7 @@ export const getDashboardData = async (genderFilter?: Gender) => {
                   }))
                 : [],
         };
-    });
+    }, signal);
 };
 
 export const findStudent = async (query: string): Promise<Student | null> => {
@@ -997,7 +1163,73 @@ export const checkInStudent = async (studentId: string): Promise<Student> => {
 
 
 // --- Schedule Management ---
-export const getSchedules = async (page: number, pageSize: number, gender?: Gender): Promise<{ slots: AppointmentSlot[], count: number }> => {
+export const getSchedules = async (
+    page: number,
+    pageSize: number,
+    gender?: Gender,
+    signal?: AbortSignal
+): Promise<{ slots: AppointmentSlot[], count: number }> => {
+    // 1. High performance server route
+    try {
+        let session = (await supabase.auth.getSession()).data?.session;
+        let token = session?.access_token;
+        const expiresAt = session?.expires_at ? session.expires_at * 1000 : 0;
+        const isExpiringSoon = !token || (expiresAt > 0 && expiresAt - Date.now() < 60 * 1000);
+        if (isExpiringSoon) {
+            session = await safeRefreshSession(true);
+            token = session?.access_token;
+        }
+        if (token) {
+            const params = new URLSearchParams({
+                page: String(page),
+                pageSize: String(pageSize),
+            });
+            if (gender) params.set('gender', gender);
+
+            const controller = new AbortController();
+            if (signal) {
+                if (signal.aborted) controller.abort(signal.reason);
+                else signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true });
+            }
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+            let res = await fetch(`${window.location.origin}/api/admin/schedules?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (res.status === 401) {
+                const freshSession = await safeRefreshSession(true);
+                if (freshSession?.access_token) {
+                    const retryController = new AbortController();
+                    if (signal) {
+                        if (signal.aborted) retryController.abort(signal.reason);
+                        else signal.addEventListener('abort', () => retryController.abort(signal.reason), { once: true });
+                    }
+                    const retryTimeoutId = setTimeout(() => retryController.abort(), 10000);
+                    res = await fetch(`${window.location.origin}/api/admin/schedules?${params.toString()}`, {
+                        headers: { Authorization: `Bearer ${freshSession.access_token}` },
+                        signal: retryController.signal
+                    });
+                    clearTimeout(retryTimeoutId);
+                }
+            }
+
+            if (res.ok) {
+                const data = await res.json();
+                return {
+                    slots: (data.slots || []).map(slotFromSupabase),
+                    count: data.count ?? 0,
+                };
+            }
+        }
+    } catch (apiErr) {
+        if (signal?.aborted) throw signal.reason || apiErr;
+        console.warn('Server /api/admin/schedules failed, falling back to direct query:', apiErr);
+    }
+
+    // 2. Direct fallback
     return withAutoReauth(async () => {
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
@@ -1005,6 +1237,10 @@ export const getSchedules = async (page: number, pageSize: number, gender?: Gend
         let query = supabase
             .from('appointment_slots')
             .select('*, levels(id, name)', { count: 'exact' });
+
+        if (signal) {
+            query = query.abortSignal(signal);
+        }
 
         if (gender) {
             query = query.eq('gender', gender);
@@ -1018,7 +1254,7 @@ export const getSchedules = async (page: number, pageSize: number, gender?: Gend
         if (error) throw error;
         
         return { slots: (data || []).map(slotFromSupabase), count: count ?? 0 };
-    });
+    }, signal);
 };
 
 
@@ -1138,10 +1374,41 @@ export const testConnection = async () => {
   }
 };
 
-export const getLevels = async(includeInactive = false): Promise<Level[]> => {
+export const getLevels = async (includeInactive = false, signal?: AbortSignal): Promise<Level[]> => {
+    // 1. High performance server route
+    try {
+        const controller = new AbortController();
+        if (signal) {
+            if (signal.aborted) controller.abort(signal.reason);
+            else signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true });
+        }
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+        const res = await fetch(`${window.location.origin}/api/admin/levels?includeInactive=${includeInactive}`, {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+            const data = await res.json();
+            return data.map((l: { id: string; name: string; is_active: boolean; sort_order: number }) => ({
+                ...l,
+                isActive: l.is_active,
+                sortOrder: l.sort_order
+            }));
+        }
+    } catch (apiErr) {
+        if (signal?.aborted) throw signal.reason || apiErr;
+        console.warn('Server /api/admin/levels failed, falling back to direct query:', apiErr);
+    }
+
+    // 2. Direct fallback
     return withAutoReauth(async () => {
         try {
             let query = supabase.from('levels').select('*');
+            if (signal) {
+                query = query.abortSignal(signal);
+            }
             if (!includeInactive) {
                 query = query.eq('is_active', true);
             }
@@ -1156,7 +1423,7 @@ export const getLevels = async(includeInactive = false): Promise<Level[]> => {
             console.error("Failed to fetch levels:", err);
             return [];
         }
-    });
+    }, signal);
 };
 
 export const createLevel = async(level: Omit<Level, 'id'>): Promise<Level> => {
@@ -1406,7 +1673,44 @@ export const updateNotificationSettings = async(settings: NotificationSettings):
 let cachedAppSettings: AppSettings | null = getSessionStorageItem<AppSettings>('ib_cached_app_settings');
 
 // --- App Settings ---
-export const getAppSettings = async(): Promise<AppSettings> => {
+export const getAppSettings = async (signal?: AbortSignal): Promise<AppSettings> => {
+    // 1. High performance server route
+    try {
+        const controller = new AbortController();
+        if (signal) {
+            if (signal.aborted) controller.abort(signal.reason);
+            else signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true });
+        }
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+        const res = await fetch(`${window.location.origin}/api/settings`, {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+            const data = await res.json();
+            const settings: AppSettings = {
+                isRegistrationOpen: data.registration_open,
+                isMaleRegistrationOpen: data.male_registration_open,
+                isFemaleRegistrationOpen: data.female_registration_open,
+                maxDailyCapacity: data.max_daily_capacity,
+                closedReasons: data.closed_reasons || {},
+                bookingStartTime: data.booking_start_time,
+                bookingEndTime: data.booking_end_time,
+                femaleBookingStartTime: data.female_booking_start_time,
+                femaleBookingEndTime: data.female_booking_end_time
+            };
+            cachedAppSettings = settings;
+            setSessionStorageItem('ib_cached_app_settings', settings);
+            return settings;
+        }
+    } catch (apiErr) {
+        if (signal?.aborted) throw signal.reason || apiErr;
+        console.warn('Server /api/settings failed, falling back to direct query:', apiErr);
+    }
+
+    // 2. Direct fallback
     return withAutoReauth(async () => {
         const fallbackDefaults: AppSettings = {
             isRegistrationOpen: false, 
@@ -1457,11 +1761,16 @@ export const getAppSettings = async(): Promise<AppSettings> => {
         };
 
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('app_settings')
                 .select('*')
-                .eq('id', 1)
-                .single();
+                .eq('id', 1);
+
+            if (signal) {
+                query = query.abortSignal(signal);
+            }
+
+            const { data, error } = await query.single();
             
             if (error) {
                 const err = error as { code?: string; message?: string };
@@ -1497,7 +1806,7 @@ export const getAppSettings = async(): Promise<AppSettings> => {
             if (directFallback) return directFallback;
             return cachedAppSettings || fallbackDefaults;
         }
-    });
+    }, signal);
 };
 
 export const updateAppSettings = async(settings: AppSettings): Promise<AppSettings> => {

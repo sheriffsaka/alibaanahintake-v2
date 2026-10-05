@@ -44,10 +44,29 @@ export const HARD_TIMEOUT_USER_MESSAGE = "Couldn't load — something's taking t
 export async function withHardTimeout<T>(
   promiseOrFn: Promise<T> | ((signal?: AbortSignal) => Promise<T>),
   timeoutMs: number = 15000,
-  operationName: string = "Operation"
+  operationName: string = "Operation",
+  parentSignal?: AbortSignal
 ): Promise<T> {
   let timerId: ReturnType<typeof setTimeout> | null = null;
   const abortController = new AbortController();
+
+  if (parentSignal) {
+    if (parentSignal.aborted) {
+      try {
+        abortController.abort(parentSignal.reason);
+      } catch {
+        abortController.abort();
+      }
+    } else {
+      parentSignal.addEventListener('abort', () => {
+        try {
+          abortController.abort(parentSignal.reason);
+        } catch {
+          abortController.abort();
+        }
+      }, { once: true });
+    }
+  }
 
   const timeoutPromise = new Promise<never>((_, reject) => {
     timerId = setTimeout(() => {

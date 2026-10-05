@@ -46,7 +46,7 @@ const Dashboard: React.FC = () => {
 
     try {
       const dashboardData = await withHardTimeout(
-        () => getDashboardData(adminGenderFilter),
+        (signal) => getDashboardData(adminGenderFilter, signal),
         15000,
         "Fetching dashboard data"
       );
@@ -68,6 +68,7 @@ const Dashboard: React.FC = () => {
 
   const handleRetry = useCallback(() => {
     isFetchingRef.current = false;
+    setError(null);
     setLoading(true);
     fetchDashboardData();
   }, [fetchDashboardData]);

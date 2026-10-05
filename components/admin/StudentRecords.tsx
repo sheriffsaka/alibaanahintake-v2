@@ -81,10 +81,17 @@ const StudentRecords: React.FC = () => {
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
   const hasDataRef = useRef(false);
+  const activeAbortControllerRef = useRef<AbortController | null>(null);
   const fetchStudentsRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const fetchStudents = React.useCallback(async () => {
-    if (isFetchingRef.current) return;
+    // Abort any prior in-flight fetch before starting a new one
+    if (activeAbortControllerRef.current) {
+      activeAbortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    activeAbortControllerRef.current = abortController;
+
     isFetchingRef.current = true;
     setLoading(true);
     setError(null);
@@ -95,7 +102,7 @@ const StudentRecords: React.FC = () => {
       if (!dbSortKey) dbSortKey = 'created_at';
       
       const { students: data, count } = await withHardTimeout(
-        () => getAllStudents(
+        (signal) => getAllStudents(
           currentPage,
           PAGE_SIZE,
           debouncedSearchTerm,
@@ -105,11 +112,16 @@ const StudentRecords: React.FC = () => {
             intakeDate: filterDate || undefined,
             appointmentSlotId: filterSlotIds.length > 0 ? filterSlotIds : undefined,
             gender: adminGenderFilter
-          }
+          },
+          signal
         ),
         25000,
-        "Fetching student records"
+        "Fetching student records",
+        abortController.signal
       );
+
+      if (abortController.signal.aborted) return;
+
       setStudents(data);
       setTotalStudents(count);
       lastFetchTimeRef.current = Date.now();
@@ -117,6 +129,10 @@ const StudentRecords: React.FC = () => {
       setError(null);
       setErrorDetails(null);
     } catch (err: unknown) {
+      if (abortController.signal.aborted) {
+        return;
+      }
+
       console.error("Failed to fetch students", err);
       const timestamp = new Date().toLocaleTimeString();
 
@@ -166,33 +182,41 @@ const StudentRecords: React.FC = () => {
         });
       }
     } finally {
-      isFetchingRef.current = false;
-      setLoading(false);
+      if (activeAbortControllerRef.current === abortController) {
+        isFetchingRef.current = false;
+        setLoading(false);
+      }
     }
   }, [currentPage, debouncedSearchTerm, sortKey, sortDirection, filterDate, filterSlotIds, adminGenderFilter]);
 
   const handleRetry = React.useCallback(() => {
+    if (activeAbortControllerRef.current) {
+      activeAbortControllerRef.current.abort();
+      activeAbortControllerRef.current = null;
+    }
     isFetchingRef.current = false;
     setError(null);
     setErrorDetails(null);
+    setLoading(true);
     fetchStudents();
   }, [fetchStudents]);
 
   const handleRefreshAuthAndRetry = React.useCallback(async () => {
+    if (activeAbortControllerRef.current) {
+      activeAbortControllerRef.current.abort();
+      activeAbortControllerRef.current = null;
+    }
     setIsRefreshingAuth(true);
+    setError(null);
+    setErrorDetails(null);
+    setLoading(true);
     try {
-      // Guard session refresh with a 5000ms max wait to prevent UI hangs
-      await Promise.race([
-        safeRefreshSession(true),
-        new Promise((resolve) => setTimeout(resolve, 5000))
-      ]);
+      await safeRefreshSession(true);
     } catch (authErr) {
       console.warn("Session refresh attempt warning:", authErr);
     } finally {
       setIsRefreshingAuth(false);
       isFetchingRef.current = false;
-      setError(null);
-      setErrorDetails(null);
       fetchStudents();
     }
   }, [fetchStudents]);
@@ -261,10 +285,6 @@ const StudentRecords: React.FC = () => {
 
             if (status === 'SUBSCRIBED') {
               isConnecting = false;
-              // Only trigger initial fetch if data hasn't been loaded yet
-              if (!hasDataRef.current) {
-                fetchStudentsRef.current();
-              }
             } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
               isConnecting = false;
               console.warn(`[StudentRecords] Realtime status: ${status}`);
@@ -295,10 +315,9 @@ const StudentRecords: React.FC = () => {
       syncDebounceTimer = setTimeout(async () => {
         if (isDisposed || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) return;
 
-        // Cooldown: only re-fetch if last fetch was > 15s ago
+        // Cooldown: only re-fetch if last fetch was > 25s ago
         const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
-        if (timeSinceLastFetch > 15000 && !isFetchingRef.current) {
-          await safeRefreshSession();
+        if (timeSinceLastFetch > 25000 && !isFetchingRef.current) {
           fetchStudentsRef.current();
         }
 
