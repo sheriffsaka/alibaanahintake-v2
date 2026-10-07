@@ -133,9 +133,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getInitialSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!mounted) return;
         
+        // Immediate synchronous state update
         setSession((prevSession) => {
           if (
             prevSession?.access_token === session?.access_token &&
@@ -146,16 +147,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           return session;
         });
 
-        if (session?.access_token) {
-          await syncRealtimeAuth(session.access_token);
-        }
+        // CRITICAL FIX: NEVER await asynchronous tasks directly inside the onAuthStateChange callback.
+        // GoTrueClient awaits subscriber callbacks while holding its internal lock. Awaiting queries
+        // or auth operations inside this callback creates a fatal circular deadlock that freezes the app.
+        setTimeout(async () => {
+          if (!mounted) return;
 
-        if (session?.user) {
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || !user) {
-            try {
-              const profile = await getAdminUserProfile(session.user.id);
-              if (mounted) {
-                if (profile) {
+          if (session?.access_token) {
+            syncRealtimeAuth(session.access_token).catch(() => {});
+          }
+
+          if (session?.user) {
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || !user) {
+              try {
+                const profile = await getAdminUserProfile(session.user.id);
+                if (mounted && profile) {
                   if (profile.isActive) {
                     updateUser(profile);
                   } else {
@@ -163,20 +169,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     await apiLogout();
                   }
                 }
+              } catch (error) {
+                console.warn("Auth state change profile validation failed (retaining active user):", error);
               }
-            } catch (error) {
-              console.warn("Auth state change profile validation failed (retaining active user):", error);
-              // CRITICAL: A temporary network/profile-fetch error on wake-up must NOT clear valid user authentication
             }
+          } else {
+            if (mounted) updateUser(null);
           }
-        } else {
-          if (mounted) updateUser(null);
-        }
-        
-        if (mounted) {
-          setIsInitializing(false);
-          setLoading(false);
-        }
+          
+          if (mounted) {
+            setIsInitializing(false);
+            setLoading(false);
+          }
+        }, 0);
       }
     );
 
@@ -191,8 +196,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLoading(true);
     try {
       const profile = await apiLogin(email, password);
-      const { data: sessionData } = await supabase.auth.getSession();
-      const currentSession = sessionData?.session || null;
+      // Non-blocking session retrieval with short timeout fallback
+      let currentSession: Session | null = null;
+      try {
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<{ data: { session: null } }>((r) => setTimeout(() => r({ data: { session: null } }), 1000))
+        ]);
+        currentSession = sessionResult?.data?.session || null;
+      } catch {
+        // Fallback gracefully
+      }
       setSession(currentSession);
       updateUser(profile);
       if (currentSession?.access_token) {
