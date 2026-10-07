@@ -82,9 +82,9 @@ const StudentRecords: React.FC = () => {
   const lastFetchTimeRef = useRef(0);
   const hasDataRef = useRef(false);
   const activeAbortControllerRef = useRef<AbortController | null>(null);
-  const fetchStudentsRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const fetchStudentsRef = useRef<(isBackground?: boolean) => Promise<void>>(() => Promise.resolve());
 
-  const fetchStudents = React.useCallback(async () => {
+  const fetchStudents = React.useCallback(async (isBackground = false) => {
     // Abort any prior in-flight fetch before starting a new one
     if (activeAbortControllerRef.current) {
       activeAbortControllerRef.current.abort();
@@ -93,9 +93,11 @@ const StudentRecords: React.FC = () => {
     activeAbortControllerRef.current = abortController;
 
     isFetchingRef.current = true;
-    setLoading(true);
-    setError(null);
-    setSelectedIds(new Set());
+    if (!isBackground) {
+      setLoading(true);
+      setError(null);
+      setSelectedIds(new Set());
+    }
 
     try {
       let dbSortKey = sortKey === 'level' ? 'levels(name)' : sortKey;
@@ -137,7 +139,7 @@ const StudentRecords: React.FC = () => {
       const timestamp = new Date().toLocaleTimeString();
 
       if (isHardTimeoutError(err)) {
-        setError(HARD_TIMEOUT_USER_MESSAGE);
+        if (!isBackground) setError(HARD_TIMEOUT_USER_MESSAGE);
         setErrorDetails({
           message: `The operation "${err.operationName || 'Fetching student records'}" timed out after ${err.timeoutMs}ms. The server or network took too long to respond.`,
           code: 'TIMEOUT',
@@ -152,7 +154,7 @@ const StudentRecords: React.FC = () => {
         const details = anyErr.details ? String(anyErr.details) : undefined;
         const hint = anyErr.hint ? String(anyErr.hint) : undefined;
         
-        setError(err.message || "Failed to load student records. Please try again.");
+        if (!isBackground) setError(err.message || "Failed to load student records. Please try again.");
         setErrorDetails({
           message: err.message,
           code,
@@ -164,7 +166,7 @@ const StudentRecords: React.FC = () => {
       } else if (typeof err === 'object' && err !== null) {
         const e = err as Record<string, unknown>;
         const msg = String(e.message || e.error_description || "Database error");
-        setError(msg);
+        if (!isBackground) setError(msg);
         setErrorDetails({
           message: msg,
           code: e.code ? String(e.code) : (e.status ? String(e.status) : undefined),
@@ -174,7 +176,7 @@ const StudentRecords: React.FC = () => {
           timestamp,
         });
       } else {
-        setError("Failed to load student records. Please try again.");
+        if (!isBackground) setError("Failed to load student records. Please try again.");
         setErrorDetails({
           message: String(err),
           operation: 'Fetching student records',
@@ -184,7 +186,9 @@ const StudentRecords: React.FC = () => {
     } finally {
       if (activeAbortControllerRef.current === abortController) {
         isFetchingRef.current = false;
-        setLoading(false);
+        if (!isBackground) {
+          setLoading(false);
+        }
       }
     }
   }, [currentPage, debouncedSearchTerm, sortKey, sortDirection, filterDate, filterSlotIds, adminGenderFilter]);
@@ -252,7 +256,14 @@ const StudentRecords: React.FC = () => {
         if (activeChannel) {
           const oldChannel = activeChannel;
           activeChannel = null;
-          await supabase.removeChannel(oldChannel);
+          try {
+            await Promise.race([
+              supabase.removeChannel(oldChannel),
+              new Promise((resolve) => setTimeout(resolve, 1000))
+            ]);
+          } catch {
+            // Ignore channel removal errors
+          }
         }
 
         const session = await safeRefreshSession();
@@ -274,7 +285,7 @@ const StudentRecords: React.FC = () => {
             { event: '*', schema: 'public', table: 'students' },
             () => {
               if (!isDisposed && (typeof document === 'undefined' || document.visibilityState === 'visible')) {
-                fetchStudentsRef.current();
+                fetchStudentsRef.current(true);
               }
             }
           )
@@ -301,8 +312,9 @@ const StudentRecords: React.FC = () => {
             }
           });
       } catch (err) {
-        isConnecting = false;
         console.warn('[StudentRecords] Setup Realtime channel exception:', err);
+      } finally {
+        isConnecting = false;
       }
     };
 
@@ -318,7 +330,7 @@ const StudentRecords: React.FC = () => {
         // Cooldown: only re-fetch if last fetch was > 25s ago
         const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
         if (timeSinceLastFetch > 25000 && !isFetchingRef.current) {
-          fetchStudentsRef.current();
+          fetchStudentsRef.current(true);
         }
 
         const isChannelActive = activeChannel && (activeChannel.state === 'joining' || activeChannel.state === 'joined');

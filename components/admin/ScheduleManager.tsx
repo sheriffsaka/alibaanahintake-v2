@@ -60,14 +60,16 @@ const ScheduleManager: React.FC = () => {
   }, [adminGenderFilter]);
 
   const lastFetchTimeRef = useRef(0);
-  const fetchInitialDataRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const fetchInitialDataRef = useRef<(isBackground?: boolean) => Promise<void>>(() => Promise.resolve());
 
-  const fetchInitialData = useCallback(async () => {
+  const fetchInitialData = useCallback(async (isBackground = false) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
-    setLoading(true);
-    setError(null);
-    setSelectedIds(new Set());
+    if (!isBackground) {
+      setLoading(true);
+      setError(null);
+      setSelectedIds(new Set());
+    }
     try {
       const [schedulesData, levelsData] = await withHardTimeout(
         (signal) => Promise.all([
@@ -83,14 +85,18 @@ const ScheduleManager: React.FC = () => {
       lastFetchTimeRef.current = Date.now();
     } catch (err) {
       console.error("Failed to fetch initial data", err);
-      if (isHardTimeoutError(err)) {
-        setError(HARD_TIMEOUT_USER_MESSAGE);
-      } else {
-        setError("Failed to load schedules. Please try again.");
+      if (!isBackground) {
+        if (isHardTimeoutError(err)) {
+          setError(HARD_TIMEOUT_USER_MESSAGE);
+        } else {
+          setError("Failed to load schedules. Please try again.");
+        }
       }
     } finally {
       isFetchingRef.current = false;
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   }, [adminGenderFilter, currentPage]);
 
@@ -119,7 +125,7 @@ const ScheduleManager: React.FC = () => {
             const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
             if (timeSinceLastFetch > 15000 && !isFetchingRef.current) {
               await safeRefreshSession();
-              fetchInitialDataRef.current();
+              fetchInitialDataRef.current(true);
             }
           }
         }, 500);

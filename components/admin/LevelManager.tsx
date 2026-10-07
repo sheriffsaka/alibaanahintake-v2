@@ -21,11 +21,13 @@ const LevelManager: React.FC = () => {
   const lastFetchTimeRef = useRef(0);
   const fetchLevelsRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
-  const fetchLevels = async () => {
+  const fetchLevels = async (isBackground = false) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
-    setLoading(true);
-    setError(null);
+    if (!isBackground) {
+      setLoading(true);
+      setError(null);
+    }
 
     try {
       const data = await withHardTimeout(
@@ -37,14 +39,18 @@ const LevelManager: React.FC = () => {
       lastFetchTimeRef.current = Date.now();
     } catch (error) {
       console.error("Failed to fetch levels", error);
-      if (isHardTimeoutError(error)) {
-        setError(HARD_TIMEOUT_USER_MESSAGE);
-      } else {
-        setError("Failed to load levels. Please try again.");
+      if (!isBackground) {
+        if (isHardTimeoutError(error)) {
+          setError(HARD_TIMEOUT_USER_MESSAGE);
+        } else {
+          setError("Failed to load levels. Please try again.");
+        }
       }
     } finally {
       isFetchingRef.current = false;
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   };
 
@@ -69,7 +75,7 @@ const LevelManager: React.FC = () => {
             const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
             if (timeSinceLastFetch > 15000 && !isFetchingRef.current) {
               await safeRefreshSession();
-              fetchLevelsRef.current();
+              fetchLevelsRef.current(true);
             }
           }
         }, 500);

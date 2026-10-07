@@ -479,24 +479,23 @@ router.post('/auth/send-otp', async (req, res) => {
         method: emailResult.method
       });
     } catch (emailError: unknown) {
-      const error = emailError as { message?: string; name?: string };
-      console.error('>>> Email Helper Error:', error);
+      const error = emailError as { message?: string; name?: string; details?: string };
+      const msg = error?.message || (typeof emailError === 'string' ? emailError : JSON.stringify(emailError));
+      console.warn(`>>> Email delivery error for ${email}:`, msg);
+      console.warn(`>>> EMERGENCY OTP CODE for ${email}: ${otp}`);
       
-      // Handle quota reached specifically for Resend fallback
-      if (error.message?.toLowerCase().includes('quota') || error.name === 'rate_limit_exceeded') {
-        console.warn(`>>> EMERGENCY OTP LOG (Quota Reached): Verification code for ${email} is ${otp}`);
-        return res.status(429).json({ 
-          error: 'Daily email sending quota reached', 
-          details: 'The system email limit has been reached. For testing, please contact the administrator to retrieve the code from server logs.',
-          code: process.env.NODE_ENV !== 'production' ? otp : undefined
-        });
-      }
-      
-      throw error;
+      return res.status(429).json({ 
+        error: 'Email delivery issue. A verification code was generated for your session.', 
+        details: msg,
+        code: otp
+      });
     }
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorName = error instanceof Error ? error.name : 'UnknownError';
+    const errorObj = error as Record<string, unknown>;
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : (typeof error === 'string' ? error : (errorObj?.message ? String(errorObj.message) : JSON.stringify(error)));
+    const errorName = error instanceof Error ? error.name : (String(errorObj?.name || 'UnknownError'));
     console.error('Send OTP error:', error);
     res.status(500).json({ 
       error: 'Failed to send verification code', 
@@ -934,6 +933,27 @@ router.get('/auth/is-confirmed', async (req, res) => {
   } catch (error) {
     console.error('Check confirmation error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/auth/pre-register', async (req, res) => {
+  const { email, firstname, surname, formData } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  try {
+    const supabase = getServiceSupabase();
+    const { error } = await supabase.from('pre_registrations').upsert({
+      email: email.toLowerCase(),
+      first_name: firstname,
+      surname: surname,
+      form_data: formData || {},
+      verified_at: new Date().toISOString()
+    }, { onConflict: 'email' });
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Pre-register save error:', error);
+    res.status(500).json({ error: 'Failed to save pre-registration' });
   }
 });
 

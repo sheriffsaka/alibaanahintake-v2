@@ -99,7 +99,14 @@ const Dashboard: React.FC = () => {
         if (activeChannel) {
           const oldChannel = activeChannel;
           activeChannel = null;
-          await supabase.removeChannel(oldChannel);
+          try {
+            await Promise.race([
+              supabase.removeChannel(oldChannel),
+              new Promise((resolve) => setTimeout(resolve, 1000))
+            ]);
+          } catch {
+            // Ignore channel removal errors
+          }
         }
 
         const session = await safeRefreshSession();
@@ -152,8 +159,9 @@ const Dashboard: React.FC = () => {
             }
           });
       } catch (err) {
-        isConnecting = false;
         console.warn('[Dashboard] Setup Realtime channel exception:', err);
+      } finally {
+        isConnecting = false;
       }
     };
 

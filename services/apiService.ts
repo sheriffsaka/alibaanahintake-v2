@@ -72,18 +72,50 @@ export const withAutoReauth = async <T>(
 const fetchWithTimeout = async (resource: string, options: RequestInit & { timeout?: number } = {}) => {
     const { timeout = 20000 } = options;
     
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
+    const timeoutController = new AbortController();
+    const id = setTimeout(() => {
+      try {
+        timeoutController.abort(new DOMException(`Request timed out after ${timeout}ms`, 'AbortError'));
+      } catch {
+        timeoutController.abort();
+      }
+    }, timeout);
+    
+    let combinedSignal = timeoutController.signal;
+    let cleanupSignalListener: (() => void) | null = null;
+    
+    if (options.signal) {
+      const callerSignal = options.signal;
+      if (typeof AbortSignal.any === 'function') {
+        combinedSignal = AbortSignal.any([callerSignal, timeoutController.signal]);
+      } else {
+        if (callerSignal.aborted) {
+          clearTimeout(id);
+          throw callerSignal.reason || new DOMException('Aborted', 'AbortError');
+        }
+        const onCallerAbort = () => {
+          try {
+            timeoutController.abort(callerSignal.reason);
+          } catch {
+            timeoutController.abort();
+          }
+        };
+        callerSignal.addEventListener('abort', onCallerAbort, { once: true });
+        cleanupSignalListener = () => callerSignal.removeEventListener('abort', onCallerAbort);
+      }
+    }
     
     try {
       const response = await fetch(resource, {
           ...options,
-          signal: options.signal || controller.signal
+          signal: combinedSignal
       });
       clearTimeout(id);
+      if (cleanupSignalListener) cleanupSignalListener();
       return response;
     } catch (e) {
       clearTimeout(id);
+      if (cleanupSignalListener) cleanupSignalListener();
       throw e;
     }
 };
@@ -191,23 +223,37 @@ export const verifyOTP = async (email: string, token: string): Promise<void> => 
  * This ensures we have the student's details even if they don't finish booking.
  */
 export const savePreRegistration = async (studentData: Record<string, unknown>): Promise<void> => {
-    console.log('>>> Saving pre-registration data to Supabase:', studentData);
-    
-    const { error } = await supabase
-        .from('pre_registrations')
-        .upsert({
-            email: (studentData.email as string).toLowerCase(),
-            first_name: studentData.firstname,
-            surname: studentData.surname,
-            form_data: studentData,
-            language: studentData.language || 'en',
-            verified_at: new Date().toISOString()
-        }, { onConflict: 'email' });
+    try {
+        const email = (studentData.email as string)?.toLowerCase();
+        if (!email) return;
 
-    if (error) {
-        console.error('>>> savePreRegistration error:', error);
-        // We don't throw here to avoid blocking the user if the pre-registration table doesn't exist yet
-        // or has RLS issues, as the final registration is the most important.
+        const res = await fetch(`${window.location.origin}/api/auth/pre-register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email,
+                firstname: studentData.firstname,
+                surname: studentData.surname,
+                formData: studentData
+            })
+        });
+        if (res.ok) return;
+    } catch {
+        // Fallback to direct client
+    }
+    
+    try {
+        await supabase
+            .from('pre_registrations')
+            .upsert({
+                email: (studentData.email as string).toLowerCase(),
+                first_name: studentData.firstname,
+                surname: studentData.surname,
+                form_data: studentData,
+                verified_at: new Date().toISOString()
+            }, { onConflict: 'email' });
+    } catch (err) {
+        console.warn('savePreRegistration fallback error:', err);
     }
 };
 

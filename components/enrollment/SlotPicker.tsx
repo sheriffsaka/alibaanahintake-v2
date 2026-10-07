@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useCallback } from 'react';
+import React, { useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { EnrollmentContext } from '../../contexts/EnrollmentContext';
 import { getAvailableSlots, getAvailableDatesForLevel, getLevels } from '../../services/apiService';
 import { AppointmentSlot } from '../../types';
@@ -24,25 +24,38 @@ const SlotPicker: React.FC = () => {
   const [levelName, setLevelName] = useState('...loading');
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDates = useCallback(async () => {
+  const selectedDateRef = useRef<string | null>(null);
+  selectedDateRef.current = selectedDate;
+
+  const fetchDates = useCallback(async (isBackground = false) => {
     if (!levelId || !gender) return;
-    setLoading(true);
-    setError(null);
+    if (!isBackground) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const dates = await getAvailableDatesForLevel(levelId, gender);
       setAvailableDates(dates);
+      setSelectedDate((prev) => (prev && dates.includes(prev) ? prev : (dates.length > 0 ? dates[0] : null)));
+      lastFetchTimeRef.current = Date.now();
     } catch (err) {
       console.error("Failed to fetch dates", err);
-      setError("Failed to load available dates. Please try again.");
+      if (!isBackground) {
+        setError("Failed to load available dates. Please try again.");
+      }
     } finally {
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   }, [levelId, gender]);
 
-  const fetchSlots = useCallback(async () => {
+  const fetchSlots = useCallback(async (isBackground = false) => {
     if (!selectedDate || !levelId || !gender) return;
-    setLoadingSlots(true);
-    setError(null);
+    if (!isBackground) {
+      setLoadingSlots(true);
+      setError(null);
+    }
     try {
       const availableSlots = await getAvailableSlots(selectedDate, levelId, gender);
       setSlots(availableSlots);
@@ -51,15 +64,19 @@ const SlotPicker: React.FC = () => {
       lastFetchTimeRef.current = Date.now();
     } catch (err) {
       console.error("Failed to fetch slots", err);
-      setError("Failed to load available slots. Please try again.");
+      if (!isBackground) {
+        setError("Failed to load available slots. Please try again.");
+      }
     } finally {
-      setLoadingSlots(false);
+      if (!isBackground) {
+        setLoadingSlots(false);
+      }
     }
   }, [selectedDate, levelId, gender]);
 
   const lastFetchTimeRef = useRef(0);
-  const fetchDatesRef = useRef<() => Promise<void>>(() => Promise.resolve());
-  const fetchSlotsRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const fetchDatesRef = useRef<(isBackground?: boolean) => Promise<void>>(() => Promise.resolve());
+  const fetchSlotsRef = useRef<(isBackground?: boolean) => Promise<void>>(() => Promise.resolve());
 
   useEffect(() => {
     fetchDatesRef.current = fetchDates;
@@ -91,21 +108,23 @@ const SlotPicker: React.FC = () => {
     fetchSlots();
   }, [fetchSlots]);
 
-  // Refresh dates and slots when student returns to the tab after inactivity (with cooldown)
+  // Refresh dates and slots when student returns to the tab after inactivity (silent background update)
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => {
-          if (document.visibilityState === 'visible') {
+          if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
             const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
             if (timeSinceLastFetch > 15000) {
-              fetchDatesRef.current();
-              fetchSlotsRef.current();
+              fetchDatesRef.current(true);
+              if (selectedDateRef.current) {
+                fetchSlotsRef.current(true);
+              }
             }
           }
-        }, 500);
+        }, 400);
       }
     };
 

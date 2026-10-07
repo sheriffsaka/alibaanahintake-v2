@@ -117,7 +117,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: localStorage,
-    autoRefreshToken: true,
+    autoRefreshToken: false, // Managed reliably by safeRefreshSession + server /api/auth/refresh to prevent GoTrue tab-switch lockups
     persistSession: true,
     detectSessionInUrl: true,
     lock: lockNoOp,
@@ -126,6 +126,53 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     fetch: fetchWithRetry,
   },
 });
+
+// Remove GoTrue's internal visibilitychange listener which locks internal state upon tab/app switching
+if (typeof window !== 'undefined') {
+  try {
+    supabase.auth.stopAutoRefresh().catch(() => {});
+  } catch (e) {
+    console.debug('stopAutoRefresh catch:', e);
+  }
+}
+
+// Storage key used by Supabase client for session persistence
+const AUTH_STORAGE_KEY = `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`;
+
+/**
+ * Helper to safely extract cached session directly from localStorage without acquiring GoTrue locks.
+ */
+const getDirectStoredSession = (): Session | null => {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && parsed.access_token) {
+      return parsed as Session;
+    }
+  } catch {
+    // Ignore storage parsing errors
+  }
+  return null;
+};
+
+// Wrap supabase.auth.getSession to guarantee it never hangs (falls back to direct localStorage in <= 300ms)
+const originalGetSession = supabase.auth.getSession.bind(supabase.auth);
+supabase.auth.getSession = async (): Promise<{ data: { session: Session | null }; error: null }> => {
+  try {
+    const result = await Promise.race([
+      originalGetSession(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 350))
+    ]);
+    if (result && result.data) {
+      return result as { data: { session: Session | null }; error: null };
+    }
+  } catch (err) {
+    console.warn('[SupabaseClient] getSession stalled/threw, using direct storage fallback:', err);
+  }
+  return { data: { session: getDirectStoredSession() }, error: null };
+};
 
 let lastSyncedRealtimeToken: string | null = null;
 
@@ -136,12 +183,12 @@ let lastSyncedRealtimeToken: string | null = null;
 export const syncRealtimeAuth = async (token?: string): Promise<void> => {
   try {
     if (token && token !== lastSyncedRealtimeToken) {
-      lastSyncedRealtimeToken = token;
-      // Cap at 2000ms so a disconnected or reconnecting WebSocket cannot hang callers
+      // Cap at 1500ms so a disconnected or reconnecting WebSocket cannot hang callers
       await Promise.race([
         supabase.realtime.setAuth(token),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('realtime setAuth timeout')), 2000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('realtime setAuth timeout')), 1500))
       ]);
+      lastSyncedRealtimeToken = token;
     }
   } catch (err) {
     console.warn('[SupabaseClient] Failed to sync Realtime auth token:', err);
@@ -160,12 +207,7 @@ const REFRESH_COOLDOWN_MS = 5000; // 5-second cooldown prevents request storms
 export const safeRefreshSession = async (force = false): Promise<Session | null> => {
   // If the browser tab is hidden and not forced, return cached session without network hit
   if (typeof document !== 'undefined' && document.visibilityState !== 'visible' && !force) {
-    try {
-      const { data } = await supabase.auth.getSession();
-      return data?.session ?? null;
-    } catch {
-      return null;
-    }
+    return getDirectStoredSession();
   }
 
   if (activeRefreshPromise) {
@@ -174,18 +216,13 @@ export const safeRefreshSession = async (force = false): Promise<Session | null>
 
   const now = Date.now();
   if (!force && now - lastRefreshSuccessTime < REFRESH_COOLDOWN_MS) {
-    try {
-      const { data } = await supabase.auth.getSession();
-      if (data?.session) return data.session;
-    } catch {
-      // Fall through to active refresh if getSession failed
-    }
+    const cached = getDirectStoredSession();
+    if (cached) return cached;
   }
 
-  activeRefreshPromise = (async () => {
+  const refreshWorker = (async () => {
     try {
-      const { data } = await supabase.auth.getSession();
-      const session = data?.session;
+      const session = getDirectStoredSession();
       if (!session) {
         return null;
       }
@@ -217,7 +254,12 @@ export const safeRefreshSession = async (force = false): Promise<Session | null>
           if (srvRes.ok) {
             const srvData = await srvRes.json();
             if (srvData?.session) {
-              await supabase.auth.setSession(srvData.session);
+              try {
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(srvData.session));
+                await supabase.auth.setSession(srvData.session);
+              } catch (setErr) {
+                console.warn('[SupabaseClient] setSession after refresh warning:', setErr);
+              }
               lastRefreshSuccessTime = Date.now();
               if (srvData.session.access_token) {
                 syncRealtimeAuth(srvData.session.access_token).catch(() => {});
@@ -230,25 +272,23 @@ export const safeRefreshSession = async (force = false): Promise<Session | null>
         }
       }
 
-      // 2. Direct Supabase SDK refresh fallback with 5000ms ceiling
+      // 2. Direct Supabase SDK refresh fallback with 4000ms ceiling
       const refreshResult = await Promise.race([
         supabase.auth.refreshSession(),
         new Promise<{ data: { session: null }; error: Error }>((_, reject) =>
-          setTimeout(() => reject(new Error('SDK session refresh timed out')), 5000)
+          setTimeout(() => reject(new Error('SDK session refresh timed out')), 4000)
         )
       ]);
 
       if (refreshResult.error) {
         console.warn('[SupabaseClient] Direct refresh error:', refreshResult.error.message);
         if (refreshResult.error.message?.includes('invalid_grant') || refreshResult.error.message?.includes('Already Used')) {
-          // Check if session in localStorage was updated concurrently
-          const { data: latestData } = await supabase.auth.getSession();
-          if (latestData?.session?.access_token && latestData.session.access_token !== session.access_token) {
-            return latestData.session;
+          const stored = getDirectStoredSession();
+          if (stored?.access_token && stored.access_token !== session.access_token) {
+            return stored;
           }
           return null;
         }
-        // If force was true and token refresh failed, return null to signal auth invalidity
         if (force) return null;
         return session;
       }
@@ -261,12 +301,21 @@ export const safeRefreshSession = async (force = false): Promise<Session | null>
       return updatedSession;
     } catch (err) {
       console.warn('[SupabaseClient] Exception in safeRefreshSession:', err);
-      if (force) return null;
-      return null;
+      return getDirectStoredSession();
     } finally {
       activeRefreshPromise = null;
     }
   })();
+
+  activeRefreshPromise = Promise.race([
+    refreshWorker,
+    new Promise<Session | null>((resolve) =>
+      setTimeout(() => {
+        console.warn('[SupabaseClient] safeRefreshSession reached 5000ms ceiling, using direct storage fallback');
+        resolve(getDirectStoredSession());
+      }, 5000)
+    )
+  ]);
 
   return activeRefreshPromise;
 };
